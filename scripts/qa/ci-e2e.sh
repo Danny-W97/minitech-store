@@ -46,13 +46,28 @@ docker compose -p "$COMPOSE_PROJECT_NAME" -f "$PROJECT_ROOT/compose.yaml" up -d
 start_service() {
   local project="$1"
   local db_password="${2:-}"
+  local jar
+  jar="$(find "$PROJECT_ROOT/$project/target" -maxdepth 1 -type f \
+        -name '*-SNAPSHOT.jar' ! -name '*.original' | head -1)"
+  if [[ -z "$jar" ]]; then
+    printf 'CI E2E: brak zbudowanego JAR-a dla %s — uruchamiam spring-boot:run\n' "$project" >&2
+    (
+      cd "$PROJECT_ROOT"
+      SPRING_PROFILES_ACTIVE=dev \
+      DB_PASSWORD="$db_password" \
+      CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE" \
+      MAIL_HOST=127.0.0.1 MAIL_PORT=11025 MAIL_FROM=no-reply@minitech.local \
+      bash "$MAVEN_WRAPPER" -q -pl "$project" spring-boot:run
+    ) > "$RUNTIME_DIRECTORY/ci-${project}.log" 2>&1 &
+    APP_PIDS+=("$!")
+    return
+  fi
   (
-    cd "$PROJECT_ROOT"
     SPRING_PROFILES_ACTIVE=dev \
     DB_PASSWORD="$db_password" \
     CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE" \
     MAIL_HOST=127.0.0.1 MAIL_PORT=11025 MAIL_FROM=no-reply@minitech.local \
-    bash "$MAVEN_WRAPPER" -q -pl "$project" spring-boot:run
+    java -XX:MaxRAMPercentage=50.0 -jar "$jar"
   ) > "$RUNTIME_DIRECTORY/ci-${project}.log" 2>&1 &
   APP_PIDS+=("$!")
 }
