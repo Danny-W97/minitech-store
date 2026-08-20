@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minitech-store-config
+  labels:
+    app.kubernetes.io/part-of: mini-order-platform
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  SERVER_PORT: "8080"
+  MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+  MANAGEMENT_HEALTH_LIVENESS_ENABLED: "true"
+  MANAGEMENT_HEALTH_READINESS_ENABLED: "true"
+  SPRINGDOC_API_DOCS_ENABLED: "false"
+  SPRINGDOC_SWAGGER_UI_ENABLED: "false"
+  FRONTEND_ALLOWED_ORIGINS: https://minitech.example
+  CUSTOMER_VERIFICATION_LINK_BASE_URL: https://minitech.example/?verify=
+  CUSTOMER_PASSWORD_RESET_LINK_BASE_URL: https://minitech.example/?reset=
+  CUSTOMER_REFRESH_COOKIE_SECURE: "true"
+  CUSTOMER_WEBAUTHN_RP_ID: minitech.example
+  CUSTOMER_WEBAUTHN_ALLOWED_ORIGINS: https://minitech.example
+  OPENBAO_ADDR: https://openbao.minitech.example:8200
+
+  PRODUCT_SERVICE_URL: http://product-service:8080
+  ORDER_SERVICE_URL: http://order-service:8080
+  INVENTORY_SERVICE_URL: http://inventory-service:8080
+  PAYMENT_SERVICE_URL: http://payment-service:8080
+  NOTIFICATION_SERVICE_URL: http://notification-service:8080
+  CUSTOMER_SERVICE_URL: http://customer-service:8080
+  DELIVERY_SERVICE_URL: http://delivery-service:8080
+  PROMOTION_SERVICE_URL: http://promotion-service:8080
+  WISHLIST_SERVICE_URL: http://wishlist-service:8080
+  REVIEW_SERVICE_URL: http://review-service:8080
+  RECOMMENDATION_SERVICE_URL: http://recommendation-service:8080
+
+  PRODUCT_DB_URL: jdbc:postgresql://product-postgres:5432/product_db
+  PRODUCT_DB_USERNAME: product_app
+  ORDER_DB_URL: jdbc:postgresql://order-postgres:5432/order_db
+  ORDER_DB_USERNAME: order_app
+  INVENTORY_DB_URL: jdbc:postgresql://inventory-postgres:5432/inventory_db
+  INVENTORY_DB_USERNAME: inventory_app
+  PAYMENT_DB_URL: jdbc:postgresql://payment-postgres:5432/payment_db
+  PAYMENT_DB_USERNAME: payment_app
+  NOTIFICATION_DB_URL: jdbc:postgresql://notification-postgres:5432/notification_db
+  NOTIFICATION_DB_USERNAME: notification_app
+  CUSTOMER_DB_URL: jdbc:postgresql://customer-postgres:5432/customer_db
+  CUSTOMER_DB_USERNAME: customer_app
+  DELIVERY_DB_URL: jdbc:postgresql://delivery-postgres:5432/delivery_db
+  DELIVERY_DB_USERNAME: delivery_app
+  PROMOTION_DB_URL: jdbc:postgresql://promotion-postgres:5432/promotion_db
+  PROMOTION_DB_USERNAME: promotion_app
+  WISHLIST_DB_URL: jdbc:postgresql://wishlist-postgres:5432/wishlist_db
+  WISHLIST_DB_USERNAME: wishlist_app
+  REVIEW_DB_URL: jdbc:postgresql://review-postgres:5432/review_db
+  REVIEW_DB_USERNAME: review_app
+  RECOMMENDATION_DB_URL: jdbc:postgresql://recommendation-postgres:5432/recommendation_db
+  RECOMMENDATION_DB_USERNAME: recommendation_app
+
+  REDIS_URL: redis://event-broker:6379
+  GATEWAY_RATE_LIMIT_ENABLED: "true"
+  GATEWAY_RATE_LIMIT_FAIL_OPEN: "false"
+  GATEWAY_RATE_LIMIT_REQUESTS_PER_WINDOW: "300"
+  GATEWAY_RATE_LIMIT_WINDOW_SECONDS: "60"
+  NOTIFICATION_DELIVERY_PROVIDER: external-api
+  NOTIFICATION_EXTERNAL_API_URL: https://replace-with-provider.example/v1/messages
+  MAIL_FROM: no-reply@minitech.example

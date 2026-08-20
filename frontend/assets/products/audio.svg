@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title">
+  <title>Słuchawki</title>
+  <defs><linearGradient id="bg" x1="0" x2="1"><stop stop-color="#172235"/><stop offset="1" stop-color="#29425b"/></linearGradient></defs>
+  <rect width="640" height="360" rx="24" fill="url(#bg)"/>
+  <path d="M205 190v-35c0-70 230-70 230 0v35" fill="none" stroke="#d7e0e5" stroke-width="22" stroke-linecap="round"/>
+  <rect x="155" y="175" width="75" height="100" rx="30" fill="#111b2b" stroke="#ff5e36" stroke-width="7"/><rect x="410" y="175" width="75" height="100" rx="30" fill="#111b2b" stroke="#28c7c5" stroke-width="7"/>
+  <text x="320" y="320" fill="white" font-family="Arial,sans-serif" font-size="25" font-weight="800" text-anchor="middle">AUDIO</text>
+</svg>

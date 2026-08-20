@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+images:
+  - name: mini-order-platform/api-gateway
+    newName: ghcr.io/replace-me/mini-order-platform/api-gateway
+    newTag: latest
+  - name: mini-order-platform/product-service
+    newName: ghcr.io/replace-me/mini-order-platform/product-service
+    newTag: latest
+  - name: mini-order-platform/order-service
+    newName: ghcr.io/replace-me/mini-order-platform/order-service
+    newTag: latest
+  - name: mini-order-platform/inventory-service
+    newName: ghcr.io/replace-me/mini-order-platform/inventory-service
+    newTag: latest
+  - name: mini-order-platform/payment-service
+    newName: ghcr.io/replace-me/mini-order-platform/payment-service
+    newTag: latest
+  - name: mini-order-platform/notification-service
+    newName: ghcr.io/replace-me/mini-order-platform/notification-service
+    newTag: latest
+  - name: mini-order-platform/customer-service
+    newName: ghcr.io/replace-me/mini-order-platform/customer-service
+    newTag: latest
+  - name: mini-order-platform/delivery-service
+    newName: ghcr.io/replace-me/mini-order-platform/delivery-service
+    newTag: latest
+  - name: mini-order-platform/promotion-service
+    newName: ghcr.io/replace-me/mini-order-platform/promotion-service
+    newTag: latest
+  - name: mini-order-platform/wishlist-service
+    newName: ghcr.io/replace-me/mini-order-platform/wishlist-service
+    newTag: latest
+  - name: mini-order-platform/review-service
+    newName: ghcr.io/replace-me/mini-order-platform/review-service
+    newTag: latest
+  - name: mini-order-platform/recommendation-service
+    newName: ghcr.io/replace-me/mini-order-platform/recommendation-service
+    newTag: latest
+  - name: mini-order-platform/frontend
+    newName: ghcr.io/replace-me/mini-order-platform/frontend
+    newTag: latest

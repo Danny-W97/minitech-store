@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: ${REVIEW_DB_URL}
+    username: ${REVIEW_DB_USERNAME}
+    password: ${REVIEW_DB_PASSWORD}
+services:
+  order:
+    base-url: ${ORDER_SERVICE_URL}
+springdoc:
+  api-docs.enabled: false
+  swagger-ui.enabled: false

@@ -1,0 +1,47 @@
+spring:
+  profiles:
+    default: dev
+  application:
+    name: review-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:15441/review_db}
+    username: ${DB_USERNAME:review_app}
+    password: ${DB_PASSWORD:${REVIEW_DB_PASSWORD}}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+server:
+  port: ${SERVER_PORT:18091}
+services:
+  order:
+    base-url: ${ORDER_SERVICE_URL:http://localhost:18082}
+resilience:
+  http:
+    connect-timeout-ms: ${RESILIENCE_HTTP_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${RESILIENCE_HTTP_READ_TIMEOUT_MS:3000}
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    operations-sorter: method
+    tags-sorter: alpha
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [corr=%X{correlationId}] %logger{36} - %msg%n"
+management:
+  endpoints.web.exposure.include: health,info,metrics,prometheus
+  endpoint.health:
+    show-details: never
+    probes.enabled: ${MANAGEMENT_HEALTH_PROBES_ENABLED:true}
+  health:
+    livenessstate.enabled: ${MANAGEMENT_HEALTH_LIVENESS_ENABLED:true}
+    readinessstate.enabled: ${MANAGEMENT_HEALTH_READINESS_ENABLED:true}
+  metrics.tags.application: ${spring.application.name}

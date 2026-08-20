@@ -1,0 +1,2 @@
+ALTER TABLE orders ADD COLUMN promotion_code VARCHAR(40);
+ALTER TABLE orders ADD COLUMN discount_amount NUMERIC(19, 2) NOT NULL DEFAULT 0.00;

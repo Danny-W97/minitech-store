@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Szczegóły produktu MiniTech Store">
+    <title>Produkt — MiniTech Store</title>
+    <meta http-equiv="Cache-Control" content="no-store">
+    <link rel="stylesheet" href="styles.css?v=20260820-35">
+</head>
+<body>
+<div class="page-shell">
+    <header class="topbar">
+        <a class="brand" href="index.html#top" aria-label="MiniTech Store">
+            <span class="brand-mark">MP</span>
+            <span>MiniTech <strong>Store</strong></span>
+        </a>
+        <nav class="main-nav" aria-label="Główna nawigacja">
+            <a href="index.html#catalog">Katalog</a>
+            <a href="index.html#promotions">Promocje</a>
+            <a href="index.html#new-products">Nowości</a>
+            <a href="delivery.html">Dostawy</a>
+            <a href="index.html#about">O platformie</a>
+        </nav>
+        <a class="secondary-button" href="index.html#catalog">Wróć do katalogu</a>
+    </header>
+
+    <main class="product-detail-page">
+        <p class="catalog-message" id="product-loading" role="status">Ładowanie produktu…</p>
+        <section class="product-detail-shell" id="product-detail" hidden>
+            <div class="product-detail-visual" aria-hidden="true">
+                <img class="product-detail-image" id="product-image" alt="" hidden>
+                <span class="product-detail-symbol" id="product-symbol"></span>
+            </div>
+            <div class="product-detail-copy">
+                <p class="eyebrow" id="product-category"></p>
+                <h1 id="product-name"></h1>
+                <dl class="product-detail-identifiers" aria-label="Dane produktu">
+                    <div><dt>Producent</dt><dd id="product-manufacturer"></dd></div>
+                    <div><dt>Model</dt><dd id="product-model"></dd></div>
+                    <div><dt>SKU</dt><dd id="product-sku"></dd></div>
+                </dl>
+                <div class="product-detail-price-wrap">
+                    <strong class="product-detail-price" id="product-price"></strong>
+                    <span class="product-detail-regular-price" id="product-regular-price" hidden></span>
+                </div>
+                <p class="product-detail-offer" id="product-offer" hidden></p>
+                <p class="product-detail-lowest-price" id="product-lowest-price" hidden></p>
+                <p class="product-detail-stock" id="product-stock"></p>
+                <div class="product-detail-actions">
+                    <button class="primary-button" id="product-add" type="button">Dodaj do koszyka</button>
+                    <a class="secondary-button" href="index.html#catalog">Wróć do katalogu</a>
+                </div>
+                <div class="product-detail-specs">
+                    <h2>Specyfikacja techniczna</h2>
+                    <dl id="product-specs"></dl>
+                </div>
+            </div>
+        </section>
+        <section class="recommendation-section" id="recommendations" hidden>
+            <div class="section-heading compact">
+                <div>
+                    <p class="eyebrow">RECOMMENDATION SERVICE</p>
+                    <h2>Może Ci się spodobać</h2>
+                </div>
+                <p class="section-note" id="recommendations-status">Podobne produkty z katalogu.</p>
+            </div>
+            <div class="recommendation-grid" id="recommendation-grid"></div>
+        </section>
+        <section class="product-reviews" id="product-reviews" hidden>
+            <div class="section-heading compact">
+                <div>
+                    <p class="eyebrow">REVIEW SERVICE</p>
+                    <h2>Opinie klientów</h2>
+                </div>
+                <p class="product-review-summary" id="review-summary">Ładowanie opinii…</p>
+            </div>
+            <div class="product-review-list" id="review-list"></div>
+            <form class="review-form" id="review-form" hidden>
+                <div>
+                    <p class="eyebrow">TWOJA OPINIA</p>
+                    <h3>Oceń produkt po zakupie</h3>
+                    <p class="form-hint">Opinię można dodać do opłaconego zamówienia. Po wysłaniu trafia do moderacji.</p>
+                </div>
+                <label>Opłacone zamówienie
+                    <select id="review-order" required></select>
+                </label>
+                <label>Ocena
+                    <select id="review-rating" required>
+                        <option value="5">5 — bardzo dobry</option>
+                        <option value="4">4 — dobry</option>
+                        <option value="3">3 — przeciętny</option>
+                        <option value="2">2 — słaby</option>
+                        <option value="1">1 — bardzo słaby</option>
+                    </select>
+                </label>
+                <label>Tytuł
+                    <input id="review-title" maxlength="120" required>
+                </label>
+                <label>Treść opinii
+                    <textarea id="review-content" maxlength="2000" rows="5" required></textarea>
+                </label>
+                <button class="primary-button" id="review-submit" type="submit">Wyślij opinię</button>
+                <p class="review-status" id="review-status" role="status"></p>
+            </form>
+            <p class="form-hint product-review-login-hint" id="review-login-hint">Zaloguj się, aby sprawdzić swoje opłacone zamówienia i dodać opinię.</p>
+        </section>
+        <section class="product-detail-error" id="product-error" hidden>
+            <p class="eyebrow">PRODUCT SERVICE</p>
+            <h1>Nie znaleziono produktu</h1>
+            <p class="form-hint" id="product-error-message">Nie można pobrać szczegółów produktu.</p>
+            <a class="primary-button" href="index.html#catalog">Wróć do katalogu</a>
+        </section>
+    </main>
+</div>
+<script src="session-timeout.js?v=20260820-1"></script>
+<script src="product-detail.js?v=20260820-9"></script>
+<script src="chat-widget.js?v=20260819-2"></script>
+</body>
+</html>

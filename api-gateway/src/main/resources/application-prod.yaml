@@ -1,0 +1,58 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  docker:
+    compose:
+      enabled: false
+
+services:
+  product:
+    base-url: ${PRODUCT_SERVICE_URL}
+  order:
+    base-url: ${ORDER_SERVICE_URL}
+  inventory:
+    base-url: ${INVENTORY_SERVICE_URL}
+  payment:
+    base-url: ${PAYMENT_SERVICE_URL}
+  notification:
+    base-url: ${NOTIFICATION_SERVICE_URL}
+  customer:
+    base-url: ${CUSTOMER_SERVICE_URL}
+  delivery:
+    base-url: ${DELIVERY_SERVICE_URL}
+  promotion:
+    base-url: ${PROMOTION_SERVICE_URL}
+  wishlist:
+    base-url: ${WISHLIST_SERVICE_URL}
+  review:
+    base-url: ${REVIEW_SERVICE_URL}
+  recommendation:
+    base-url: ${RECOMMENDATION_SERVICE_URL}
+  chat:
+    base-url: ${CHAT_SERVICE_URL}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+gateway:
+  rate-limit:
+    enabled: true
+    requests-per-window: ${GATEWAY_RATE_LIMIT_REQUESTS_PER_WINDOW:300}
+    window-seconds: ${GATEWAY_RATE_LIMIT_WINDOW_SECONDS:60}
+    fail-open: false

@@ -1,0 +1,75 @@
+spring:
+  profiles:
+    default: dev
+  application:
+    name: notification-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:15436/notification_db}
+    username: ${DB_USERNAME:notification_app}
+    password: ${DB_PASSWORD:${NOTIFICATION_DB_PASSWORD}}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+  data:
+    redis:
+      url: ${REDIS_URL:redis://127.0.0.1:16379}
+
+server:
+  port: ${SERVER_PORT:18086}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    operations-sorter: method
+    tags-sorter: alpha
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [corr=%X{correlationId}] %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: ${MANAGEMENT_HEALTH_PROBES_ENABLED:true}
+  health:
+    livenessstate:
+      enabled: ${MANAGEMENT_HEALTH_LIVENESS_ENABLED:true}
+    readinessstate:
+      enabled: ${MANAGEMENT_HEALTH_READINESS_ENABLED:true}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+messaging:
+  payment-stream: ${PAYMENT_EVENT_STREAM:payment-events}
+  consumer:
+    enabled: ${NOTIFICATION_CONSUMER_ENABLED:true}
+    fixed-delay-ms: ${NOTIFICATION_CONSUMER_FIXED_DELAY_MS:1000}
+    group: ${NOTIFICATION_CONSUMER_GROUP:notification-service}
+    name: ${NOTIFICATION_CONSUMER_NAME:notification-service}
+
+notification:
+  retry:
+    enabled: ${NOTIFICATION_RETRY_ENABLED:true}
+    fixed-delay-ms: ${NOTIFICATION_RETRY_FIXED_DELAY_MS:1000}
+    max-attempts: ${NOTIFICATION_RETRY_MAX_ATTEMPTS:3}
+    initial-backoff-ms: ${NOTIFICATION_RETRY_INITIAL_BACKOFF_MS:5000}
+    max-backoff-ms: ${NOTIFICATION_RETRY_MAX_BACKOFF_MS:60000}

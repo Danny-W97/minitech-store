@@ -1,0 +1,8 @@
+# Read-only policy for the Wishlist Service workload.
+path "secret/data/mini-order-platform/prod/wishlist-service" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/mini-order-platform/prod/wishlist-service" {
+  capabilities = ["read"]
+}

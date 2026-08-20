@@ -1,0 +1,6 @@
+# Preparation only. Replace SERVICE_NAME before creating a per-service Vault
+# policy. This policy grants read access only to one service's KV v2 secret.
+
+path "secret/data/mini-order-platform/prod/SERVICE_NAME" {
+  capabilities = ["read"]
+}

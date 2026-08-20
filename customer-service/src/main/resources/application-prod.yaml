@@ -1,0 +1,37 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+customer:
+  auth:
+    refresh-cookie-secure: true
+    mfa-encryption-key-material: ${CUSTOMER_MFA_ENCRYPTION_KEY_BASE64}
+  webauthn:
+    rp-id: ${CUSTOMER_WEBAUTHN_RP_ID}
+    allowed-origins: ${CUSTOMER_WEBAUTHN_ALLOWED_ORIGINS}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

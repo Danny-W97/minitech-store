@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="MiniTech Store — pełny katalog produktów technologicznych">
+    <title>MiniTech Store — katalog</title>
+    <meta http-equiv="Cache-Control" content="no-store">
+    <link rel="stylesheet" href="styles.css?v=20260820-35">
+</head>
+<body data-page="catalog">
+<div class="page-shell">
+    <header class="topbar">
+        <a class="brand" href="index.html#top" aria-label="MiniTech Store">
+            <span class="brand-mark">MP</span>
+            <span>MiniTech <strong>Store</strong></span>
+        </a>
+        <form class="global-search" id="global-search-form" role="search">
+            <label class="global-search-input">
+                <span class="global-search-icon" aria-hidden="true">⌕</span>
+                <input id="global-product-search" type="search" placeholder="Czego szukasz?" autocomplete="off">
+            </label>
+            <button id="global-search-submit" type="submit" aria-label="Szukaj">⌕</button>
+        </form>
+        <nav class="main-nav" aria-label="Główna nawigacja">
+            <a class="active" href="catalog.html">Katalog</a>
+            <a href="index.html#promotions">Promocje</a>
+            <a href="index.html#new-products">Nowości</a>
+            <a href="delivery.html">Dostawy</a>
+            <a href="index.html#about">O platformie</a>
+        </nav>
+        <div class="account-area" id="account-area">
+            <button class="auth-button" id="auth-toggle" type="button" aria-expanded="false">Zaloguj się</button>
+            <div class="account-menu" id="account-menu" hidden>
+                <button class="account-menu-logout" id="account-menu-profile" type="button">Profil</button>
+                <button class="account-menu-logout" id="account-menu-orders" type="button">Moje zamówienia</button>
+                <button class="account-menu-logout" id="account-menu-wishlist" type="button">Moje ulubione</button>
+                <button class="account-menu-logout" id="account-menu-security" type="button">Bezpieczeństwo konta</button>
+                <button class="account-menu-logout" id="account-menu-logout" type="button">Wyloguj się</button>
+            </div>
+        </div>
+        <div class="cart-area" id="cart-area">
+            <button class="cart-button" id="cart-toggle" type="button" aria-expanded="false" aria-controls="cart-preview">
+                Koszyk <span class="cart-count" id="cart-count">0</span>
+            </button>
+            <aside class="cart-preview" id="cart-preview" aria-label="Podgląd koszyka" hidden>
+                <div class="cart-preview-heading">
+                    <h2>Koszyk (<span id="cart-preview-count">0</span>)</h2>
+                    <button class="cart-preview-close" id="cart-preview-close" type="button" aria-label="Zamknij podgląd koszyka">×</button>
+                </div>
+                <div class="cart-preview-items" id="cart-preview-items"></div>
+                <div class="cart-preview-footer">
+                    <div><span>Razem</span><strong id="cart-preview-total">0,00 zł</strong></div>
+                    <button class="primary-button cart-preview-checkout" id="cart-preview-checkout" type="button">Przejdź do koszyka</button>
+                </div>
+            </aside>
+        </div>
+    </header>
+
+    <nav class="category-strip" aria-label="Kategorie produktów">
+        <div class="category-strip-scroll">
+            <a class="category-pill active" href="catalog.html?category=all" data-category="all">Wszystkie produkty</a>
+            <a class="category-pill" href="catalog.html?category=CPU" data-category="CPU">Procesory</a>
+            <a class="category-pill" href="catalog.html?category=GPU" data-category="GPU">Karty graficzne</a>
+            <a class="category-pill" href="catalog.html?category=RAM" data-category="RAM">Pamięć RAM</a>
+            <a class="category-pill" href="catalog.html?category=SSD" data-category="SSD">Dyski SSD</a>
+            <a class="category-pill" href="catalog.html?category=Płyta%20główna" data-category="Płyta główna">Płyty główne</a>
+            <a class="category-pill" href="catalog.html?category=Monitor" data-category="Monitor">Monitory</a>
+            <a class="category-pill" href="catalog.html?category=Laptop" data-category="Laptop">Laptopy</a>
+            <a class="category-pill" href="catalog.html?category=Klawiatura" data-category="Klawiatura">Peryferia</a>
+            <a class="category-pill" href="catalog.html?category=Słuchawki" data-category="Słuchawki">Audio</a>
+        </div>
+    </nav>
+
+    <main id="top">
+        <section class="catalog-page-intro">
+            <div>
+                <p class="eyebrow">01 / PRODUCT SERVICE</p>
+                <h1>Wybierz swój <span>sprzęt.</span></h1>
+            </div>
+            <p class="section-note">Pełny katalog produktów pobierany na żywo przez API Gateway. Wyszukuj po nazwie, producencie lub SKU.</p>
+        </section>
+
+        <section class="content-section catalog-page-section" id="catalog">
+            <div class="catalog-toolbar">
+                <label class="search-box">
+                    <span aria-hidden="true">⌕</span>
+                    <input id="product-search" type="search" placeholder="Szukaj produktu, producenta lub SKU" autocomplete="off">
+                </label>
+                <label class="select-box">
+                    <span>Kategoria</span>
+                    <select id="category-filter">
+                        <option value="all">Wszystkie</option>
+                    </select>
+                </label>
+                <label class="select-box">
+                    <span>Producent</span>
+                    <select id="manufacturer-filter">
+                        <option value="all">Wszyscy</option>
+                    </select>
+                </label>
+                <label class="select-box">
+                    <span id="technical-parameter-label">Parametr kategorii</span>
+                    <select id="technical-parameter-filter">
+                        <option value="all">Wybierz kategorię</option>
+                    </select>
+                </label>
+                <label class="catalog-filter-input">
+                    <span>Wartość</span>
+                    <input id="technical-value-filter" type="search" placeholder="Najpierw wybierz kategorię" autocomplete="off" disabled>
+                </label>
+                <div class="catalog-price-range" aria-label="Przedział ceny">
+                    <label class="catalog-filter-input catalog-price-filter">
+                        <span>Cena od</span>
+                        <input id="price-min-filter" type="text" inputmode="decimal" placeholder="0,00" aria-label="Cena minimalna">
+                    </label>
+                    <span class="catalog-price-range-separator" aria-hidden="true">–</span>
+                    <label class="catalog-filter-input catalog-price-filter">
+                        <span>Cena do</span>
+                        <input id="price-max-filter" type="text" inputmode="decimal" placeholder="bez limitu" aria-label="Cena maksymalna">
+                    </label>
+                </div>
+                <label class="select-box">
+                    <span>Sortuj</span>
+                    <select id="sort-filter">
+                        <option value="default">Domyślne</option>
+                        <option value="price-asc">Cena: rosnąco</option>
+                        <option value="price-desc">Cena: malejąco</option>
+                        <option value="name-asc">Nazwa: A–Z</option>
+                        <option value="stock-desc">Dostępność: malejąco</option>
+                    </select>
+                </label>
+                <button class="secondary-button" id="refresh-products" type="button">Odśwież katalog</button>
+            </div>
+
+            <div class="catalog-message" id="catalog-message" role="status"></div>
+            <div class="product-grid" id="product-grid"></div>
+        </section>
+
+        <section class="compare-tray" id="compare-tray" hidden aria-labelledby="compare-title">
+            <div class="compare-tray-copy">
+                <p class="eyebrow">PORÓWNYWARKA</p>
+                <h3 id="compare-title">Porównaj wybrane produkty</h3>
+                <p class="form-hint" id="compare-hint">Wybierz co najmniej 2 produkty.</p>
+                <div class="compare-chips" id="compare-chips"></div>
+            </div>
+            <div class="compare-tray-actions">
+                <button class="primary-button" id="compare-open" type="button" disabled>Porównaj</button>
+                <button class="secondary-button" id="compare-clear" type="button">Wyczyść</button>
+            </div>
+        </section>
+
+        <section class="order-layout cart-only" id="checkout">
+            <div class="checkout-flow-shell" aria-label="Nawigacja procesu zakupu">
+                <a class="brand checkout-flow-brand" href="./index.html#top" aria-label="Wróć do strony głównej MiniTech Store">
+                    <span class="brand-mark">MP</span>
+                    <span>MiniTech <strong>Store</strong></span>
+                </a>
+                <div class="checkout-progress" id="checkout-progress" role="list" aria-label="Postęp zamówienia">
+                    <div class="checkout-progress-step is-active" data-checkout-progress="cart" role="listitem"><span>1</span><small>Koszyk</small></div>
+                    <i class="checkout-progress-line" aria-hidden="true"></i>
+                    <div class="checkout-progress-step" data-checkout-progress="delivery" role="listitem"><span>2</span><small>Dostawa i płatność</small></div>
+                    <i class="checkout-progress-line" aria-hidden="true"></i>
+                    <div class="checkout-progress-step" data-checkout-progress="summary" role="listitem"><span>3</span><small>Podsumowanie</small></div>
+                </div>
+            </div>
+            <div class="content-section checkout-section" hidden>
+                <div class="section-heading compact">
+                    <div class="checkout-heading-copy">
+                        <p class="eyebrow">02 / ORDER SERVICE</p>
+                        <h2>Finalizacja zamówienia</h2>
+                    </div>
+                    <button class="secondary-button" id="checkout-back" type="button">Wróć do koszyka</button>
+                    <p class="form-hint checkout-mode-text" id="checkout-mode-text"></p>
+                </div>
+                <form id="checkout-form" class="checkout-form">
+                    <div class="checkout-step-heading">
+                        <span>01</span>
+                        <div><p class="eyebrow">DOSTAWA I ODBIÓR</p><h3>Wybierz sposób realizacji</h3></div>
+                    </div>
+                    <div class="delivery-heading">
+                        <p class="eyebrow">DANE DOSTAWY</p>
+                        <p class="form-hint">Dla gościa podaj dane ręcznie. Po zalogowaniu zostaną uzupełnione z profilu.</p>
+                    </div>
+                    <div class="form-grid">
+                        <label>Imię<input id="delivery-first-name" type="text" autocomplete="given-name" required></label>
+                        <label>Nazwisko<input id="delivery-last-name" type="text" autocomplete="family-name" required></label>
+                    </div>
+                    <div id="delivery-address-fields">
+                        <label>Ulica i numer<input id="delivery-street" type="text" autocomplete="street-address" required></label>
+                        <div class="form-grid">
+                            <label>Kod pocztowy<input id="delivery-postal-code" type="text" autocomplete="postal-code" required></label>
+                            <label>Miasto<input id="delivery-city" type="text" autocomplete="address-level2" required></label>
+                        </div>
+                        <label>Kraj<input id="delivery-country" type="text" value="Polska" autocomplete="country-name" required></label>
+                    </div>
+                    <label>
+                        Sposób dostawy
+                        <select id="delivery-method" required>
+                            <option value="">Ładowanie metod dostawy…</option>
+                        </select>
+                    </label>
+                    <label id="pickup-location-field" hidden>
+                        Punkt odbioru
+                        <input id="pickup-location" type="text" value="MiniTech Store — Warszawa" readonly>
+                    </label>
+                    <label>
+                        Dzień dostawy lub odbioru
+                        <select id="delivery-date" required>
+                            <option value="">Wybierz metodę realizacji…</option>
+                        </select>
+                    </label>
+                    <p class="delivery-quote" id="delivery-quote" role="status">Wybierz sposób dostawy, aby zobaczyć koszt.</p>
+                    <div class="checkout-step-heading">
+                        <span>02</span>
+                        <div><p class="eyebrow">PŁATNOŚĆ</p><h3>Wybierz metodę płatności</h3></div>
+                    </div>
+                    <div class="coupon-box">
+                        <label>
+                            Kod rabatowy
+                            <input id="promotion-code" type="text" maxlength="40" placeholder="np. WELCOME10" autocomplete="off">
+                        </label>
+                        <button class="secondary-button" id="promotion-code-apply" type="button">Zastosuj kod</button>
+                        <p class="coupon-feedback" id="promotion-code-feedback" role="status"></p>
+                    </div>
+                    <aside class="checkout-price-summary" aria-labelledby="checkout-price-summary-title">
+                        <div class="checkout-price-summary-heading">
+                            <p class="eyebrow">PODSUMOWANIE PŁATNOŚCI</p>
+                            <h3 id="checkout-price-summary-title">Cena końcowa</h3>
+                        </div>
+                        <div class="price-summary-row">
+                            <span>Produkty brutto</span>
+                            <strong id="summary-products-gross">0,00 zł</strong>
+                        </div>
+                        <div class="price-summary-row price-summary-discount" id="summary-discount-row" hidden>
+                            <span id="summary-discount-label">Rabat</span>
+                            <strong id="summary-discount">−0,00 zł</strong>
+                        </div>
+                        <div class="price-summary-row">
+                            <span>Dostawa brutto</span>
+                            <strong id="summary-delivery-gross">0,00 zł</strong>
+                        </div>
+                        <div class="price-summary-row">
+                            <span>Termin realizacji</span>
+                            <strong id="summary-delivery-date">—</strong>
+                        </div>
+                        <div class="price-summary-divider"></div>
+                        <div class="price-summary-row">
+                            <span>Netto</span>
+                            <strong id="summary-net">0,00 zł</strong>
+                        </div>
+                        <div class="price-summary-row">
+                            <span>VAT (23%)</span>
+                            <strong id="summary-vat">0,00 zł</strong>
+                        </div>
+                        <div class="price-summary-row price-summary-total">
+                            <span>Brutto do zapłaty</span>
+                            <strong id="summary-gross">0,00 zł</strong>
+                        </div>
+                        <p class="form-hint">Rozliczenie demonstracyjne z podstawową stawką VAT 23%.</p>
+                    </aside>
+                    <label>
+                        E-mail do potwierdzenia
+                        <input id="recipient-email" type="email" placeholder="ty@example.com" autocomplete="email" required>
+                    </label>
+                    <section class="billing-option">
+                        <label class="checkbox-label"><input id="invoice-requested" type="checkbox"> Chcę otrzymać fakturę</label>
+                        <div id="billing-data" class="billing-data" hidden>
+                            <label class="checkbox-label"><input id="billing-company" type="checkbox"> Faktura na firmę</label>
+                            <label>Imię i nazwisko<input id="billing-buyer-name" type="text" autocomplete="name"></label>
+                            <label id="billing-company-name-label" hidden>Nazwa firmy<input id="billing-company-name" type="text" autocomplete="organization"></label>
+                            <label id="billing-tax-id-label" hidden>NIP<input id="billing-tax-id" type="text" inputmode="numeric" autocomplete="off" minlength="10" maxlength="10" pattern="[0-9]{10}" title="NIP musi składać się dokładnie z 10 cyfr."><small class="form-hint">Wpisz dokładnie 10 cyfr, bez spacji i myślników.</small></label>
+                            <label>Ulica i numer<input id="billing-street" type="text" autocomplete="street-address"></label>
+                            <div class="form-grid"><label>Kod pocztowy<input id="billing-postal-code" type="text" autocomplete="postal-code"></label><label>Miasto<input id="billing-city" type="text" autocomplete="address-level2"></label></div>
+                            <label>Kraj<input id="billing-country" type="text" value="Polska" autocomplete="country-name"></label>
+                        </div>
+                    </section>
+                    <label>
+                        Metoda płatności
+                        <select id="payment-method">
+                            <option value="CARD">Karta (symulacja)</option>
+                            <option value="BLIK">BLIK (symulacja)</option>
+                            <option value="CASH_ON_DELIVERY">Gotówka przy odbiorze</option>
+                            <option value="TRANSFER">Przelew (symulacja)</option>
+                        </select>
+                    </label>
+                    <button class="primary-button full-width" id="checkout-to-summary" type="button">Przejdź do podsumowania</button>
+                    <button class="primary-button full-width" id="checkout-submit" type="submit" hidden>Złóż i opłać zamówienie</button>
+                    <p class="form-hint">W profilu dev płatność jest symulowana, a potwierdzenie z adresem dostawy trafia do Mailpit.</p>
+                </form>
+                <section class="checkout-summary-step" id="checkout-summary-step" hidden aria-labelledby="checkout-summary-step-title">
+                    <div class="checkout-step-heading">
+                        <span>03</span>
+                        <div><p class="eyebrow">PODSUMOWANIE</p><h3 id="checkout-summary-step-title">Sprawdź zamówienie przed opłaceniem</h3></div>
+                    </div>
+                    <div class="checkout-summary-items" id="checkout-summary-items"></div>
+                    <div class="checkout-summary-details">
+                        <div><span>E-mail</span><strong id="checkout-summary-email">—</strong></div>
+                        <div><span>Adres lub punkt odbioru</span><strong id="checkout-summary-address">—</strong></div>
+                        <div><span>Dostawa</span><strong id="checkout-summary-delivery">—</strong></div>
+                        <div><span>Płatność</span><strong id="checkout-summary-payment">—</strong></div>
+                    </div>
+                    <aside class="checkout-price-summary checkout-summary-total" aria-labelledby="checkout-summary-total-title">
+                        <div class="checkout-price-summary-heading"><p class="eyebrow">PODSUMOWANIE PŁATNOŚCI</p><h3 id="checkout-summary-total-title">Cena końcowa</h3></div>
+                        <div class="price-summary-row"><span>Produkty brutto</span><strong id="summary-step-products">0,00 zł</strong></div>
+                        <div class="price-summary-row price-summary-discount" id="summary-step-discount-row" hidden><span>Rabat</span><strong id="summary-step-discount">−0,00 zł</strong></div>
+                        <div class="price-summary-row"><span>Dostawa brutto</span><strong id="summary-step-delivery">0,00 zł</strong></div>
+                        <div class="price-summary-divider"></div>
+                        <div class="price-summary-row"><span>Netto</span><strong id="summary-step-net">0,00 zł</strong></div>
+                        <div class="price-summary-row"><span>VAT (23%)</span><strong id="summary-step-vat">0,00 zł</strong></div>
+                        <div class="price-summary-row price-summary-total"><span>Brutto do zapłaty</span><strong id="summary-step-gross">0,00 zł</strong></div>
+                    </aside>
+                    <div class="checkout-summary-actions">
+                        <button class="secondary-button" id="checkout-summary-back" type="button">Wróć do dostawy i płatności</button>
+                        <button class="primary-button" id="checkout-summary-submit" type="button">Złóż i opłać zamówienie</button>
+                    </div>
+                </section>
+                <div class="checkout-status" id="checkout-status" role="status"></div>
+            </div>
+
+            <aside class="cart-panel" id="cart-panel">
+                <div class="cart-heading">
+                    <div>
+                        <p class="eyebrow">TWÓJ KOSZYK</p>
+                        <h2>Koszyk</h2>
+                    </div>
+                    <button class="text-button" id="clear-cart" type="button">Wyczyść</button>
+                </div>
+                <div id="cart-items" class="cart-items"></div>
+                <div class="cart-empty" id="cart-empty">Koszyk jest pusty. Dodaj produkt z katalogu.</div>
+                <div class="cart-total">
+                    <span>Razem</span>
+                    <strong id="cart-total">0,00 zł</strong>
+                </div>
+                <p class="cart-threshold-note" id="cart-threshold-note"></p>
+                <p class="cart-stock-warning" id="cart-stock-warning" role="alert" hidden></p>
+                <button class="primary-button full-width cart-checkout-button" id="cart-checkout" type="button" hidden>Przejdź do dostawy</button>
+            </aside>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span>MiniTech Store / Mini Order Platform</span>
+        <span>Pełny katalog · API Gateway · WSL</span>
+    </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="checkout-choice-modal" id="checkout-choice-modal" hidden>
+    <div class="checkout-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="checkout-choice-title">
+        <button class="modal-close" id="checkout-choice-close" type="button" aria-label="Zamknij">×</button>
+        <p class="eyebrow">ORDER SERVICE</p>
+        <h2 id="checkout-choice-title">Jak chcesz kupić?</h2>
+        <p class="form-hint">Wybierz sposób zakupu, a następnie uzupełnij finalizację zamówienia.</p>
+        <p class="form-hint">Przy koszyku do 1 000 zł konto nie jest wymagane — możesz kupić jako gość.</p>
+        <div class="checkout-choice-actions">
+            <button class="primary-button full-width" id="checkout-choice-account" type="button">Mam konto — zaloguj się</button>
+            <button class="secondary-button full-width" id="checkout-choice-guest" type="button">Kupuję jako gość</button>
+        </div>
+    </div>
+</div>
+
+<div class="auth-modal" id="auth-modal" hidden>
+    <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button class="modal-close" id="auth-close" type="button" aria-label="Zamknij">×</button>
+        <p class="eyebrow">KONTO MINITECH</p>
+        <h2 id="auth-title">Zaloguj się</h2>
+        <div class="auth-mode-label" id="auth-mode-selector">
+            <span>Wybierz operację</span>
+            <div class="auth-choice" role="group" aria-label="Operacja konta">
+                <button class="auth-choice-button active" id="auth-login-choice" type="button" aria-pressed="true">Zaloguj się</button>
+                <button class="auth-choice-button" id="auth-register-choice" type="button" aria-pressed="false">Załóż konto</button>
+            </div>
+            <select id="auth-mode" hidden aria-hidden="true">
+                <option value="login">Zalogować się</option>
+                <option value="register">Założyć konto</option>
+            </select>
+        </div>
+        <form id="auth-form" class="auth-form">
+            <label>E-mail<input id="auth-email" type="email" autocomplete="email" required></label>
+            <label>Hasło<input id="auth-password" type="password" minlength="8" autocomplete="current-password" required></label>
+            <label id="auth-password-confirm-label" hidden>Powtórz hasło<input id="auth-password-confirm" type="password" minlength="8" autocomplete="new-password"></label>
+            <div id="auth-register-fields" hidden>
+                <div class="form-grid">
+                    <label>Imię<input id="auth-first-name" type="text" autocomplete="given-name"></label>
+                    <label>Nazwisko<input id="auth-last-name" type="text" autocomplete="family-name"></label>
+                </div>
+                <label>Ulica i numer<input id="auth-street" type="text" autocomplete="street-address"></label>
+                <div class="form-grid">
+                    <label>Kod pocztowy<input id="auth-postal-code" type="text" autocomplete="postal-code"></label>
+                    <label>Miasto<input id="auth-city" type="text" autocomplete="address-level2"></label>
+                </div>
+                <label>Kraj<input id="auth-country" type="text" value="Polska" autocomplete="country-name"></label>
+                <p class="form-hint">Adres zapisany przy rejestracji zostanie użyty przy kolejnych zamówieniach.</p>
+                <div class="auth-resend" id="auth-resend" hidden>
+                    <p class="form-hint">Nie otrzymałeś wiadomości albo link wygasł? Możesz poprosić o nowy link aktywacyjny.</p>
+                    <button class="secondary-button full-width" id="auth-resend-button" type="button">Wyślij ponownie link</button>
+                    <p class="account-status" id="auth-resend-status" role="status"></p>
+                </div>
+            </div>
+            <button class="primary-button full-width" id="auth-submit" type="submit">Zaloguj się</button>
+        </form>
+        <section class="auth-mfa-panel" id="auth-mfa-panel" hidden>
+            <p class="eyebrow">DODATKOWA WERYFIKACJA</p>
+            <h3>Potwierdź logowanie</h3>
+            <p class="form-hint" id="auth-mfa-help">Wpisz kod z aplikacji uwierzytelniającej albo użyj kodu odzyskiwania.</p>
+            <label id="auth-mfa-code-label">Kod MFA<input id="auth-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6"></label>
+            <button class="primary-button full-width" id="auth-mfa-submit" type="button">Potwierdź kod</button>
+            <button class="secondary-button full-width" id="auth-mfa-passkey" type="button" hidden>Użyj passkey</button>
+            <p class="account-status" id="auth-mfa-status" role="status"></p>
+        </section>
+        <section class="auth-security-panel" id="auth-security-panel" hidden>
+            <p class="eyebrow">BEZPIECZEŃSTWO KONTA</p>
+            <h3>MFA</h3>
+            <p class="form-hint" id="auth-mfa-summary">Sprawdzanie konfiguracji MFA...</p>
+            <button class="secondary-button full-width" id="auth-totp-start" type="button">Włącz TOTP</button>
+            <div class="mfa-totp-setup" id="auth-totp-setup" hidden>
+                <p class="form-hint">Zeskanuj kod QR w aplikacji Authenticator. Jeśli skanowanie nie działa, użyj klucza poniżej.</p>
+                <img id="auth-totp-qr" class="mfa-totp-qr" alt="Kod QR do skonfigurowania aplikacji TOTP">
+            </div>
+            <label id="auth-totp-secret-label" hidden>Klucz do aplikacji TOTP<input id="auth-totp-secret" type="text" readonly></label>
+            <label id="auth-totp-code-label" hidden>Kod potwierdzający<input id="auth-totp-code" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}"></label>
+            <button class="primary-button full-width" id="auth-totp-confirm" type="button" hidden>Potwierdź TOTP</button>
+            <button class="secondary-button full-width" id="auth-totp-disable" type="button" hidden>Wyłącz TOTP</button>
+            <div class="mfa-totp-disable-panel" id="auth-totp-disable-panel" hidden>
+                <p class="form-hint">Aby wyłączyć TOTP, wpisz aktualny 6-cyfrowy kod z aplikacji Authenticator.</p>
+                <label>Kod TOTP do wyłączenia<input id="auth-totp-disable-code" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}"></label>
+                <button class="primary-button full-width" id="auth-totp-disable-confirm" type="button">Potwierdź wyłączenie TOTP</button>
+            </div>
+            <button class="secondary-button full-width" id="auth-passkey-register" type="button">Dodaj passkey</button>
+            <p class="account-status" id="auth-security-status" role="status"></p>
+        </section>
+        <form class="auth-profile-panel" id="auth-profile-panel" hidden>
+            <p class="eyebrow">PROFIL KLIENTA</p>
+            <h3>Dane profilu</h3>
+            <p class="form-hint">Zapisane dane zostaną automatycznie użyte przy kolejnych zamówieniach na koncie.</p>
+            <label>E-mail<input id="auth-profile-email" type="email" readonly></label>
+            <div class="form-grid">
+                <label>Imię<input id="auth-profile-first-name" type="text" autocomplete="given-name" required></label>
+                <label>Nazwisko<input id="auth-profile-last-name" type="text" autocomplete="family-name" required></label>
+            </div>
+            <label>Numer telefonu<input id="auth-profile-phone" type="tel" autocomplete="tel" maxlength="30" placeholder="np. +48 500 600 700"></label>
+            <label>Ulica i numer<input id="auth-profile-street" type="text" autocomplete="street-address" required></label>
+            <div class="form-grid">
+                <label>Kod pocztowy<input id="auth-profile-postal-code" type="text" autocomplete="postal-code" required></label>
+                <label>Miasto<input id="auth-profile-city" type="text" autocomplete="address-level2" required></label>
+            </div>
+            <label>Kraj<input id="auth-profile-country" type="text" autocomplete="country-name" required></label>
+            <button class="primary-button full-width" id="auth-profile-save" type="submit">Zapisz dane profilu</button>
+            <p class="account-status" id="auth-profile-status" role="status"></p>
+        </form>
+        <section class="auth-orders-panel" id="auth-orders-panel" hidden>
+            <p class="eyebrow">HISTORIA ZAMÓWIEŃ</p>
+            <h3>Moje zamówienia</h3>
+            <p class="form-hint">Zamówienia zapisane na Twoim koncie, od najnowszego.</p>
+            <div class="auth-orders-list" id="auth-orders-list"></div>
+            <p class="account-status" id="auth-orders-status" role="status"></p>
+        </section>
+        <section class="auth-wishlist-panel" id="auth-wishlist-panel" hidden>
+            <p class="eyebrow">ZAPISANE PRODUKTY</p>
+            <h3>Moje ulubione</h3>
+            <p class="form-hint">Produkty zapisane na Twoim koncie. Kliknij serce na karcie, aby dodać lub usunąć produkt.</p>
+            <div class="auth-wishlist-list" id="auth-wishlist-list"></div>
+            <p class="account-status" id="auth-wishlist-status" role="status"></p>
+        </section>
+        <button class="secondary-button full-width" id="auth-forgot-password" type="button">Nie pamietam hasla</button>
+        <form id="auth-reset-form" class="auth-form" hidden>
+            <label>E-mail<input id="auth-reset-email" type="email" autocomplete="email" required></label>
+            <label id="auth-reset-token-label" hidden>Token z wiadomosci<input id="auth-reset-token" type="text" autocomplete="off"></label>
+            <label id="auth-reset-password-label" hidden>Nowe haslo<input id="auth-reset-password" type="password" minlength="8" autocomplete="new-password"></label>
+            <button class="primary-button full-width" id="auth-reset-submit" type="submit">Wyslij link resetu</button>
+            <button class="secondary-button full-width" id="auth-reset-back" type="button">Wroc do logowania</button>
+        </form>
+        <button class="secondary-button full-width" id="auth-logout" type="button" hidden>Wyloguj</button>
+        <p class="account-status" id="account-status" role="status"></p>
+    </div>
+</div>
+
+<div class="success-modal" id="success-modal" hidden>
+    <div class="success-dialog" role="dialog" aria-modal="true" aria-labelledby="success-title">
+        <button class="modal-close" id="success-close" type="button" aria-label="Zamknij">×</button>
+        <p class="eyebrow">ZAMÓWIENIE ZAKOŃCZONE</p>
+        <h2 id="success-title">Dziękujemy za zakup!</h2>
+        <p id="success-message">Płatność została potwierdzona, a potwierdzenie wysłano e-mailem.</p>
+        <p class="form-hint">W środowisku dev wiadomość możesz sprawdzić w Mailpit.</p>
+        <a class="primary-button" href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">Otwórz Mailpit</a>
+    </div>
+</div>
+
+<div class="compare-modal" id="compare-modal" hidden>
+    <div class="compare-dialog" role="dialog" aria-modal="true" aria-labelledby="compare-dialog-title">
+        <button class="modal-close" id="compare-close" type="button" aria-label="Zamknij">×</button>
+        <p class="eyebrow">PRODUCT SERVICE</p>
+        <h2 id="compare-dialog-title">Porównanie produktów</h2>
+        <p class="form-hint">Parametry techniczne pochodzą z katalogu Product Service.</p>
+        <div id="compare-table"></div>
+    </div>
+</div>
+
+    <script src="session-timeout.js?v=20260820-1"></script>
+    <script src="app.js?v=20260820-38"></script>
+    <script src="chat-widget.js?v=20260819-2"></script>
+</body>
+</html>

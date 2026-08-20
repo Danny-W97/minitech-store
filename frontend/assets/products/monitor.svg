@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title">
+  <title>Monitor</title>
+  <defs><linearGradient id="bg" x1="0" x2="1"><stop stop-color="#172235"/><stop offset="1" stop-color="#29425b"/></linearGradient></defs>
+  <rect width="640" height="360" rx="24" fill="url(#bg)"/>
+  <rect x="125" y="70" width="390" height="205" rx="15" fill="#111b2b" stroke="#d7e0e5" stroke-width="8"/>
+  <path d="M160 110h320v125H160z" fill="#263e56"/><path d="M240 310h160M320 275v35" stroke="#ff5e36" stroke-width="9" stroke-linecap="round"/>
+  <path d="M185 195c42-80 72 75 112-10 28-60 52 42 80-12 25-48 50 27 78-28" fill="none" stroke="#28c7c5" stroke-width="6"/>
+</svg>

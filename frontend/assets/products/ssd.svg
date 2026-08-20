@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title">
+  <title>Dysk SSD</title>
+  <defs><linearGradient id="bg" x1="0" x2="1"><stop stop-color="#172235"/><stop offset="1" stop-color="#29425b"/></linearGradient></defs>
+  <rect width="640" height="360" rx="24" fill="url(#bg)"/>
+  <rect x="150" y="105" width="340" height="150" rx="16" fill="#111c2d" stroke="#ff5e36" stroke-width="7"/>
+  <circle cx="205" cy="180" r="24" fill="#28c7c5"/><circle cx="435" cy="180" r="24" fill="#28c7c5"/>
+  <path d="M250 145h130v70H250z" fill="#26394e" stroke="#d7e0e5" stroke-width="4"/>
+  <text x="315" y="190" fill="white" font-family="Arial,sans-serif" font-size="30" font-weight="800" text-anchor="middle">NVMe</text>
+</svg>

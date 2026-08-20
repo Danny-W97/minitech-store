@@ -1,0 +1,8 @@
+# Read-only policy for the Delivery Service workload.
+path "secret/data/mini-order-platform/prod/delivery-service" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/mini-order-platform/prod/delivery-service" {
+  capabilities = ["read"]
+}

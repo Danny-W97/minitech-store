@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="MiniTech Store — informacje o dostawie i płatności">
+    <title>Dostawy — MiniTech Store</title>
+    <meta http-equiv="Cache-Control" content="no-store">
+    <link rel="stylesheet" href="styles.css?v=20260820-35">
+</head>
+<body>
+<div class="page-shell">
+    <header class="topbar delivery-topbar">
+        <a class="brand" href="index.html" aria-label="MiniTech Store">
+            <span class="brand-mark">MP</span>
+            <span>MiniTech <strong>Store</strong></span>
+        </a>
+        <a class="secondary-button" href="index.html">Wróć do sklepu</a>
+    </header>
+
+    <main class="delivery-page">
+        <section class="delivery-hero">
+            <p class="eyebrow">MINITECH STORE / DOSTAWY</p>
+            <h1>Dostawa i płatność</h1>
+            <p>Sprawdź dostępne sposoby dostawy, zasady płatności oraz najważniejsze informacje dotyczące realizacji zamówienia.</p>
+            <a class="primary-button" href="index.html">Wróć do sklepu <span>→</span></a>
+        </section>
+
+        <section class="delivery-section" id="delivery-methods">
+            <div class="delivery-section-heading">
+                <p class="eyebrow">01 / DOSTAWA</p>
+                <h2>Wybierz wygodny sposób odbioru</h2>
+                <p>W docelowej wersji sklepu metoda dostawy będzie wybierana podczas finalizacji zamówienia.</p>
+            </div>
+            <div class="delivery-card-grid">
+                <article class="delivery-card">
+                    <span class="delivery-card-number">01</span>
+                    <h3>Kurier</h3>
+                    <p>Przesyłka zostanie dostarczona na adres podany przy składaniu zamówienia. Zapisany adres możesz zmienić w zakładce „Profil”.</p>
+                    <strong>Standardowa dostawa</strong>
+                </article>
+                <article class="delivery-card">
+                    <span class="delivery-card-number">02</span>
+                    <h3>Automat paczkowy</h3>
+                    <p>Odbiór przesyłki w wybranym automacie będzie dostępny po dodaniu integracji z przewoźnikiem.</p>
+                    <strong>Planowane</strong>
+                </article>
+                <article class="delivery-card">
+                    <span class="delivery-card-number">03</span>
+                    <h3>Punkt odbioru</h3>
+                    <p>W przyszłości zamówienie będzie można skierować do wybranego punktu odbioru.</p>
+                    <strong>Planowane</strong>
+                </article>
+            </div>
+        </section>
+
+        <section class="delivery-section delivery-two-column" id="payment-methods">
+            <div>
+                <p class="eyebrow">02 / PŁATNOŚĆ</p>
+                <h2>Bezpieczne opłacenie zamówienia</h2>
+            </div>
+            <div class="delivery-info-list">
+                <div>
+                    <h3>Karta</h3>
+                    <p>W profilu `dev/test` płatność kartą jest symulowana przez Payment Service.</p>
+                </div>
+                <div>
+                    <h3>BLIK lub przelew</h3>
+                    <p>Metody są dostępne na liście finalizacji jako scenariusze demonstracyjne.</p>
+                </div>
+                <div>
+                    <h3>Potwierdzenie</h3>
+                    <p>Po pomyślnym zakupie potwierdzenie jest wysyłane na podany adres e-mail i można je sprawdzić w Mailpit.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="delivery-section delivery-notice">
+            <p class="eyebrow">03 / PROFILE DEV I TEST</p>
+            <h2>Informacja o wersji demonstracyjnej</h2>
+            <p>Obecna aplikacja nie wywołuje jeszcze zewnętrznego przewoźnika ani nie pobiera opłaty za realną dostawę. Zamówienie, rezerwacja produktu, symulowana płatność i powiadomienie e-mail służą do testowania przepływu mikroserwisów.</p>
+        </section>
+
+        <section class="delivery-section" id="delivery-faq">
+            <div class="delivery-section-heading">
+                <p class="eyebrow">04 / FAQ</p>
+                <h2>Najczęstsze pytania</h2>
+            </div>
+            <div class="delivery-faq-list">
+                <details open>
+                    <summary>Gdzie wpisuję adres dostawy?</summary>
+                    <p>Gość wpisuje adres podczas finalizacji zamówienia. Zalogowany klient może korzystać z danych zapisanych w profilu i edytować je przed zakupem.</p>
+                </details>
+                <details>
+                    <summary>Gdzie znajdę potwierdzenie zakupu?</summary>
+                    <p>W profilu `dev/test` wiadomość trafia do lokalnego Mailpit. Otwórz go pod adresem <a href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">127.0.0.1:18025</a>.</p>
+                </details>
+                <details>
+                    <summary>Czy mogę kupić bez zakładania konta?</summary>
+                    <p>Tak. W sklepie możesz wybrać zakup jako gość i podać dane dostawy oraz adres e-mail ręcznie.</p>
+                </details>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        <span>MiniTech Store / Mini Order Platform</span>
+        <span>Local development · WSL · Mailpit</span>
+    </footer>
+</div>
+<script src="chat-widget.js?v=20260819-2"></script>
+</body>
+</html>

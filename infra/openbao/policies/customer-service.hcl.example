@@ -1,0 +1,8 @@
+# KV v2 API paths include /data for reads and /metadata for list/version data.
+path "secret/data/mini-order-platform/prod/customer-service" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/mini-order-platform/prod/customer-service" {
+  capabilities = ["read"]
+}

@@ -1,0 +1,28 @@
+spring:
+  profiles:
+    active: test
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:notificationdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+  data:
+    redis:
+      url: redis://127.0.0.1:16379
+
+messaging:
+  payment-stream: payment-events-test
+  consumer:
+    enabled: false
+    fixed-delay-ms: 60000
+    group: notification-service-test
+    name: notification-service-test

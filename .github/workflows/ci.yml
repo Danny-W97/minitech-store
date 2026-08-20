@@ -1,0 +1,225 @@
+name: MiniTech Store CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy the selected image tag to the configured Kubernetes cluster
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: minitech-store-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.19.0'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install Playwright test dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser UI regression with deterministic API fixtures
+        run: pnpm run test:ui
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Unit and integration tests
+        run: ./mvnw --batch-mode -Pintegration verify
+
+      - name: Full API and business E2E
+        run: bash scripts/qa/ci-e2e.sh
+
+      - name: Upload OWASP ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minitech-store-zap-report
+          path: gitIgnoreOwn/runtime/zap/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minitech-store-playwright-report
+          path: gitIgnoreOwn/runtime/playwright/
+          if-no-files-found: ignore
+
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minitech-store-ci-logs
+          path: gitIgnoreOwn/runtime/ci-*.log
+          if-no-files-found: ignore
+
+  build-images:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - product-service
+          - order-service
+          - inventory-service
+          - payment-service
+          - notification-service
+          - customer-service
+          - delivery-service
+          - promotion-service
+          - wishlist-service
+          - review-service
+          - recommendation-service
+          - chat-service
+          - returns-service
+          - billing-service
+          - frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish service image
+        uses: docker/build-push-action@v6
+        if: matrix.service != 'frontend'
+        with:
+          context: .
+          file: deploy/docker/service.Dockerfile
+          build-args: SERVICE_MODULE=${{ matrix.service }}
+          push: false
+          load: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and publish frontend image
+        uses: docker/build-push-action@v6
+        if: matrix.service == 'frontend'
+        with:
+          context: .
+          file: deploy/docker/frontend.Dockerfile
+          push: false
+          load: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mini-order-platform/frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image for HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Push verified image to GHCR
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
+        run: docker push "$IMAGE_REF"
+
+      - name: Install Cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v4.1.0
+
+      - name: Sign image with GitHub OIDC
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_EXPERIMENTAL: 'true'
+          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
+        run: cosign sign --yes "$IMAGE_REF"
+
+  deploy-kubernetes:
+    needs: build-images
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy == true
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Load kubeconfig
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
+        run: |
+          test -n "$KUBE_CONFIG_B64" || {
+            echo 'Missing production secret KUBE_CONFIG_B64' >&2
+            exit 1
+          }
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG_B64" | base64 --decode > "$HOME/.kube/config"
+          kubectl config current-context
+
+      - name: Verify production secrets exist
+        run: kubectl -n minitech-store get secret minitech-store-secrets
+
+      - name: Set image tag and apply Kubernetes manifests
+        env:
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_OWNER="$(printf '%s' "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')"
+          sed -i "s#ghcr.io/replace-me#ghcr.io/${IMAGE_OWNER}#g; s/newTag: latest/newTag: ${IMAGE_TAG}/g" \
+            deploy/k8s/overlays/prod/kustomization.yaml
+          kubectl apply -k deploy/k8s/overlays/prod
+
+      - name: Wait for zero-downtime rollout
+        run: |
+          for deployment in api-gateway product-service order-service inventory-service payment-service notification-service customer-service delivery-service promotion-service wishlist-service review-service recommendation-service chat-service returns-service billing-service frontend; do
+            kubectl -n minitech-store rollout status "deployment/${deployment}" --timeout=5m
+          done

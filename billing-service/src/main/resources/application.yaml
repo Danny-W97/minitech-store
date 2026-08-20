@@ -1,0 +1,27 @@
+spring:
+  profiles:
+    default: dev
+  application:
+    name: billing-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:15445/billing_db}
+    username: ${DB_USERNAME:billing_app}
+    password: ${DB_PASSWORD:${BILLING_DB_PASSWORD}}
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: validate
+    properties.hibernate.jdbc.time_zone: UTC
+  flyway.enabled: true
+server.port: ${SERVER_PORT:18095}
+springdoc.api-docs.path: /v3/api-docs
+springdoc.swagger-ui.path: /swagger-ui.html
+management.endpoints.web.exposure.include: health,info,metrics,prometheus
+management.endpoint.health.show-details: never
+management.endpoint.health.probes.enabled: ${MANAGEMENT_HEALTH_PROBES_ENABLED:true}
+management.metrics.tags.application: ${spring.application.name}
+logging.pattern.console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [corr=%X{correlationId}] %logger{36} - %msg%n"
+billing:
+  pdf:
+    font:
+      regular: ${BILLING_PDF_FONT_REGULAR:}
+      bold: ${BILLING_PDF_FONT_BOLD:}

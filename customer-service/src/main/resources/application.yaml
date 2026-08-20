@@ -1,0 +1,116 @@
+spring:
+  profiles:
+    default: dev
+  application:
+    name: customer-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:15437/customer_db}
+    username: ${DB_USERNAME:customer_app}
+    password: ${DB_PASSWORD:${CUSTOMER_DB_PASSWORD}}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  data:
+    redis:
+      url: ${REDIS_URL:redis://127.0.0.1:16379}
+
+server:
+  port: ${SERVER_PORT:18087}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    operations-sorter: method
+    tags-sorter: alpha
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [corr=%X{correlationId}] %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: ${MANAGEMENT_HEALTH_PROBES_ENABLED:true}
+  health:
+    livenessstate:
+      enabled: ${MANAGEMENT_HEALTH_LIVENESS_ENABLED:true}
+    readinessstate:
+      enabled: ${MANAGEMENT_HEALTH_READINESS_ENABLED:true}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+services:
+  notification:
+    base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:18086}
+
+resilience:
+  http:
+    connect-timeout-ms: ${RESILIENCE_HTTP_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${RESILIENCE_HTTP_READ_TIMEOUT_MS:3000}
+  retry:
+    max-attempts: ${RESILIENCE_RETRY_MAX_ATTEMPTS:3}
+    initial-backoff-ms: ${RESILIENCE_RETRY_INITIAL_BACKOFF_MS:200}
+    backoff-multiplier: ${RESILIENCE_RETRY_BACKOFF_MULTIPLIER:2.0}
+  circuit-breaker:
+    sliding-window-size: ${RESILIENCE_CB_SLIDING_WINDOW_SIZE:20}
+    minimum-number-of-calls: ${RESILIENCE_CB_MINIMUM_NUMBER_OF_CALLS:5}
+    failure-rate-threshold: ${RESILIENCE_CB_FAILURE_RATE_THRESHOLD:50}
+    wait-duration-open-seconds: ${RESILIENCE_CB_WAIT_DURATION_OPEN_SECONDS:10}
+    half-open-permitted-calls: ${RESILIENCE_CB_HALF_OPEN_PERMITTED_CALLS:2}
+  bulkhead:
+    max-concurrent-calls: ${RESILIENCE_BULKHEAD_MAX_CONCURRENT_CALLS:50}
+    max-wait-duration-ms: ${RESILIENCE_BULKHEAD_MAX_WAIT_DURATION_MS:0}
+
+customer:
+  webauthn:
+    # WebAuthn is tested from localhost because browsers allow passkeys on localhost.
+    # Production values must match the HTTPS public hostname exactly.
+    rp-id: ${CUSTOMER_WEBAUTHN_RP_ID:localhost}
+    allowed-origins: ${CUSTOMER_WEBAUTHN_ALLOWED_ORIGINS:http://localhost:18070}
+  verification:
+    link-base-url: ${CUSTOMER_VERIFICATION_LINK_BASE_URL:http://127.0.0.1:18070/?verify=}
+    ttl-seconds: ${CUSTOMER_VERIFICATION_TTL_SECONDS:300}
+    resend:
+      min-interval-seconds: ${CUSTOMER_VERIFICATION_RESEND_MIN_INTERVAL_SECONDS:60}
+      max-attempts: ${CUSTOMER_VERIFICATION_RESEND_MAX_ATTEMPTS:3}
+      window-seconds: ${CUSTOMER_VERIFICATION_RESEND_WINDOW_SECONDS:3600}
+  auth:
+    jwt-secret: ${CUSTOMER_JWT_SECRET:}
+    jwt:
+      active-kid: ${CUSTOMER_JWT_ACTIVE_KID:}
+      private-key-base64: ${CUSTOMER_JWT_PRIVATE_KEY_BASE64:}
+      public-keys-json: ${CUSTOMER_JWT_PUBLIC_KEYS_JSON:}
+    access-token-ttl-seconds: ${CUSTOMER_ACCESS_TOKEN_TTL_SECONDS:900}
+    refresh-token-ttl-seconds: ${CUSTOMER_REFRESH_TOKEN_TTL_SECONDS:604800}
+    refresh-cookie-name: ${CUSTOMER_REFRESH_COOKIE_NAME:MINITECH_REFRESH_TOKEN}
+    # The cookie must work for both the legacy /api and versioned /api/v1 routes.
+    refresh-cookie-path: ${CUSTOMER_REFRESH_COOKIE_PATH:/}
+    refresh-cookie-secure: ${CUSTOMER_REFRESH_COOKIE_SECURE:false}
+    # In dev/test this may derive from the JWT material. Prod must provide a
+    # dedicated key through OpenBao as CUSTOMER_MFA_ENCRYPTION_KEY_BASE64.
+    mfa-encryption-key-material: ${CUSTOMER_MFA_ENCRYPTION_KEY_BASE64:${CUSTOMER_JWT_PRIVATE_KEY_BASE64:${CUSTOMER_JWT_SECRET:}}}
+  password-reset:
+    link-base-url: ${CUSTOMER_PASSWORD_RESET_LINK_BASE_URL:http://127.0.0.1:18070/?reset=}
+    ttl-seconds: ${CUSTOMER_PASSWORD_RESET_TTL_SECONDS:900}
+  login-protection:
+    max-failed-attempts: ${CUSTOMER_LOGIN_MAX_FAILED_ATTEMPTS:5}
+    failure-window-seconds: ${CUSTOMER_LOGIN_FAILURE_WINDOW_SECONDS:900}
+    lock-seconds: ${CUSTOMER_LOGIN_LOCK_SECONDS:900}

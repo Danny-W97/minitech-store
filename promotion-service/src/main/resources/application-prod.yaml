@@ -1,0 +1,14 @@
+spring:
+  config.activate.on-profile: prod
+  docker.compose.enabled: false
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+springdoc:
+  api-docs.enabled: false
+  swagger-ui.enabled: false
+management:
+  endpoint.health:
+    show-details: never
+    probes.enabled: true

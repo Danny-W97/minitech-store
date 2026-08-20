@@ -1,0 +1,7 @@
+path "secret/data/mini-order-platform/prod/recommendation-service" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/mini-order-platform/prod/recommendation-service" {
+  capabilities = ["read"]
+}

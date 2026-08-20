@@ -1,0 +1,8 @@
+spring:
+  profiles:
+    active: test
+
+# Keep gateway proxy tests isolated from services that may be running locally.
+services:
+  product:
+    base-url: http://127.0.0.1:1

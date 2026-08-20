@@ -1,0 +1,26 @@
+# Preparation only. Copy this file to each service as
+# src/main/resources/application-prod-vault.yaml after adding a compatible
+# Spring Cloud Vault starter. It is intentionally not loaded by this repo.
+spring:
+  config:
+    activate:
+      on-profile: prod-vault
+    import: vault://
+  cloud:
+    vault:
+      uri: ${VAULT_ADDR}
+      namespace: ${VAULT_NAMESPACE:}
+      authentication: ${VAULT_AUTH_METHOD:APPROLE}
+      fail-fast: true
+      ssl:
+        skip-verify: ${VAULT_TLS_SKIP_VERIFY:false}
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+      kv:
+        enabled: true
+        backend: ${VAULT_KV_BACKEND:secret}
+        backend-version: 2
+        application-name: mini-order-platform/${VAULT_KV_PROFILE:prod}/${spring.application.name}
+        default-context: mini-order-platform/${VAULT_KV_PROFILE:prod}/common
+        profile-separator: /

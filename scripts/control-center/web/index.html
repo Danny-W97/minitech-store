@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>MiniTech Control</title>
+  <link rel="stylesheet" href="styles.css?v=20260820-secret-editor">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Nawigacja Centrali">
+      <a class="brand" href="#dashboard" aria-label="MiniTech Control — pulpit">
+        <span class="brand-mark">MP</span>
+        <span><strong>MiniTech</strong><small>Control Center</small></span>
+      </a>
+      <nav id="navigation" class="nav-list">
+        <button class="nav-item active" data-view="dashboard"><span>◫</span>Pulpit</button>
+        <button class="nav-item" data-view="services"><span>●</span>Usługi</button>
+        <button class="nav-item" data-view="operations"><span>⌘</span>Operacje</button>
+        <button class="nav-item" data-view="chat"><span>◌</span>Czat klientów <b id="chat-badge" hidden>0</b></button>
+        <button class="nav-item" data-view="tests"><span>✓</span>Testy</button>
+        <button class="nav-item" data-view="jobs"><span>≡</span>Zadania i logi</button>
+        <button class="nav-item" data-view="terminal"><span>&gt;_</span>Terminal WSL</button>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="local-dot"></span>
+        <span><strong>Tylko lokalnie</strong><small id="local-address">127.0.0.1:18100</small></span>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MINI ORDER PLATFORM</p>
+          <h1 id="view-title">Centrum operacyjne</h1>
+        </div>
+        <div class="top-actions">
+          <a id="store-link" class="ghost-button" href="http://127.0.0.1:18070" target="_blank" rel="noreferrer">Otwórz sklep ↗</a>
+          <button id="refresh-button" class="icon-button" title="Odśwież dane" aria-label="Odśwież dane">↻</button>
+          <span class="profile-pill">Profil <strong id="profile-value">…</strong></span>
+        </div>
+      </header>
+
+      <section id="view-dashboard" class="view active">
+        <div class="hero-panel">
+          <div>
+            <p class="eyebrow accent">LOKALNE ŚRODOWISKO DEV / TEST</p>
+            <h2>Wszystko pod kontrolą.<br><span>Bez wychodzenia z WSL.</span></h2>
+            <p>Uruchamiaj mikroserwisy, odpowiadaj klientom, sprawdzaj testy i analizuj logi w jednym, lokalnym panelu.</p>
+            <div class="hero-actions">
+              <button class="primary-button quick-action" data-action="environment-check">Sprawdź środowisko</button>
+              <button class="secondary-button" data-view-target="operations">Pokaż operacje</button>
+            </div>
+          </div>
+          <div class="hero-orbit" aria-hidden="true">
+            <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+            <span class="core">14+1<small>usług</small></span>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article><span class="metric-icon green">●</span><div><strong id="metric-online">—</strong><small>usług online</small></div></article>
+          <article><span class="metric-icon orange">◆</span><div><strong>14</strong><small>osobnych baz</small></div></article>
+          <article><span class="metric-icon blue">↯</span><div><strong>24/7</strong><small>Redis + Outbox</small></div></article>
+          <article><span class="metric-icon purple">✉</span><div><strong>DEV</strong><small>Mailpit + SOPS</small></div></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">STAN PLATFORMY</p><h3>Mikroserwisy</h3></div><button class="text-button" data-view-target="services">Wszystkie →</button></div>
+            <div id="service-preview" class="service-preview"><div class="skeleton"></div></div>
+          </section>
+          <section class="panel attention-panel">
+            <div class="panel-heading"><div><p class="eyebrow">SZYBKI START</p><h3>Najczęstsze działania</h3></div></div>
+            <div class="quick-grid">
+              <button class="quick-tile quick-action" data-action="infra-up"><span>◫</span><strong>Infrastruktura</strong><small>Docker Compose</small></button>
+              <button class="quick-tile quick-action" data-action="app-run-all"><span>▶</span><strong>Uruchom usługi</strong><small>Wszystkie aplikacje</small></button>
+              <button class="quick-tile quick-action" data-action="frontend-up"><span>⌁</span><strong>Frontend</strong><small>Sklep :18070</small></button>
+              <button class="quick-tile quick-action" data-action="app-verify"><span>✓</span><strong>App Verify</strong><small>Scenariusz zakupowy</small></button>
+              <button class="quick-tile quick-action secret-quick-tile" data-action="secrets-edit-dev"><span>⌁</span><strong>Sekrety DEV</strong><small>Bezpieczna edycja SOPS</small></button>
+              <button class="quick-tile quick-action secret-quick-tile" data-action="secrets-edit-test"><span>⌁</span><strong>Sekrety TEST</strong><small>Bezpieczna edycja SOPS</small></button>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel recent-panel">
+          <div class="panel-heading"><div><p class="eyebrow">OSTATNIA AKTYWNOŚĆ</p><h3>Zadania</h3></div><button class="text-button" data-view-target="jobs">Pełny log →</button></div>
+          <div id="recent-jobs" class="job-list empty-state">Nie uruchomiono jeszcze żadnego zadania.</div>
+        </section>
+      </section>
+
+      <section id="view-services" class="view">
+        <div class="section-intro"><div><p class="eyebrow">RUNTIME</p><h2>Usługi i endpointy</h2><p>Health check ogranicza się do statusu UP/OFFLINE; szczegóły Actuator nie są ujawniane.</p></div><button class="primary-button" id="health-refresh">Sprawdź ponownie</button></div>
+        <div id="service-grid" class="service-grid"><div class="skeleton"></div></div>
+      </section>
+
+      <section id="view-operations" class="view">
+        <div class="section-intro"><div><p class="eyebrow">BIAŁA LISTA POLECEŃ</p><h2>Operacje Centrali</h2><p>Każda operacja wywołuje istniejący skrypt Bash. Polecenia zmieniające dane wymagają dodatkowego potwierdzenia.</p></div></div>
+        <div class="filter-row">
+          <label class="search-box"><span>⌕</span><input id="operation-search" type="search" placeholder="Szukaj operacji, np. backup, JWT, faktura…"></label>
+          <select id="operation-group" aria-label="Grupa operacji"><option value="">Wszystkie grupy</option></select>
+        </div>
+        <div id="operation-groups"></div>
+      </section>
+
+      <section id="view-chat" class="view">
+        <div class="section-intro"><div><p class="eyebrow accent">OBSŁUGA KLIENTA</p><h2>Wiadomości ze sklepu</h2><p>Odpowiedź pojawi się w widżecie klienta i zostanie przekazana do Notification Service jako e-mail.</p></div><button class="primary-button" id="chat-refresh">Odśwież rozmowy</button></div>
+        <div class="chat-layout">
+          <aside id="conversation-list" class="conversation-list"><div class="empty-state">Pobieram rozmowy…</div></aside>
+          <section id="conversation-detail" class="conversation-detail"><div class="empty-state tall">Wybierz rozmowę z listy.</div></section>
+        </div>
+      </section>
+
+      <section id="view-tests" class="view">
+        <div class="section-intro"><div><p class="eyebrow">QUALITY GATE</p><h2>Testy i jakość</h2><p>Od szybkiego smoke do pełnego E2E i regresji Playwright w wielu przeglądarkach.</p></div></div>
+        <div id="test-cards" class="test-grid"></div>
+      </section>
+
+      <section id="view-jobs" class="view">
+        <div class="section-intro"><div><p class="eyebrow">HISTORIA LOKALNA</p><h2>Zadania i logi</h2><p>Logi są zapisywane w prywatnym katalogu gitIgnoreOwn i nie trafią do GitHuba.</p></div><button id="jobs-refresh" class="secondary-button">Odśwież</button></div>
+        <div class="jobs-layout"><div id="job-history" class="job-history empty-state">Brak zadań.</div><pre id="job-output" class="log-output">Wybierz zadanie, aby zobaczyć log.</pre></div>
+      </section>
+
+      <section id="view-terminal" class="view">
+        <div class="section-intro"><div><p class="eyebrow">PEŁNA ZGODNOŚĆ Z CLI</p><h2>Terminal WSL</h2><p>Użyj go dla interaktywnych kreatorów SOPS, psql, Vim oraz każdej opcji starego menu.</p></div><button id="terminal-start" class="primary-button">Uruchom sesję</button></div>
+        <div class="terminal-shell">
+          <div class="terminal-bar"><span></span><span></span><span></span><strong>bash · control-center.sh</strong></div>
+          <pre id="terminal-output" class="terminal-output">Sesja nie została uruchomiona.</pre>
+          <form id="terminal-form" class="terminal-input-row"><span>$</span><input id="terminal-input" autocomplete="off" placeholder="Wpisz opcję lub tekst i naciśnij Enter" disabled><button disabled>Wyślij</button></form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="action-dialog" class="modal">
+    <form id="action-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <p class="eyebrow" id="dialog-group"></p>
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-description" class="muted"></p>
+      <div id="dialog-fields" class="form-fields"></div>
+      <label id="danger-confirm" class="danger-confirm" hidden><input type="checkbox"> Rozumiem, że ta operacja może zmienić dane lub stan środowiska.</label>
+      <div class="modal-actions"><button type="button" class="secondary-button modal-cancel">Anuluj</button><button type="submit" class="primary-button">Uruchom</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="secret-dialog" class="modal secret-modal">
+    <form id="secret-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <p class="eyebrow accent">BEZPIECZNA EDYCJA SOPS</p>
+      <h2 id="secret-dialog-title">Sekrety profilu</h2>
+      <p id="secret-dialog-status" class="secret-status"></p>
+      <p id="secret-dialog-warning" class="muted"></p>
+      <div id="secret-fields" class="secret-fields"></div>
+      <label id="secret-confirm-label" class="danger-confirm"><input id="secret-confirm" name="confirm" type="checkbox"> Rozumiem, że zapis zmienia zaszyfrowane sekrety wybranego profilu.</label>
+      <div class="modal-actions"><button type="button" class="secondary-button modal-cancel">Anuluj</button><button id="secret-submit" type="submit" class="primary-button">Zapisz zaszyfrowane</button></div>
+    </form>
+  </dialog>
+
+  <aside id="job-drawer" class="job-drawer" aria-live="polite">
+    <div><span id="drawer-status" class="status-dot running"></span><strong id="drawer-title">Zadanie</strong></div>
+    <button id="drawer-open">Pokaż log</button>
+  </aside>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js?v=20260820-secret-editor" defer></script>
+</body>
+</html>

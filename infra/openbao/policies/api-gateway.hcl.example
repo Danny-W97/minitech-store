@@ -1,0 +1,7 @@
+path "secret/data/mini-order-platform/prod/api-gateway" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/mini-order-platform/prod/api-gateway" {
+  capabilities = ["read"]
+}

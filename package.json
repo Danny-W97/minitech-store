@@ -1,0 +1,21 @@
+{
+  "name": "mini-order-platform-ui-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright browser regression tests for MiniTech Store",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "test:ui": "playwright test --project=chromium --grep-invert @full-system",
+    "test:ui:smoke": "playwright test --project=chromium --grep @smoke --grep-invert @full-system",
+    "test:ui:full": "playwright test --project=chromium",
+    "test:ui:browsers": "playwright test --grep-invert @full-system",
+    "test:ui:headed": "playwright test --project=chromium --grep-invert @full-system --headed",
+    "test:ui:debug": "playwright test --project=chromium --grep-invert @full-system --debug",
+    "test:ui:report": "playwright show-report gitIgnoreOwn/runtime/playwright/report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
+    "otplib": "13.4.1"
+  }
+}
