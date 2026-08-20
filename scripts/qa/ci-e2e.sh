@@ -67,7 +67,7 @@ start_service() {
     DB_PASSWORD="$db_password" \
     CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE" \
     MAIL_HOST=127.0.0.1 MAIL_PORT=11025 MAIL_FROM=no-reply@minitech.local \
-    java -Xms128m -Xmx256m -jar "$jar"
+    java -Xms128m -Xmx256m -XX:TieredStopAtLevel=1 -jar "$jar"
   ) > "$RUNTIME_DIRECTORY/ci-${project}.log" 2>&1 &
   APP_PIDS+=("$!")
 }
@@ -96,8 +96,8 @@ start_service api-gateway
 APP_PIDS+=("$!")
 
 wait_for() {
-  local name="$1" url="$2" elapsed=0
-  while (( elapsed < 180 )); do
+  local name="$1" url="$2" elapsed=0 timeout="${3:-360}"
+  while (( elapsed < timeout )); do
     if curl --silent --show-error --fail --connect-timeout 2 --max-time 5 "$url" >/dev/null 2>&1; then
       printf '%-15s READY\n' "$name"
       return 0
