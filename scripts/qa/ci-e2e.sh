@@ -41,7 +41,7 @@ export CHAT_DB_PASSWORD="$DB_PASSWORD_VALUE"
 export RETURNS_DB_PASSWORD="$DB_PASSWORD_VALUE"
 export BILLING_DB_PASSWORD="$DB_PASSWORD_VALUE"
 
-docker compose -p "$COMPOSE_PROJECT_NAME" -f "$PROJECT_ROOT/compose.yaml" up -d
+docker compose -p "$COMPOSE_PROJECT_NAME" -f "$PROJECT_ROOT/compose.yaml" up -d --wait
 
 start_service() {
   local project="$1"
@@ -67,7 +67,7 @@ start_service() {
     DB_PASSWORD="$db_password" \
     CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE" \
     MAIL_HOST=127.0.0.1 MAIL_PORT=11025 MAIL_FROM=no-reply@minitech.local \
-    java -XX:MaxRAMPercentage=50.0 -jar "$jar"
+    java -Xms128m -Xmx256m -jar "$jar"
   ) > "$RUNTIME_DIRECTORY/ci-${project}.log" 2>&1 &
   APP_PIDS+=("$!")
 }
@@ -106,6 +106,12 @@ wait_for() {
     elapsed=$((elapsed + 2))
   done
   printf '%-15s TIMEOUT\n' "$name" >&2
+  for log_path in "$RUNTIME_DIRECTORY/ci-${name}.log" "$RUNTIME_DIRECTORY/ci-${name}-service.log"; do
+    if [[ -f "$log_path" ]]; then
+      printf '=== SERWIS LOG: %s ===\n' "$log_path" >&2
+      cat "$log_path" >&2
+    fi
+  done
   return 1
 }
 
