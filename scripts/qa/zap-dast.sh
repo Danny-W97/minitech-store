@@ -18,7 +18,7 @@ for command in curl docker python3; do
 done
 
 mkdir -p "$REPORT_DIRECTORY"
-chmod 700 "$REPORT_DIRECTORY"
+chmod 777 "$REPORT_DIRECTORY"
 
 curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
   "$BASE_URL/actuator/health" >/dev/null || {
