@@ -760,7 +760,7 @@ function syncGuestContactFields() {
     if (guestContactFields) {
         guestContactFields.hidden = !isGuest;
         if (deliveryEmailInput) deliveryEmailInput.required = isGuest;
-        if (deliveryPhoneInput) deliveryPhoneInput.required = isGuest;
+        if (deliveryPhoneInput) deliveryPhoneInput.required = false;
     }
     if (recipientEmailField) {
         recipientEmailField.hidden = isGuest;
