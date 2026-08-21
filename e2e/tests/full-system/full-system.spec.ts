@@ -23,7 +23,8 @@ test.describe('Pełny system w przeglądarce', () => {
     const card = page.locator('.product-card').filter({ hasText: selected!.name });
     await expect(card).toBeVisible();
     await card.locator('button[data-action="add"]').click();
-    await page.locator('#cart-toggle').click();
+    await page.locator('#cart-area').hover();
+    await expect(page.locator('#cart-preview')).toBeVisible();
     await page.locator('#cart-preview-checkout').click();
     await page.locator('#cart-checkout').click();
     await page.locator('#checkout-choice-guest').click();
