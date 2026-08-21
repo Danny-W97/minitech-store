@@ -28,6 +28,7 @@ test.describe('Pełny system w przeglądarce', () => {
     await page.locator('#cart-preview-checkout').click();
     await page.locator('#cart-checkout').click();
     await page.locator('#checkout-choice-guest').click();
+    await page.locator('#delivery-method').selectOption('STANDARD_COURIER');
 
     const email = `playwright-${Date.now()}@minitech.local`;
     await page.locator('#delivery-first-name').fill('Browser');
