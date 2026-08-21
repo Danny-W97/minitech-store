@@ -43,6 +43,7 @@ USER root
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && rm -f /usr/bin/pebble \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
