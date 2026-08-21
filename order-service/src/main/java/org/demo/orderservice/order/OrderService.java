@@ -235,7 +235,8 @@ public class OrderService {
                         order.getDeliveryStreet(),
                         order.getDeliveryPostalCode(),
                         order.getDeliveryCity(),
-                        order.getDeliveryCountry()
+                        order.getDeliveryCountry(),
+                        order.getDeliveryPhone()
                 ),
                 order.getDeliveryMethod(),
                 order.getDeliveryCost(),

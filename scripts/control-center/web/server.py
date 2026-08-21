@@ -282,6 +282,7 @@ def build_actions() -> list[dict[str, Any]]:
     ]
     result.extend(action(command, title, "Testy", description, command) for command, title, description in tests)
     result.extend([
+        action("resilience-test", "Chaos / Test odporności", "Testy", "Symuluje awarię wybranego mikroserwisu i sprawdza izolację awarii oraz degradację.", "resilience-test", [f("service", "Wybrany mikroserwis", "select", options=["payment-service", "inventory-service", "product-service", "order-service", "customer-service", "delivery-service", "promotion-service", "notification-service", "chat-service", "returns-service", "billing-service"], default="payment-service")]),
         action("app-test", "Testy Maven", "Budowanie", "Uruchamia testy serwisu albo monorepo.", "app-test", [f("service", "Zakres", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
         action("app-package", "Pakietowanie Maven", "Budowanie", "Buduje jeden serwis albo całe monorepo.", "app-package", [f("service", "Zakres", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
         action("images-build", "Obrazy Docker", "Budowanie", "Buduje lokalne obrazy wszystkich aplikacji.", "images-build"),

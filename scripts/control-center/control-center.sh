@@ -2660,6 +2660,10 @@ qa_e2e() {
   bash "$PROJECT_ROOT/scripts/qa/e2e.sh"
 }
 
+qa_resilience_test() {
+  bash "$PROJECT_ROOT/scripts/qa/resilience-test.sh" "$@"
+}
+
 ui_package_manager() {
   if command -v pnpm >/dev/null 2>&1; then
     printf 'pnpm'
@@ -4595,6 +4599,7 @@ command_dispatch() {
     security-test) qa_security_test ;;
     zap-dast) qa_zap_dast ;;
     load-test) qa_load_test ;;
+    resilience-test) shift; qa_resilience_test "$@" ;;
     e2e) qa_e2e ;;
     ui-test-status) qa_ui_status ;;
     ui-test-install) qa_ui_install ;;

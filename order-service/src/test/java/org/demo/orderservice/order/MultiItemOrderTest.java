@@ -58,7 +58,7 @@ class MultiItemOrderTest {
                 null,
                 7L,
                 "buyer@example.com",
-                new DeliveryAddressRequest("Jan", "Kowalski", "Testowa 1", "00-001", "Warszawa", "Polska"),
+                new DeliveryAddressRequest("Jan", "Kowalski", "Testowa 1", "00-001", "Warszawa", "Polska", null),
                 "STANDARD_COURIER",
                 new BigDecimal("9.99"),
                 null,

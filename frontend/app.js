@@ -175,6 +175,9 @@ const checkoutModeText = document.querySelector('#checkout-mode-text');
 const deliveryMethod = document.querySelector('#delivery-method');
 const deliveryDate = document.querySelector('#delivery-date');
 const deliveryAddressFields = document.querySelector('#delivery-address-fields');
+const guestContactFields = document.querySelector('#guest-contact-fields');
+const deliveryEmailInput = document.querySelector('#delivery-email');
+const deliveryPhoneInput = document.querySelector('#delivery-phone');
 const pickupLocationField = document.querySelector('#pickup-location-field');
 const pickupLocation = document.querySelector('#pickup-location');
 const deliveryQuote = document.querySelector('#delivery-quote');
@@ -409,6 +412,10 @@ document.querySelector('#delivery-postal-code')?.addEventListener('change', () =
 invoiceRequested?.addEventListener('change', syncBillingUi);
 billingCompany?.addEventListener('change', syncBillingUi);
 billingTaxId?.addEventListener('input', validateBillingTaxId);
+deliveryEmailInput?.addEventListener('input', () => {
+    const recipientEmail = document.querySelector('#recipient-email');
+    if (recipientEmail) recipientEmail.value = deliveryEmailInput.value;
+});
 authToggle.addEventListener('click', openAuthModal);
 accountMenuProfile.addEventListener('click', openProfilePanel);
 accountMenuOrders.addEventListener('click', openOrderHistoryPanel);
@@ -744,6 +751,21 @@ function syncDeliveryModeUi() {
     }
     if (pickupLocationField) pickupLocationField.hidden = !pickup;
     if (deliveryDate) deliveryDate.required = true;
+}
+
+function syncGuestContactFields() {
+    const isGuest = purchaseMode !== 'account' || !state.customer;
+    const recipientEmailField = document.querySelector('#recipient-email-field');
+    const recipientEmailInput = document.querySelector('#recipient-email');
+    if (guestContactFields) {
+        guestContactFields.hidden = !isGuest;
+        if (deliveryEmailInput) deliveryEmailInput.required = isGuest;
+        if (deliveryPhoneInput) deliveryPhoneInput.required = false;
+    }
+    if (recipientEmailField) {
+        recipientEmailField.hidden = isGuest;
+        if (recipientEmailInput) recipientEmailInput.required = !isGuest;
+    }
 }
 
 function cartSubtotal() {
@@ -1733,7 +1755,8 @@ async function submitCheckout(event) {
         return;
     }
 
-    const recipient = document.querySelector('#recipient-email').value.trim();
+    const recipient = document.querySelector('#recipient-email').value.trim()
+        || deliveryEmailInput?.value.trim() || '';
     const paymentMethod = document.querySelector('#payment-method').value;
     if (purchaseMode === 'account' && !state.customer) {
         setCheckoutStatus('Wybrano zakup przez konto. Zaloguj się przyciskiem obok koszyka.', true);
@@ -1923,8 +1946,9 @@ function showCheckoutPage() {
     } else {
         clearCustomerCheckoutFields();
         checkoutModeText.textContent = 'Kupuję jako gość';
-        setCheckoutStatus('Kupujesz jako gość. Wpisz dane dostawy i e-mail.');
+        setCheckoutStatus('Kupujesz jako gość. Wpisz dane dostawy, e-mail i telefon.');
     }
+    syncGuestContactFields();
     renderDeliveryMethods();
     renderPriceSummary();
     loadDeliveryQuote().catch(() => {});
@@ -1986,7 +2010,9 @@ function renderCheckoutSummary() {
         ? (pickupLocation?.value || 'MiniTech Store — Warszawa')
         : [address.firstName, address.lastName, address.street, address.postalCode, address.city, address.country]
             .filter(Boolean).join(', ');
-    checkoutSummaryEmail.textContent = document.querySelector('#recipient-email')?.value.trim() || '—';
+    const recipientEmail = document.querySelector('#recipient-email')?.value.trim()
+        || deliveryEmailInput?.value.trim() || '—';
+    checkoutSummaryEmail.textContent = recipientEmail;
     checkoutSummaryAddress.textContent = addressText || '—';
     checkoutSummaryDelivery.textContent = `${state.deliveryQuote?.name || '—'} · ${formatDeliveryDate(deliveryDate?.value || state.deliveryQuote?.selectedDate)}`;
     checkoutSummaryPayment.textContent = document.querySelector('#payment-method')?.selectedOptions[0]?.textContent || '—';
@@ -2019,6 +2045,8 @@ function clearCustomerCheckoutFields() {
     document.querySelector('#delivery-city').value = '';
     document.querySelector('#delivery-country').value = 'Polska';
     document.querySelector('#recipient-email').value = '';
+    if (deliveryEmailInput) deliveryEmailInput.value = '';
+    if (deliveryPhoneInput) deliveryPhoneInput.value = '';
 }
 
 function openAuthModal() {
@@ -2904,7 +2932,8 @@ function readDeliveryAddress() {
         street: pickup ? 'MiniTech Store' : document.querySelector('#delivery-street').value.trim(),
         postalCode: pickup ? '00-001' : document.querySelector('#delivery-postal-code').value.trim(),
         city: pickup ? 'Warszawa' : document.querySelector('#delivery-city').value.trim(),
-        country: pickup ? 'Polska' : document.querySelector('#delivery-country').value.trim()
+        country: pickup ? 'Polska' : document.querySelector('#delivery-country').value.trim(),
+        phone: deliveryPhoneInput?.value.trim() || null
     };
 }
 
@@ -2970,6 +2999,9 @@ function fillCustomer(customer) {
     document.querySelector('#delivery-postal-code').value = customer.postalCode || '';
     document.querySelector('#delivery-city').value = customer.city || '';
     document.querySelector('#delivery-country').value = customer.country || 'Polska';
+    if (deliveryPhoneInput) deliveryPhoneInput.value = customer.phoneNumber || '';
+    if (deliveryEmailInput) deliveryEmailInput.value = customer.email || '';
+    syncGuestContactFields();
 }
 
 function setSession(session) {

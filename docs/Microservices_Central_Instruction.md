@@ -620,6 +620,7 @@ uruchomionych mikroserwisów HTTP.
 | `contract-test` | OpenAPI Gateway zgodne z kontraktem API v1 | Gateway | Odczyt |
 | `security-test` | JWT, błędny Bearer, minimalny payload Actuator i ekspozycję sekretów | Gateway i Customer | Odczyt |
 | `load-test` | 100 żądań katalogu, domyślnie 10 równoległych | Gateway i Product | Odczyt, obciążenie lokalne |
+| `resilience-test` | Izolację awarii mikroserwisu (np. payment-service) oraz kontrolowaną degradację | Uruchomione środowisko (profil dev lub test) | Chwilowo wyłącza serwis, a po teście sam go przywraca |
 | `delivery-smoke` / `promotion-smoke` | Wyceny dostaw i aktywną kampanię | Delivery/Promotion | Odczyt |
 | `mailpit-smoke` | Notification Service → SMTP Mailpit | Notification, Redis, Mailpit | Dodaje testową wiadomość |
 | `app-verify` | Zamówienie → płatność → magazyn → e-mail | Wszystkie mikroserwisy, Redis, Mailpit | Tworzy zamówienie i zmniejsza magazyn |
@@ -660,6 +661,7 @@ bash scripts/control-center/control-center.sh e2e
 bash scripts/control-center/control-center.sh contract-test
 bash scripts/control-center/control-center.sh security-test
 bash scripts/control-center/control-center.sh load-test
+bash scripts/control-center/control-center.sh resilience-test
 bash scripts/control-center/control-center.sh zap-dast
 bash scripts/control-center/control-center.sh ui-test-status
 bash scripts/control-center/control-center.sh ui-test-smoke
@@ -691,6 +693,28 @@ Te same operacje są dostępne w menu interaktywnym:
 - `Menu główne → 2. Projekty i aplikacje → 1. Uruchamianie i status → 6` — health wszystkich aplikacji,
 - `Menu główne → 4. Profile i Mailpit → 8` — Mailpit smoke,
 - `Menu główne → 4. Profile i Mailpit → 24` — OWASP ZAP/DAST.
+
+### 9.2.1. Test odporności na awarię mikroserwisu (Chaos / Resilience Test)
+
+**Co robi i co sprawdza test:**
+- Symuluje awarię pojedynczego mikroserwisu (domyślnie `payment-service`).
+- **Izolacja awarii (Fault Isolation)**: Weryfikuje, że wyłączenie serwisu płatności **nie wpływa** na pozostałe działające usługi (katalog produktów `GET /api/products` i API Gateway odpowiadają bez przeszkód).
+- **Kontrolowana degradacja (Graceful Degradation)**: Upewnia się, że próba wywołania wyłączonego serwisu zwraca kontrolowany błąd (HTTP 503 Service Unavailable / 500) zamiast zablokowania lub unieruchomienia całego systemu.
+- **Automatyczne przywracanie**: Po wykonaniu pomiarów test samoczynnie włącza i przywraca sprawność zatrzymanego serwisu.
+
+**Przygotowanie i uruchomienie krok po kroku:**
+1. **Status aplikacji przed testem**:
+   - **NIE trzeba ręcznie wyłączać aplikacji ani restartować środowiska przed uruchomieniem testu.**
+   - Test jest przeznaczony do uruchomienia na **działającym środowisku w profilu `test`** (lub `dev`). Test sam wykryje uruchomione procesy/kontenery i sam obsłuży symulację awarii oraz automatyczne przywrócenie.
+2. **Krok 1 — Ustawienie profilu `test`**:
+   - W przeglądarkowym Control Center (`http://127.0.0.1:18100`): kliknij menu w prawym górnym rogu lub w zakładce *Profile i sekrety*, wybierz profil **`test`** i zatwierdź.
+   - W terminalu: `bash scripts/control-center/control-center.sh profile-set test`.
+3. **Krok 2 — Uruchomienie aplikacji (jeśli nie działają)**:
+   - W Control Center: uruchom infrastrukturę i mikroserwisy (`Uruchom aplikacje`).
+   - W terminalu: `bash scripts/control-center/control-center.sh app-run-all`.
+4. **Krok 3 — Uruchomienie testu odporności**:
+   - W przeglądarkowym Control Center: Przejdź do zakładki **`Testy`** i kliknij **`Uruchom test`** na kafelku **Chaos / Test odporności**.
+   - W terminalu: `bash scripts/control-center/control-center.sh resilience-test` (lub z podaniem nazwy serwisu, np. `resilience-test payment-service`).
 
 ### 9.3. Smoke a App Verify
 

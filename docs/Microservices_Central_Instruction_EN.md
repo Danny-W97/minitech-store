@@ -642,6 +642,7 @@ tests do not require already-running HTTP services.
 | `contract-test` | public API v1 against Gateway OpenAPI | Gateway | read-only |
 | `security-test` | JWT boundaries, invalid Bearer, safe Actuator payload, secret exposure | Gateway, Customer | read-only |
 | `load-test` | default 100 catalogue requests, 10 concurrent | Gateway, Product | read-only load |
+| `resilience-test` | Chaos test simulating service failure (e.g. payment-service) | Running environment (test/dev profile) | Temporarily stops target service, auto-restores afterwards |
 | `delivery-smoke` / `promotion-smoke` | delivery quotes and active campaign | Delivery/Promotion | read-only |
 | `mailpit-smoke` | Notification → SMTP Mailpit | Notification, Redis, Mailpit | adds a message |
 | `app-verify` | order → payment → inventory → e-mail | full backend, Redis, Mailpit | creates an order and changes stock |

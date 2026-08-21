@@ -36,7 +36,8 @@ test.describe('Pełny system w przeglądarce', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill(email);
+    await page.locator('#delivery-email').fill(email);
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#checkout-to-summary').click();
     await expect(page.locator('#checkout-summary-step')).toBeVisible();
     await page.locator('#checkout-summary-submit').click();
