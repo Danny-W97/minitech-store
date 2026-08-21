@@ -766,6 +766,7 @@ można użyć `pnpm run test:ui:smoke`, `pnpm run test:ui` oraz
 | Contract | Zgodność OpenAPI Gateway z kontraktem publicznego API v1 | `contract-test` / menu `Testy i jakość API → 5` |
 | Security | Ochronę JWT, błędny Bearer, ograniczenie Actuator i brak nazw sekretów w OpenAPI | `security-test` / menu `Testy i jakość API → 6` |
 | Load | 100 żądań katalogu przy równoległości 10; parametry można zmienić | `load-test` / menu `Testy i jakość API → 7` |
+| Resilience (Chaos) | Izolację awarii mikroserwisu (np. payment) oraz kontrolowaną degradację | `resilience-test` / w przeglądarce kafel `Chaos / Test odporności` |
 | OWASP ZAP DAST | Aktywny skan API Gateway w kontenerze ZAP | `zap-dast` w menu `Profile i Mailpit` |
 
 Bezpośrednio przez skrypty:
@@ -774,6 +775,7 @@ Bezpośrednio przez skrypty:
 bash scripts/qa/contract-test.sh
 bash scripts/qa/security-test.sh
 LOAD_REQUESTS=100 LOAD_CONCURRENCY=10 bash scripts/qa/load-test.sh
+bash scripts/qa/resilience-test.sh
 bash scripts/qa/zap-dast.sh
 ```
 

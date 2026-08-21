@@ -269,6 +269,7 @@ def build_actions() -> list[dict[str, Any]]:
         ("security-test", "Test bezpieczeństwa API", "Sprawdza podstawowe zabezpieczenia endpointów."),
         ("zap-dast", "OWASP ZAP DAST", "Uruchamia skaner dynamiczny API Gateway."),
         ("load-test", "Test obciążeniowy", "Wysyła kontrolowany ruch do lokalnego API."),
+        ("resilience-test", "Chaos / Test odporności", "Symuluje awarię mikroserwisu i sprawdza izolację awarii oraz degradację."),
         ("e2e", "Pełny E2E API", "Rejestracja, JWT, zakup, płatność i Mailpit."),
         ("ui-test-status", "Status Playwright", "Sprawdza Node, pakiety i przeglądarki."),
         ("ui-test-install", "Instalacja Playwright", "Instaluje zależności testów i Chromium."),
