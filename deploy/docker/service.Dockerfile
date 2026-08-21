@@ -41,6 +41,7 @@ FROM eclipse-temurin:25-jre
 
 USER root
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
