@@ -55,7 +55,8 @@ class OrderSagaPostgresIT {
                         "Testowa 1",
                         "00-001",
                         "Warszawa",
-                        "Polska"
+                        "Polska",
+                        null
                 ),
                 "integration-saga"
         );

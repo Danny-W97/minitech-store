@@ -28,7 +28,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill('guest@minitech.local');
+    await page.locator('#delivery-email').fill('guest@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await expect(page.locator('#delivery-date option')).not.toHaveCount(0);
 
     await page.locator('#promotion-code').fill('WELCOME10');
@@ -69,7 +70,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill('stock@minitech.local');
+    await page.locator('#delivery-email').fill('stock@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#checkout-to-summary').click();
 
     await expect(page.locator('#checkout-summary-step')).toBeVisible();
@@ -94,7 +96,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill('soldout@minitech.local');
+    await page.locator('#delivery-email').fill('soldout@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#checkout-to-summary').click();
 
     await expect(page.locator('#checkout-summary-step')).toBeVisible();
@@ -125,7 +128,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill('zero@minitech.local');
+    await page.locator('#delivery-email').fill('zero@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#checkout-to-summary').click();
 
     await expect(page.locator('#checkout-summary-step')).toBeHidden();
@@ -142,7 +146,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#checkout-choice-guest').click();
     await page.locator('#delivery-first-name').fill('Jan');
     await page.locator('#delivery-last-name').fill('Kowalski');
-    await page.locator('#recipient-email').fill('pickup@minitech.local');
+    await page.locator('#delivery-email').fill('pickup@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#delivery-method').selectOption('STORE_PICKUP');
     await expect(page.locator('#delivery-address-fields')).toBeHidden();
     await expect(page.locator('#pickup-location-field')).toBeVisible();
@@ -180,7 +185,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill('invoice@minitech.local');
+    await page.locator('#delivery-email').fill('invoice@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#invoice-requested').check();
     await page.locator('#billing-company').check();
 
@@ -216,7 +222,8 @@ test.describe('Finalizacja zamówienia', () => {
     await page.locator('#delivery-street').fill('Testowa 1');
     await page.locator('#delivery-postal-code').fill('00-001');
     await page.locator('#delivery-city').fill('Warszawa');
-    await page.locator('#recipient-email').fill('retry@minitech.local');
+    await page.locator('#delivery-email').fill('retry@minitech.local');
+    await page.locator('#delivery-phone').fill('+48 123 456 789');
     await page.locator('#checkout-to-summary').click();
     await page.locator('#checkout-summary-submit').click();
 

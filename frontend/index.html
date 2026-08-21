@@ -272,6 +272,12 @@
                         <label>Imię<input id="delivery-first-name" type="text" autocomplete="given-name" required></label>
                         <label>Nazwisko<input id="delivery-last-name" type="text" autocomplete="family-name" required></label>
                     </div>
+                    <div id="guest-contact-fields">
+                        <div class="form-grid">
+                            <label>E-mail kontaktowy<input id="delivery-email" type="email" placeholder="ty@example.com" autocomplete="email" required></label>
+                            <label>Numer telefonu<input id="delivery-phone" type="tel" placeholder="+48 123 456 789" autocomplete="tel" required></label>
+                        </div>
+                    </div>
                     <div id="delivery-address-fields">
                         <label>Ulica i numer<input id="delivery-street" type="text" autocomplete="street-address" required></label>
                         <div class="form-grid">
@@ -345,10 +351,12 @@
                         </div>
                         <p class="form-hint">Rozliczenie demonstracyjne z podstawową stawką VAT 23%.</p>
                     </aside>
-                    <label>
-                        E-mail do potwierdzenia
-                        <input id="recipient-email" type="email" placeholder="ty@example.com" autocomplete="email" required>
-                    </label>
+                    <div id="recipient-email-field">
+                        <label>
+                            E-mail do potwierdzenia
+                            <input id="recipient-email" type="email" placeholder="ty@example.com" autocomplete="email" required>
+                        </label>
+                    </div>
                     <section class="billing-option">
                         <label class="checkbox-label"><input id="invoice-requested" type="checkbox"> Chcę otrzymać fakturę</label>
                         <div id="billing-data" class="billing-data" hidden>

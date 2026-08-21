@@ -6,6 +6,7 @@ public record DeliveryAddressResponse(
         String street,
         String postalCode,
         String city,
-        String country
+        String country,
+        String phone
 ) {
 }

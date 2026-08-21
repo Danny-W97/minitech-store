@@ -67,6 +67,9 @@ public class Order {
     @Column(name = "delivery_country", nullable = false, length = 120)
     private String deliveryCountry;
 
+    @Column(name = "delivery_phone", length = 30)
+    private String deliveryPhone;
+
     @Column(name = "delivery_method", nullable = false, length = 40)
     private String deliveryMethod;
 
@@ -162,6 +165,7 @@ public class Order {
         this.deliveryPostalCode = address.postalCode().trim();
         this.deliveryCity = address.city().trim();
         this.deliveryCountry = address.country().trim();
+        this.deliveryPhone = address.phone() == null || address.phone().isBlank() ? null : address.phone().trim();
         this.deliveryMethod = deliveryMethod == null || deliveryMethod.isBlank()
                 ? "STANDARD_COURIER" : deliveryMethod.trim().toUpperCase();
         this.deliveryCost = deliveryCost == null ? BigDecimal.ZERO : deliveryCost.setScale(2, java.math.RoundingMode.HALF_UP);
@@ -238,6 +242,7 @@ public class Order {
     public String getDeliveryPostalCode() { return deliveryPostalCode; }
     public String getDeliveryCity() { return deliveryCity; }
     public String getDeliveryCountry() { return deliveryCountry; }
+    public String getDeliveryPhone() { return deliveryPhone; }
     public String getDeliveryMethod() { return deliveryMethod; }
     public BigDecimal getDeliveryCost() { return deliveryCost; }
     public String getPromotionCode() { return promotionCode; }
