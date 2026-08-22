@@ -43,6 +43,7 @@ CONTROL_SCRIPT = PROJECT_ROOT / "scripts" / "control-center" / "control-center.s
 RUNTIME_ROOT = PROJECT_ROOT / "gitIgnoreOwn" / "runtime" / "control-center-web"
 JOB_ROOT = RUNTIME_ROOT / "jobs"
 ACTIVE_PROFILE_FILE = PROJECT_ROOT / "gitIgnoreOwn" / "runtime" / "active-profile"
+LANGUAGE_FILE = PROJECT_ROOT / "gitIgnoreOwn" / "runtime" / "language"
 GATEWAY_API = "http://127.0.0.1:18080/api"
 ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 MAX_BODY = 1_048_576
@@ -167,138 +168,164 @@ def action(
     return value
 
 
-def build_actions() -> list[dict[str, Any]]:
-    profile = f("profile", "Profil", "select", options=["dev", "test"], default="dev")
-    service = f("service", "Serwis", "select", options=SERVICE_OPTIONS, default="product")
-    database = f("database", "Baza / serwis", "select", options=["all", *DB_OPTIONS], default="all")
-    limit = f("limit", "Limit", "number", default=50, min=1, max=1000)
+def build_actions(lang: str = "pl") -> list[dict[str, Any]]:
+    is_en = lang == "en"
+    profile_label = "Profile" if is_en else "Profil"
+    service_label = "Service" if is_en else "Serwis"
+    database_label = "Database / service" if is_en else "Baza / serwis"
+    limit_label = "Limit"
+
+    profile = f("profile", profile_label, "select", options=["dev", "test"], default="dev")
+    service = f("service", service_label, "select", options=SERVICE_OPTIONS, default="product")
+    database = f("database", database_label, "select", options=["all", *DB_OPTIONS], default="all")
+    limit = f("limit", limit_label, "number", default=50, min=1, max=1000)
+
+    grp_diag = "Startup & diagnostics" if is_en else "Start i diagnostyka"
+    grp_sec_prof = "Profiles & secrets" if is_en else "Profile i sekrety"
+    grp_settings = "Settings" if is_en else "Ustawienia"
+    grp_security = "Security" if is_en else "Bezpieczeństwo"
+    grp_infra = "Infrastructure" if is_en else "Infrastruktura"
+    grp_db = "Databases" if is_en else "Bazy danych"
+    grp_backup = "Backups" if is_en else "Backupy"
+    grp_demo = "Demo data" if is_en else "Dane demonstracyjne"
+    grp_apps = "Applications" if is_en else "Aplikacje"
+    grp_frontend = "Frontend" if is_en else "Frontend"
+    grp_events = "Redis & events" if is_en else "Redis i zdarzenia"
+    grp_monitoring = "Monitoring & DLQ" if is_en else "Monitoring i DLQ"
+    grp_mail = "Mailpit" if is_en else "Mailpit"
+    grp_store = "Store operations" if is_en else "Operacje sklepu"
+    grp_tests = "Tests" if is_en else "Testy"
+    grp_build = "Building" if is_en else "Budowanie"
+    grp_docs = "API documentation" if is_en else "Dokumentacja API"
+    grp_prod = "Prod — validation only" if is_en else "Prod — tylko walidacja"
+
     result = [
-        action("environment-check", "Kontrola przed startem", "Start i diagnostyka", "Sprawdza WSL, JDK, Docker, sekrety i pliki projektu.", "environment-check"),
-        action("doctor", "Doctor środowiska", "Start i diagnostyka", "Pełna diagnostyka działającego środowiska.", "doctor"),
-        action("github-check", "Kontrola przed GitHub", "Start i diagnostyka", "Szuka sekretów i prywatnych artefaktów przed publikacją.", "github-check"),
-        action("platform-info", "Informacje o platformie", "Start i diagnostyka", "Pokazuje wykryty system i adapter uruchomieniowy.", "platform-info"),
-        action("profile-show", "Aktywny profil", "Profile i sekrety", "Pokazuje profil dev/test używany przez Centralę.", "profile-show"),
-        action("profile-set", "Zmień profil", "Profile i sekrety", "Ustawia aktywny profil lokalny.", "profile-set", [profile]),
-        action("language-show", "Język menu terminalowego", "Ustawienia", "Pokazuje język klasycznego menu Centrali.", "language-show"),
-        action("language-set", "Zmień język menu terminalowego", "Ustawienia", "Ustawia polski albo angielski język klasycznego menu Centrali.", "language-set", [f("language", "Język", "select", options=["pl", "en"], default="pl")]),
-        action("secrets-status", "Status skarbca", "Profile i sekrety", "Sprawdza SOPS, age, klucze i zaszyfrowane pliki bez ujawniania wartości.", "secrets-status"),
-        action("secrets-validate", "Waliduj sekrety", "Profile i sekrety", "Sprawdza komplet wymaganych nazw sekretów.", "secrets-validate", [profile]),
-        action("secrets-init", "Inicjalizuj klucze age", "Profile i sekrety", "Tworzy brakujące klucze profili dev/test.", "secrets-init", danger=True),
-        action("secrets-setup-dev", "Utwórz sekrety DEV", "Profile i sekrety", "Tworzy pierwszy zaszyfrowany plik sekretów profilu dev bez logowania wartości.", "secrets-setup-web", danger=True, secret_profile="dev", secret_mode="secret-setup"),
-        action("secrets-setup-test", "Utwórz sekrety TEST", "Profile i sekrety", "Tworzy pierwszy zaszyfrowany plik sekretów profilu test bez logowania wartości.", "secrets-setup-web", danger=True, secret_profile="test", secret_mode="secret-setup"),
-        action("secrets-ensure-auth", "Uzupełnij sekret JWT", "Profile i sekrety", "Generuje brakujący materiał JWT bez jego wyświetlania.", "secrets-ensure-auth", [profile], danger=True),
-        action("secrets-edit-dev", "Edytuj sekrety DEV", "Profile i sekrety", "Otwiera bezpieczny formularz aktualizacji sekretów profilu dev; wartości pozostają ukryte.", "secrets-update-web", danger=True, secret_profile="dev"),
-        action("secrets-edit-test", "Edytuj sekrety TEST", "Profile i sekrety", "Otwiera bezpieczny formularz aktualizacji sekretów profilu test; wartości pozostają ukryte.", "secrets-update-web", danger=True, secret_profile="test"),
-        action("jwt-status", "Status JWT", "Bezpieczeństwo", "Pokazuje konfigurację JWT bez tokenów i kluczy prywatnych.", "jwt-status"),
-        action("jwt-rotate", "Rotuj klucze JWT", "Bezpieczeństwo", "Generuje nowy klucz RSA i zachowuje poprzedni klucz publiczny.", "jwt-rotate", [profile], danger=True),
-        action("jwt-smoke", "Smoke JWT", "Bezpieczeństwo", "Sprawdza login, /me, refresh i logout.", "jwt-smoke", [f("email", "E-mail (opcjonalnie)", required=False)]),
-        action("audit-list", "Dziennik audytowy", "Bezpieczeństwo", "Pokazuje zdarzenia bezpieczeństwa Customer Service.", "audit-list", [limit]),
-        action("password-reset-request", "Reset hasła", "Bezpieczeństwo", "Wysyła link resetu hasła do Mailpit.", "password-reset-request", [f("email", "E-mail", "email", required=True)]),
-        action("infra-up", "Uruchom infrastrukturę", "Infrastruktura", "Uruchamia bazy, Redis i Mailpit z aktywnymi sekretami.", "infra-up"),
-        action("infra-down", "Zatrzymaj infrastrukturę", "Infrastruktura", "Zatrzymuje lokalne kontenery infrastruktury.", "infra-down", danger=True),
-        action("infra-status", "Status Docker Compose", "Infrastruktura", "Pokazuje wszystkie kontenery projektu.", "infra-status"),
-        action("infra-logs", "Logi infrastruktury", "Infrastruktura", "Pokazuje ostatnie logi wszystkich kontenerów infrastruktury.", "infra-logs"),
-        action("db-list", "Mapa baz i portów", "Bazy danych", "Pokazuje właścicieli, nazwy i porty baz PostgreSQL.", "db-list"),
-        action("db-up", "Uruchom bazę/bazy", "Bazy danych", "Uruchamia wskazaną bazę lub wszystkie bazy.", "db-up", [database]),
-        action("db-down", "Zatrzymaj bazę/bazy", "Bazy danych", "Zatrzymuje wskazaną bazę lub wszystkie bazy.", "db-down", [database], danger=True),
-        action("db-status", "Status baz", "Bazy danych", "Pokazuje stan kontenerów PostgreSQL.", "db-status", [database]),
-        action("db-logs", "Logi bazy", "Bazy danych", "Pokazuje ostatnie logi wybranej bazy.", "db-logs", [database]),
-        action("db-backup", "Wykonaj backup", "Backupy", "Tworzy szyfrowany backup jednej lub wszystkich baz.", "db-backup", [database]),
-        action("db-backup-list", "Lista backupów", "Backupy", "Pokazuje dostępne backupy aktywnego profilu.", "db-backup-list", [database]),
-        action("db-restore-test", "Test odtworzenia", "Backupy", "Odtwarza backup do bazy testowej i weryfikuje wynik.", "db-restore-test", [database], danger=True),
-        action("db-backup-prune", "Retencja backupów", "Backupy", "Usuwa backupy starsze niż podana liczba dni.", "db-backup-prune", [f("days", "Liczba dni", "number", default=14, min=1)], danger=True),
-        action("backup-key-init", "Klucz backupów", "Backupy", "Przygotowuje klucz age do szyfrowania kopii.", "backup-key-init", [profile], danger=True),
-        action("backup-schedule-install", "Harmonogram backupu", "Backupy", "Instaluje codzienny harmonogram w WSL.", "backup-schedule-install", [f("hour", "Godzina UTC", "number", default=2, min=0, max=23)], danger=True),
-        action("backup-schedule-status", "Status harmonogramu", "Backupy", "Pokazuje konfigurację automatycznych backupów.", "backup-schedule-status"),
-        action("backup-schedule-remove", "Usuń harmonogram", "Backupy", "Usuwa wpis automatycznego backupu.", "backup-schedule-remove", danger=True),
-        action("inventory-reset", "Reset magazynu demo", "Dane demonstracyjne", "Przywraca bazowe ilości magazynowe.", "inventory-reset", danger=True),
-        action("demo-reset", "Reset danych demo", "Dane demonstracyjne", "Czyści dane transakcyjne i odtwarza demonstrację.", "demo-reset", danger=True),
-        action("app-run", "Uruchom serwis", "Aplikacje", "Uruchamia jeden mikroserwis przez Maven.", "app-run", [service, profile]),
-        action("app-run-all", "Uruchom wszystkie usługi", "Aplikacje", "Uruchamia 15 usług w tle z aktywnym profilem.", "app-run-all"),
-        action("app-stop-all", "Zatrzymaj usługi", "Aplikacje", "Zatrzymuje procesy uruchomione przez Centralę.", "app-stop-all", danger=True),
-        action("app-status-all", "Status procesów", "Aplikacje", "Pokazuje PID, port i stan wszystkich usług.", "app-status-all"),
-        action("app-logs", "Logi mikroserwisu", "Aplikacje", "Pokazuje ostatni log wskazanej usługi.", "app-logs", [service]),
-        action("health", "Dostępność usług", "Aplikacje", "Sprawdza endpointy wszystkich usług.", "health", [f("service", "Serwis", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
-        action("frontend-up", "Uruchom sklep", "Frontend", "Uruchamia lokalny frontend na porcie 18070.", "frontend-up"),
-        action("frontend-down", "Zatrzymaj sklep", "Frontend", "Zatrzymuje lokalny frontend.", "frontend-down", danger=True),
-        action("frontend-status", "Status frontendu", "Frontend", "Sprawdza proces i adres sklepu.", "frontend-status"),
-        action("frontend-logs", "Logi frontendu", "Frontend", "Pokazuje log serwera statycznego.", "frontend-logs"),
-        action("broker-up", "Uruchom Redis", "Redis i zdarzenia", "Uruchamia Event Broker.", "broker-up"),
-        action("broker-down", "Zatrzymaj Redis", "Redis i zdarzenia", "Zatrzymuje Event Broker.", "broker-down", danger=True),
-        action("broker-status", "Status Redis", "Redis i zdarzenia", "Sprawdza kontener i PING.", "broker-status"),
-        action("broker-logs", "Logi Redis", "Redis i zdarzenia", "Pokazuje logi brokera.", "broker-logs"),
-        action("stream-info", "Informacje o streamie", "Redis i zdarzenia", "Pokazuje streamy i grupy konsumentów.", "stream-info"),
-        action("stream-read", "Ostatnie zdarzenia", "Redis i zdarzenia", "Pokazuje ostatnie wpisy streamu.", "stream-read", [limit]),
-        action("broker-reset-group", "Reset consumer group", "Redis i zdarzenia", "Usuwa grupę konsumenta bez kasowania streamu.", "broker-reset-group", [f("group", "Nazwa grupy", default="notification-service")], danger=True),
-        action("monitoring-up", "Uruchom monitoring", "Monitoring i DLQ", "Uruchamia Prometheus i Grafanę.", "monitoring-up"),
-        action("monitoring-down", "Zatrzymaj monitoring", "Monitoring i DLQ", "Zatrzymuje Prometheus i Grafanę.", "monitoring-down", danger=True),
-        action("monitoring-status", "Status monitoringu", "Monitoring i DLQ", "Pokazuje kontenery i endpointy monitoringu.", "monitoring-status"),
-        action("monitoring-logs", "Logi monitoringu", "Monitoring i DLQ", "Pokazuje ostatnie logi Prometheusa i Grafany.", "monitoring-logs"),
-        action("monitoring-urls", "Adresy monitoringu", "Monitoring i DLQ", "Pokazuje adresy Prometheus i Grafany.", "monitoring-urls"),
-        action("dlq-list", "Wpisy Dead Letter Queue", "Monitoring i DLQ", "Pokazuje niewysłane powiadomienia.", "dlq-list"),
-        action("dlq-replay", "Ponów wpis DLQ", "Monitoring i DLQ", "Ponawia wysyłkę wskazanego wpisu.", "dlq-replay", [f("id", "ID wpisu", "number", required=True, min=1)], danger=True),
-        action("mailpit-up", "Uruchom Mailpit", "Mailpit", "Uruchamia testowy serwer SMTP i skrzynkę.", "mailpit-up"),
-        action("mailpit-down", "Zatrzymaj Mailpit", "Mailpit", "Zatrzymuje Mailpit.", "mailpit-down", danger=True),
-        action("mailpit-status", "Status Mailpit", "Mailpit", "Sprawdza kontener i panel poczty.", "mailpit-status"),
-        action("mailpit-logs", "Logi Mailpit", "Mailpit", "Pokazuje ostatnie logi lokalnego serwera poczty.", "mailpit-logs"),
-        action("mailpit-list", "Ostatnie wiadomości", "Mailpit", "Pokazuje wiadomości w skrzynce testowej.", "mailpit-list", [limit]),
-        action("mailpit-search", "Szukaj wiadomości", "Mailpit", "Wyszukuje wiadomości według zapytania Mailpit.", "mailpit-search", [f("query", "Zapytanie", required=True)]),
-        action("mailpit-smoke", "Smoke e-mail", "Mailpit", "Sprawdza Notification Service → SMTP → Mailpit.", "mailpit-smoke"),
-        action("mailpit-send", "Wyślij e-mail testowy", "Mailpit", "Wysyła własną wiadomość przez Notification Service.", "mailpit-send", [f("recipient", "Odbiorca", "email", default="mailpit-test@minitech.local"), f("subject", "Temat", default="Test z Control Center"), f("message", "Treść", "textarea", default="Wiadomość testowa z Control Center")], stdin_fields=["recipient", "subject", "message"]),
-        action("mailpit-clear", "Wyczyść Mailpit", "Mailpit", "Usuwa wszystkie wiadomości z lokalnej skrzynki testowej.", "mailpit-clear", danger=True),
-        action("orders-list", "Wszystkie zamówienia", "Operacje sklepu", "Pokazuje ID, status, kwotę, e-mail, fakturę i pozycje.", "orders-list", [limit]),
-        action("promotion-codes", "Kody rabatowe", "Operacje sklepu", "Pokazuje kody albo sprawdza konkretny kod.", "promotion-codes", [f("code", "Kod (puste = lista)", required=False)]),
-        action("promotion-code-create", "Utwórz kod rabatowy", "Operacje sklepu", "Tworzy regułę rabatową dla dev/test.", "promotion-code-create", [f("code", "Kod (puste = automatyczny)"), f("description", "Opis", default="Kod rabatowy MiniTech Store"), f("discount", "Rabat %", "number", default=10, min=1, max=100), f("limit", "Limit użyć (puste = bez limitu)"), f("minimum", "Minimalna wartość zamówienia", "number", default=0, min=0), f("maximum", "Maksymalna kwota rabatu (puste = bez limitu)"), f("from", "Ważny od", "date"), f("to", "Ważny do", "date", default="2099-12-31"), f("active", "Aktywny", "select", options=["true", "false"], default="true")], stdin_fields=["code", "description", "discount", "limit", "minimum", "maximum", "from", "to", "active"]),
-        action("review-pending", "Opinie do moderacji", "Operacje sklepu", "Pokazuje oczekujące opinie klientów.", "review-pending"),
-        action("review-moderate", "Moderuj opinię", "Operacje sklepu", "Publikuje albo odrzuca opinię.", "review-moderate", [f("id", "ID opinii", "number", required=True, min=1), f("status", "Status", "select", options=["PUBLISHED", "REJECTED"], default="PUBLISHED"), f("note", "Notatka", "textarea")], danger=True),
-        action("delivery-tracking", "Śledzenie dostawy", "Operacje sklepu", "Pokazuje przewoźnika, numer i status przesyłki.", "delivery-tracking", [f("order", "ID zamówienia", "number", required=True, min=1)]),
-        action("delivery-tracking-status", "Zmień status dostawy", "Operacje sklepu", "Zmienia status przesyłki w profilu dev/test.", "delivery-tracking-status", [f("order", "ID zamówienia", "number", required=True, min=1), f("status", "Status", "select", options=["LABEL_CREATED", "READY_FOR_PICKUP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "PICKED_UP", "CANCELLED"])], danger=True),
-        action("returns-list", "Zwroty i reklamacje", "Operacje sklepu", "Pokazuje zgłoszenia klientów.", "returns-list"),
-        action("returns-status", "Zmień status zgłoszenia", "Operacje sklepu", "Aktualizuje zwrot lub reklamację.", "returns-status", [f("id", "ID zgłoszenia", "number", required=True, min=1), f("status", "Status", "select", options=["UNDER_REVIEW", "APPROVED", "REJECTED", "COMPLETED"]), f("note", "Notatka", "textarea")], danger=True),
-        action("invoice-show", "Pokaż fakturę", "Operacje sklepu", "Pobiera dane faktury dla zamówienia.", "invoice-show", [f("order", "ID zamówienia", "number", required=True, min=1)]),
-        action("invoice-pdf", "Pobierz PDF faktury", "Operacje sklepu", "Zapisuje PDF w prywatnym katalogu runtime.", "invoice-pdf", [f("order", "ID zamówienia", "number", required=True, min=1)]),
+        action("environment-check", "Preflight check" if is_en else "Kontrola przed startem", grp_diag, "Checks WSL, JDK, Docker, secrets, and project files." if is_en else "Sprawdza WSL, JDK, Docker, sekrety i pliki projektu.", "environment-check"),
+        action("doctor", "Environment Doctor" if is_en else "Doctor środowiska", grp_diag, "Full diagnostics of the running environment." if is_en else "Pełna diagnostyka działającego środowiska.", "doctor"),
+        action("github-check", "Pre-GitHub check" if is_en else "Kontrola przed GitHub", grp_diag, "Checks for secrets and private artifacts before publishing." if is_en else "Szuka sekretów i prywatnych artefaktów przed publikacją.", "github-check"),
+        action("platform-info", "Platform info" if is_en else "Informacje o platformie", grp_diag, "Shows detected OS and platform runtime adapter." if is_en else "Pokazuje wykryty system i adapter uruchomieniowy.", "platform-info"),
+        action("profile-show", "Active profile" if is_en else "Aktywny profil", grp_sec_prof, "Shows dev/test profile currently used by Control Center." if is_en else "Pokazuje profil dev/test używany przez Centralę.", "profile-show"),
+        action("profile-set", "Change profile" if is_en else "Zmień profil", grp_sec_prof, "Sets active local profile." if is_en else "Ustawia aktywny profil lokalny.", "profile-set", [profile]),
+        action("language-show", "Terminal menu language" if is_en else "Język menu terminalowego", grp_settings, "Shows current language of classic Control Center menu." if is_en else "Pokazuje język klasycznego menu Centrali.", "language-show"),
+        action("language-set", "Change menu language" if is_en else "Zmień język menu terminalowego", grp_settings, "Sets Polish or English language for Control Center." if is_en else "Ustawia polski albo angielski język klasycznego menu Centrali.", "language-set", [f("language", "Language" if is_en else "Język", "select", options=["pl", "en"], default="pl")]),
+        action("secrets-status", "Vault status" if is_en else "Status skarbca", grp_sec_prof, "Checks SOPS, age, keys, and encrypted files without exposing values." if is_en else "Sprawdza SOPS, age, klucze i zaszyfrowane pliki bez ujawniania wartości.", "secrets-status"),
+        action("secrets-validate", "Validate secrets" if is_en else "Waliduj sekrety", grp_sec_prof, "Validates required secret keys." if is_en else "Sprawdza komplet wymaganych nazw sekretów.", "secrets-validate", [profile]),
+        action("secrets-init", "Initialize age keys" if is_en else "Inicjalizuj klucze age", grp_sec_prof, "Creates missing age keys for dev/test profiles." if is_en else "Tworzy brakujące klucze profili dev/test.", "secrets-init", danger=True),
+        action("secrets-setup-dev", "Create DEV secrets" if is_en else "Utwórz sekrety DEV", grp_sec_prof, "Creates initial encrypted secrets file for dev profile." if is_en else "Tworzy pierwszy zaszyfrowany plik sekretów profilu dev bez logowania wartości.", "secrets-setup-web", danger=True, secret_profile="dev", secret_mode="secret-setup"),
+        action("secrets-setup-test", "Create TEST secrets" if is_en else "Utwórz sekrety TEST", grp_sec_prof, "Creates initial encrypted secrets file for test profile." if is_en else "Tworzy pierwszy zaszyfrowany plik sekretów profilu test bez logowania wartości.", "secrets-setup-web", danger=True, secret_profile="test", secret_mode="secret-setup"),
+        action("secrets-ensure-auth", "Generate JWT secret" if is_en else "Uzupełnij sekret JWT", grp_sec_prof, "Generates missing JWT keys without displaying them." if is_en else "Generuje brakujący materiał JWT bez jego wyświetlania.", "secrets-ensure-auth", [profile], danger=True),
+        action("secrets-edit-dev", "Edit DEV secrets" if is_en else "Edytuj sekrety DEV", grp_sec_prof, "Opens secure secret editor for dev profile; values remain hidden." if is_en else "Otwiera bezpieczny formularz aktualizacji sekretów profilu dev; wartości pozostają ukryte.", "secrets-update-web", danger=True, secret_profile="dev"),
+        action("secrets-edit-test", "Edit TEST secrets" if is_en else "Edytuj sekrety TEST", grp_sec_prof, "Opens secure secret editor for test profile; values remain hidden." if is_en else "Otwiera bezpieczny formularz aktualizacji sekretów profilu test; wartości pozostają ukryte.", "secrets-update-web", danger=True, secret_profile="test"),
+        action("jwt-status", "JWT status" if is_en else "Status JWT", grp_security, "Shows JWT configuration without exposing tokens or private keys." if is_en else "Pokazuje konfigurację JWT bez tokenów i kluczy prywatnych.", "jwt-status"),
+        action("jwt-rotate", "Rotate JWT keys" if is_en else "Rotuj klucze JWT", grp_security, "Generates a new RSA key and retains previous public key." if is_en else "Generuje nowy klucz RSA i zachowuje poprzedni klucz publiczny.", "jwt-rotate", [profile], danger=True),
+        action("jwt-smoke", "JWT smoke" if is_en else "Smoke JWT", grp_security, "Tests login, /me, refresh, and logout." if is_en else "Sprawdza login, /me, refresh i logout.", "jwt-smoke", [f("email", "Email (optional)" if is_en else "E-mail (opcjonalnie)", required=False)]),
+        action("audit-list", "Audit log" if is_en else "Dziennik audytowy", grp_security, "Shows security audit events from Customer Service." if is_en else "Pokazuje zdarzenia bezpieczeństwa Customer Service.", "audit-list", [limit]),
+        action("password-reset-request", "Password reset" if is_en else "Reset hasła", grp_security, "Sends password reset link to Mailpit." if is_en else "Wysyła link resetu hasła do Mailpit.", "password-reset-request", [f("email", "Email" if is_en else "E-mail", "email", required=True)]),
+        action("infra-up", "Start infrastructure" if is_en else "Uruchom infrastrukturę", grp_infra, "Starts databases, Redis, and Mailpit with active secrets." if is_en else "Uruchamia bazy, Redis i Mailpit z aktywnymi sekretami.", "infra-up"),
+        action("infra-down", "Stop infrastructure" if is_en else "Zatrzymaj infrastrukturę", grp_infra, "Stops local infrastructure containers." if is_en else "Zatrzymuje lokalne kontenery infrastruktury.", "infra-down", danger=True),
+        action("infra-status", "Docker Compose status" if is_en else "Status Docker Compose", grp_infra, "Shows all project containers." if is_en else "Pokazuje wszystkie kontenery projektu.", "infra-status"),
+        action("infra-logs", "Infrastructure logs" if is_en else "Logi infrastruktury", grp_infra, "Shows recent logs for all infrastructure containers." if is_en else "Pokazuje ostatnie logi wszystkich kontenerów infrastruktury.", "infra-logs"),
+        action("db-list", "Databases & ports map" if is_en else "Mapa baz i portów", grp_db, "Shows PostgreSQL database owners, names, and ports." if is_en else "Pokazuje właścicieli, nazwy i porty baz PostgreSQL.", "db-list"),
+        action("db-up", "Start database(s)" if is_en else "Uruchom bazę/bazy", grp_db, "Starts selected database or all databases." if is_en else "Uruchamia wskazaną bazę lub wszystkie bazy.", "db-up", [database]),
+        action("db-down", "Stop database(s)" if is_en else "Zatrzymaj bazę/bazy", grp_db, "Stops selected database or all databases." if is_en else "Zatrzymuje wskazaną bazę lub wszystkie bazy.", "db-down", [database], danger=True),
+        action("db-status", "Database status" if is_en else "Status baz", grp_db, "Shows status of PostgreSQL containers." if is_en else "Pokazuje stan kontenerów PostgreSQL.", "db-status", [database]),
+        action("db-logs", "Database logs" if is_en else "Logi bazy", grp_db, "Shows recent logs for selected database." if is_en else "Pokazuje ostatnie logi wybranej bazy.", "db-logs", [database]),
+        action("db-backup", "Create backup" if is_en else "Wykonaj backup", grp_backup, "Creates encrypted backup of one or all databases." if is_en else "Tworzy szyfrowany backup jednej lub wszystkich baz.", "db-backup", [database]),
+        action("db-backup-list", "Backup list" if is_en else "Lista backupów", grp_backup, "Shows available backups for active profile." if is_en else "Pokazuje dostępne backupy aktywnego profilu.", "db-backup-list", [database]),
+        action("db-restore-test", "Restore test" if is_en else "Test odtworzenia", grp_backup, "Restores backup to test database and verifies result." if is_en else "Odtwarza backup do bazy testowej i weryfikuje wynik.", "db-restore-test", [database], danger=True),
+        action("db-backup-prune", "Prune backups" if is_en else "Retencja backupów", grp_backup, "Removes backups older than specified number of days." if is_en else "Usuwa backupy starsze niż podana liczba dni.", "db-backup-prune", [f("days", "Days" if is_en else "Liczba dni", "number", default=14, min=1)], danger=True),
+        action("backup-key-init", "Backup key init" if is_en else "Klucz backupów", grp_backup, "Generates age key for encrypting backups." if is_en else "Przygotowuje klucz age do szyfrowania kopii.", "backup-key-init", [profile], danger=True),
+        action("backup-schedule-install", "Install backup schedule" if is_en else "Harmonogram backupu", grp_backup, "Installs daily backup schedule in WSL cron." if is_en else "Instaluje codzienny harmonogram w WSL.", "backup-schedule-install", [f("hour", "UTC Hour" if is_en else "Godzina UTC", "number", default=2, min=0, max=23)], danger=True),
+        action("backup-schedule-status", "Schedule status" if is_en else "Status harmonogramu", grp_backup, "Shows automatic backup schedule status." if is_en else "Pokazuje konfigurację automatycznych backupów.", "backup-schedule-status"),
+        action("backup-schedule-remove", "Remove backup schedule" if is_en else "Usuń harmonogram", grp_backup, "Removes automated backup schedule entry." if is_en else "Usuwa wpis automatycznego backupu.", "backup-schedule-remove", danger=True),
+        action("inventory-reset", "Reset demo stock" if is_en else "Reset magazynu demo", grp_demo, "Restores base inventory quantities." if is_en else "Przywraca bazowe ilości magazynowe.", "inventory-reset", danger=True),
+        action("demo-reset", "Reset demo data" if is_en else "Reset danych demo", grp_demo, "Clears transactional data and re-seeds demo data." if is_en else "Czyści dane transakcyjne i odtwarza demonstrację.", "demo-reset", danger=True),
+        action("app-run", "Start service" if is_en else "Uruchom serwis", grp_apps, "Starts one microservice via Maven." if is_en else "Uruchamia jeden mikroserwis przez Maven.", "app-run", [service, profile]),
+        action("app-run-all", "Start all services" if is_en else "Uruchom wszystkie usługi", grp_apps, "Starts 15 services in background with active profile." if is_en else "Uruchamia 15 usług w tle z aktywnym profilem.", "app-run-all"),
+        action("app-stop-all", "Stop all services" if is_en else "Zatrzymaj usługi", grp_apps, "Stops processes started by Control Center." if is_en else "Zatrzymuje procesy uruchomione przez Centralę.", "app-stop-all", danger=True),
+        action("app-status-all", "Process status" if is_en else "Status procesów", grp_apps, "Shows PID, port, and status of all services." if is_en else "Pokazuje PID, port i stan wszystkich usług.", "app-status-all"),
+        action("app-logs", "Service logs" if is_en else "Logi mikroserwisu", grp_apps, "Shows recent logs for selected service." if is_en else "Pokazuje ostatni log wskazanej usługi.", "app-logs", [service]),
+        action("health", "Service health" if is_en else "Dostępność usług", grp_apps, "Checks endpoints of all services." if is_en else "Sprawdza endpointy wszystkich usług.", "health", [f("service", "Service" if is_en else "Serwis", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
+        action("frontend-up", "Start storefront" if is_en else "Uruchom sklep", grp_frontend, "Starts local storefront on port 18070." if is_en else "Uruchamia lokalny frontend na porcie 18070.", "frontend-up"),
+        action("frontend-down", "Stop storefront" if is_en else "Zatrzymaj sklep", grp_frontend, "Stops local storefront." if is_en else "Zatrzymuje lokalny frontend.", "frontend-down", danger=True),
+        action("frontend-status", "Storefront status" if is_en else "Status frontendu", grp_frontend, "Checks storefront process and URL." if is_en else "Sprawdza proces i adres sklepu.", "frontend-status"),
+        action("frontend-logs", "Storefront logs" if is_en else "Logi frontendu", grp_frontend, "Shows static server logs." if is_en else "Pokazuje log serwera statycznego.", "frontend-logs"),
+        action("broker-up", "Start Redis" if is_en else "Uruchom Redis", grp_events, "Starts Event Broker." if is_en else "Uruchamia Event Broker.", "broker-up"),
+        action("broker-down", "Stop Redis" if is_en else "Zatrzymaj Redis", grp_events, "Stops Event Broker." if is_en else "Zatrzymuje Event Broker.", "broker-down", danger=True),
+        action("broker-status", "Redis status" if is_en else "Status Redis", grp_events, "Checks container and PING response." if is_en else "Sprawdza kontener i PING.", "broker-status"),
+        action("broker-logs", "Redis logs" if is_en else "Logi Redis", grp_events, "Shows broker logs." if is_en else "Pokazuje logi brokera.", "broker-logs"),
+        action("stream-info", "Stream info" if is_en else "Informacje o streamie", grp_events, "Shows streams and consumer groups." if is_en else "Pokazuje streamy i grupy konsumentów.", "stream-info"),
+        action("stream-read", "Recent events" if is_en else "Ostatnie zdarzenia", grp_events, "Shows recent stream event entries." if is_en else "Pokazuje ostatnie wpisy streamu.", "stream-read", [limit]),
+        action("broker-reset-group", "Reset consumer group", grp_events, "Removes consumer group without deleting stream." if is_en else "Usuwa grupę konsumenta bez kasowania streamu.", "broker-reset-group", [f("group", "Group name" if is_en else "Nazwa grupy", default="notification-service")], danger=True),
+        action("monitoring-up", "Start monitoring" if is_en else "Uruchom monitoring", grp_monitoring, "Starts Prometheus and Grafana." if is_en else "Uruchamia Prometheus i Grafanę.", "monitoring-up"),
+        action("monitoring-down", "Stop monitoring" if is_en else "Zatrzymaj monitoring", grp_monitoring, "Stops Prometheus and Grafana." if is_en else "Zatrzymuje Prometheus i Grafanę.", "monitoring-down", danger=True),
+        action("monitoring-status", "Monitoring status" if is_en else "Status monitoringu", grp_monitoring, "Shows monitoring containers and endpoints." if is_en else "Pokazuje kontenery i endpointy monitoringu.", "monitoring-status"),
+        action("monitoring-logs", "Monitoring logs" if is_en else "Logi monitoringu", grp_monitoring, "Shows recent Prometheus and Grafana logs." if is_en else "Pokazuje ostatnie logi Prometheusa i Grafany.", "monitoring-logs"),
+        action("monitoring-urls", "Monitoring URLs" if is_en else "Adresy monitoringu", grp_monitoring, "Shows Prometheus and Grafana URLs." if is_en else "Pokazuje adresy Prometheus i Grafany.", "monitoring-urls"),
+        action("dlq-list", "DLQ entries" if is_en else "Wpisy Dead Letter Queue", grp_monitoring, "Shows dead-letter notifications queue." if is_en else "Pokazuje niewysłane powiadomienia.", "dlq-list"),
+        action("dlq-replay", "Replay DLQ entry" if is_en else "Ponów wpis DLQ", grp_monitoring, "Replays sending of specified DLQ entry." if is_en else "Ponawia wysyłkę wskazanego wpisu.", "dlq-replay", [f("id", "Entry ID" if is_en else "ID wpisu", "number", required=True, min=1)], danger=True),
+        action("mailpit-up", "Start Mailpit" if is_en else "Uruchom Mailpit", grp_mail, "Starts test SMTP server and mailbox." if is_en else "Uruchamia testowy serwer SMTP i skrzynkę.", "mailpit-up"),
+        action("mailpit-down", "Stop Mailpit" if is_en else "Zatrzymaj Mailpit", grp_mail, "Stops Mailpit." if is_en else "Zatrzymuje Mailpit.", "mailpit-down", danger=True),
+        action("mailpit-status", "Mailpit status" if is_en else "Status Mailpit", grp_mail, "Checks container and web mailbox." if is_en else "Sprawdza kontener i panel poczty.", "mailpit-status"),
+        action("mailpit-logs", "Mailpit logs" if is_en else "Logi Mailpit", grp_mail, "Shows recent test mail server logs." if is_en else "Pokazuje ostatnie logi lokalnego serwera poczty.", "mailpit-logs"),
+        action("mailpit-list", "Recent messages" if is_en else "Ostatnie wiadomości", grp_mail, "Shows messages in test mailbox." if is_en else "Pokazuje wiadomości w skrzynce testowej.", "mailpit-list", [limit]),
+        action("mailpit-search", "Search messages" if is_en else "Szukaj wiadomości", grp_mail, "Searches messages by Mailpit query." if is_en else "Wyszukuje wiadomości według zapytania Mailpit.", "mailpit-search", [f("query", "Query" if is_en else "Zapytanie", required=True)]),
+        action("mailpit-smoke", "Mailpit smoke" if is_en else "Smoke e-mail", grp_mail, "Checks Notification Service → SMTP → Mailpit." if is_en else "Sprawdza Notification Service → SMTP → Mailpit.", "mailpit-smoke"),
+        action("mailpit-send", "Send test email" if is_en else "Wyślij e-mail testowy", grp_mail, "Sends custom message via Notification Service." if is_en else "Wysyła własną wiadomość przez Notification Service.", "mailpit-send", [f("recipient", "Recipient" if is_en else "Odbiorca", "email", default="mailpit-test@minitech.local"), f("subject", "Subject" if is_en else "Temat", default="Test z Control Center" if not is_en else "Test message from Control Center"), f("message", "Message" if is_en else "Treść", "textarea", default="Wiadomość testowa z Control Center" if not is_en else "Test message from Control Center")], stdin_fields=["recipient", "subject", "message"]),
+        action("mailpit-clear", "Clear Mailpit" if is_en else "Wyczyść Mailpit", grp_mail, "Deletes all messages from test mailbox." if is_en else "Usuwa wszystkie wiadomości z lokalnej skrzynki testowej.", "mailpit-clear", danger=True),
+        action("orders-list", "All orders" if is_en else "Wszystkie zamówienia", grp_store, "Shows ID, status, total, email, invoice, and line items." if is_en else "Pokazuje ID, status, kwotę, e-mail, fakturę i pozycje.", "orders-list", [limit]),
+        action("promotion-codes", "Promotion codes" if is_en else "Kody rabatowe", grp_store, "Lists codes or checks specific code." if is_en else "Pokazuje kody albo sprawdza konkretny kod.", "promotion-codes", [f("code", "Code (empty = list)" if is_en else "Kod (puste = lista)", required=False)]),
+        action("promotion-code-create", "Create promotion code" if is_en else "Utwórz kod rabatowy", grp_store, "Creates promotion rule for dev/test." if is_en else "Tworzy regułę rabatową dla dev/test.", "promotion-code-create", [f("code", "Code (empty = auto)" if is_en else "Kod (puste = automatyczny)"), f("description", "Description" if is_en else "Opis", default="MiniTech Store discount" if is_en else "Kod rabatowy MiniTech Store"), f("discount", "Discount %" if is_en else "Rabat %", "number", default=10, min=1, max=100), f("limit", "Usage limit (empty = unlimited)" if is_en else "Limit użyć (puste = bez limitu)"), f("minimum", "Min order total" if is_en else "Minimalna wartość zamówienia", "number", default=0, min=0), f("maximum", "Max discount amount" if is_en else "Maksymalna kwota rabatu (puste = bez limitu)"), f("from", "Valid from" if is_en else "Ważny od", "date"), f("to", "Valid to" if is_en else "Ważny do", "date", default="2099-12-31"), f("active", "Active" if is_en else "Aktywny", "select", options=["true", "false"], default="true")], stdin_fields=["code", "description", "discount", "limit", "minimum", "maximum", "from", "to", "active"]),
+        action("review-pending", "Pending reviews" if is_en else "Opinie do moderacji", grp_store, "Shows pending customer product reviews." if is_en else "Pokazuje oczekujące opinie klientów.", "review-pending"),
+        action("review-moderate", "Moderate review" if is_en else "Moderuj opinię", grp_store, "Publishes or rejects a customer review." if is_en else "Publikuje albo odrzuca opinię.", "review-moderate", [f("id", "Review ID" if is_en else "ID opinii", "number", required=True, min=1), f("status", "Status", "select", options=["PUBLISHED", "REJECTED"], default="PUBLISHED"), f("note", "Note" if is_en else "Notatka", "textarea")], danger=True),
+        action("delivery-tracking", "Delivery tracking" if is_en else "Śledzenie dostawy", grp_store, "Shows carrier, tracking number, and package status." if is_en else "Pokazuje przewoźnika, numer i status przesyłki.", "delivery-tracking", [f("order", "Order ID" if is_en else "ID zamówienia", "number", required=True, min=1)]),
+        action("delivery-tracking-status", "Update delivery status" if is_en else "Zmień status dostawy", grp_store, "Updates package delivery status in dev/test." if is_en else "Zmienia status przesyłki w profilu dev/test.", "delivery-tracking-status", [f("order", "Order ID" if is_en else "ID zamówienia", "number", required=True, min=1), f("status", "Status", "select", options=["LABEL_CREATED", "READY_FOR_PICKUP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "PICKED_UP", "CANCELLED"])], danger=True),
+        action("returns-list", "Returns & complaints" if is_en else "Zwroty i reklamacje", grp_store, "Shows customer return and complaint requests." if is_en else "Pokazuje zgłoszenia klientów.", "returns-list"),
+        action("returns-status", "Update return status" if is_en else "Zmień status zgłoszenia", grp_store, "Updates return or complaint status." if is_en else "Aktualizuje zwrot lub reklamację.", "returns-status", [f("id", "Ticket ID" if is_en else "ID zgłoszenia", "number", required=True, min=1), f("status", "Status", "select", options=["UNDER_REVIEW", "APPROVED", "REJECTED", "COMPLETED"]), f("note", "Note" if is_en else "Notatka", "textarea")], danger=True),
+        action("invoice-show", "Show invoice" if is_en else "Pokaż fakturę", grp_store, "Fetches invoice data for an order." if is_en else "Pobiera dane faktury dla zamówienia.", "invoice-show", [f("order", "Order ID" if is_en else "ID zamówienia", "number", required=True, min=1)]),
+        action("invoice-pdf", "Download invoice PDF" if is_en else "Pobierz PDF faktury", grp_store, "Saves invoice PDF in private runtime directory." if is_en else "Zapisuje PDF w prywatnym katalogu runtime.", "invoice-pdf", [f("order", "Order ID" if is_en else "ID zamówienia", "number", required=True, min=1)]),
     ]
 
     tests = [
-        ("smoke", "Smoke API Gateway", "Szybko sprawdza katalog przez publiczny punkt wejścia."),
-        ("app-verify", "App Verify", "Sprawdza zakup, płatność, magazyn i e-mail."),
-        ("verify-mvp", "Pełna weryfikacja MVP", "Uruchamia rozszerzoną weryfikację kompletnego przepływu MVP."),
-        ("delivery-smoke", "Smoke Delivery Service", "Sprawdza wycenę, termin i śledzenie dostawy."),
-        ("promotion-smoke", "Smoke Promotion Service", "Sprawdza aktywne promocje i reguły rabatowe."),
-        ("contract-test", "Contract test API v1", "Porównuje publiczny kontrakt z oczekiwanym schematem."),
-        ("security-test", "Test bezpieczeństwa API", "Sprawdza podstawowe zabezpieczenia endpointów."),
-        ("zap-dast", "OWASP ZAP DAST", "Uruchamia skaner dynamiczny API Gateway."),
-        ("load-test", "Test obciążeniowy", "Wysyła kontrolowany ruch do lokalnego API."),
-        ("e2e", "Pełny E2E API", "Rejestracja, JWT, zakup, płatność i Mailpit."),
-        ("ui-test-status", "Status Playwright", "Sprawdza Node, pakiety i przeglądarki."),
-        ("ui-test-install", "Instalacja Playwright", "Instaluje zależności testów i Chromium."),
-        ("ui-test-smoke", "Playwright Smoke", "Sprawdza krytyczne ekrany sklepu."),
-        ("ui-test", "Regresja UI Chromium", "Uruchamia pełny zestaw UI z mock API."),
-        ("ui-test-system", "Systemowy checkout UI", "Testuje frontend z prawdziwymi usługami."),
-        ("ui-test-browsers", "UI wiele przeglądarek", "Chromium, Firefox, WebKit i mobile."),
-        ("ui-test-headed", "UI headed", "Uruchamia test z widoczną przeglądarką."),
-        ("ui-test-debug", "Playwright Inspector", "Uruchamia tryb debugowania testów."),
-        ("ui-test-report", "Raport Playwright", "Otwiera wygenerowany raport HTML."),
+        ("smoke", "API Gateway Smoke" if is_en else "Smoke API Gateway", "Quickly verifies catalogue via public Gateway entrypoint." if is_en else "Szybko sprawdza katalog przez publiczny punkt wejścia."),
+        ("app-verify", "App Verify", "Tests purchase, payment, stock reservation, and email." if is_en else "Sprawdza zakup, płatność, magazyn i e-mail."),
+        ("verify-mvp", "Full MVP Verification" if is_en else "Pełna weryfikacja MVP", "Runs comprehensive end-to-end verification of MVP flow." if is_en else "Uruchamia rozszerzoną weryfikację kompletnego przepływu MVP."),
+        ("delivery-smoke", "Delivery Service Smoke" if is_en else "Smoke Delivery Service", "Tests delivery quote, schedule, and tracking." if is_en else "Sprawdza wycenę, termin i śledzenie dostawy."),
+        ("promotion-smoke", "Promotion Service Smoke" if is_en else "Smoke Promotion Service", "Tests active promotions and discount rules." if is_en else "Sprawdza aktywne promocje i reguły rabatowe."),
+        ("contract-test", "API v1 Contract Test" if is_en else "Contract test API v1", "Validates public Gateway OpenAPI against v1 schema contract." if is_en else "Porównuje publiczny kontrakt z oczekiwanym schematem."),
+        ("security-test", "API Security Test" if is_en else "Test bezpieczeństwa API", "Validates endpoint boundaries, JWT restrictions, and actuator safety." if is_en else "Sprawdza podstawowe zabezpieczenia endpointów."),
+        ("zap-dast", "OWASP ZAP DAST", "Runs dynamic vulnerability scanner against API Gateway." if is_en else "Uruchamia skaner dynamiczny API Gateway."),
+        ("load-test", "Load Test" if is_en else "Test obciążeniowy", "Sends concurrent HTTP requests to local catalogue API." if is_en else "Wysyła kontrolowany ruch do lokalnego API."),
+        ("e2e", "Full E2E API Test" if is_en else "Pełny E2E API", "Full end-to-end flow: Registration, JWT, order, payment, and Mailpit." if is_en else "Rejestracja, JWT, zakup, płatność i Mailpit."),
+        ("ui-test-status", "Playwright Status" if is_en else "Status Playwright", "Checks Node.js runtime, packages, and browser binaries." if is_en else "Sprawdza Node, pakiety i przeglądarki."),
+        ("ui-test-install", "Install Playwright" if is_en else "Instalacja Playwright", "Installs test dependencies and Chromium browser." if is_en else "Instaluje zależności testów i Chromium."),
+        ("ui-test-smoke", "Playwright Smoke", "Checks critical storefront screens in Chromium." if is_en else "Sprawdza krytyczne ekrany sklepu."),
+        ("ui-test", "Chromium UI Regression" if is_en else "Regresja UI Chromium", "Runs full UI test suite with mocked API." if is_en else "Uruchamia pełny zestaw UI z mock API."),
+        ("ui-test-system", "Full System UI Checkout" if is_en else "Systemowy checkout UI", "Tests frontend checkout with real live microservices." if is_en else "Testuje frontend z prawdziwymi usługami."),
+        ("ui-test-browsers", "Multi-Browser UI Test" if is_en else "UI wiele przeglądarek", "Runs regression across Chromium, Firefox, WebKit, and mobile." if is_en else "Chromium, Firefox, WebKit i mobile."),
+        ("ui-test-headed", "Headed UI Test" if is_en else "UI headed", "Runs browser tests with visible window." if is_en else "Uruchamia test z widoczną przeglądarką."),
+        ("ui-test-debug", "Playwright Inspector", "Opens interactive Playwright step-by-step inspector." if is_en else "Uruchamia tryb debugowania testów."),
+        ("ui-test-report", "Playwright Report" if is_en else "Raport Playwright", "Serves generated HTML test report." if is_en else "Otwiera wygenerowany raport HTML."),
     ]
-    result.extend(action(command, title, "Testy", description, command) for command, title, description in tests)
+    result.extend(action(command, title, grp_tests, description, command) for command, title, description in tests)
     result.extend([
-        action("resilience-test", "Chaos / Test odporności", "Testy", "Symuluje awarię wybranego mikroserwisu i sprawdza izolację awarii oraz degradację.", "resilience-test", [f("service", "Wybrany mikroserwis", "select", options=["payment-service", "inventory-service", "product-service", "order-service", "customer-service", "delivery-service", "promotion-service", "notification-service", "chat-service", "returns-service", "billing-service"], default="payment-service")]),
-        action("app-test", "Testy Maven", "Budowanie", "Uruchamia testy serwisu albo monorepo.", "app-test", [f("service", "Zakres", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
-        action("app-package", "Pakietowanie Maven", "Budowanie", "Buduje jeden serwis albo całe monorepo.", "app-package", [f("service", "Zakres", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
-        action("images-build", "Obrazy Docker", "Budowanie", "Buduje lokalne obrazy wszystkich aplikacji.", "images-build"),
-        action("api-docs-urls", "OpenAPI / Swagger", "Dokumentacja API", "Pokazuje adresy dokumentacji usług.", "api-docs-urls"),
-        action("resilience-status", "Odporność usług", "Dokumentacja API", "Pokazuje Retry, Circuit Breaker i Bulkhead.", "resilience-status"),
-        action("prod-status", "Status profilu prod", "Prod — tylko walidacja", "Wyjaśnia, dlaczego prod jest zablokowany.", "prod-status"),
-        action("k8s-validate", "Waliduj Kubernetes", "Prod — tylko walidacja", "Sprawdza manifesty bez wdrażania.", "k8s-validate"),
-        action("k8s-status", "Status Kubernetes", "Prod — tylko walidacja", "Pokazuje stan klastra, jeśli jest skonfigurowany.", "k8s-status"),
-        action("openbao-validate", "Waliduj OpenBao/TLS", "Prod — tylko walidacja", "Sprawdza pliki przygotowania produkcyjnego.", "openbao-validate"),
-        action("openbao-status", "Status OpenBao", "Prod — tylko walidacja", "Sprawdza endpoint bez ujawniania sekretów.", "openbao-status"),
-        action("tls-status", "Status TLS", "Prod — tylko walidacja", "Sprawdza certyfikat wskazanego hosta.", "tls-status"),
+        action("resilience-test", "Chaos / Resilience Test" if is_en else "Chaos / Test odporności", grp_tests, "Simulates failure of selected microservice and verifies fault isolation." if is_en else "Symuluje awarię wybranego mikroserwisu i sprawdza izolację awarii oraz degradację.", "resilience-test", [f("service", "Selected microservice" if is_en else "Wybrany mikroserwis", "select", options=["payment-service", "inventory-service", "product-service", "order-service", "customer-service", "delivery-service", "promotion-service", "notification-service", "chat-service", "returns-service", "billing-service"], default="payment-service")]),
+        action("app-test", "Maven Tests" if is_en else "Testy Maven", grp_build, "Runs Maven unit/integration tests for selected service or all." if is_en else "Uruchamia testy serwisu albo monorepo.", "app-test", [f("service", "Scope" if is_en else "Zakres", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
+        action("app-package", "Maven Package" if is_en else "Pakietowanie Maven", grp_build, "Packages selected service or entire monorepo." if is_en else "Buduje jeden serwis albo całe monorepo.", "app-package", [f("service", "Scope" if is_en else "Zakres", "select", options=["all", *SERVICE_OPTIONS], default="all")]),
+        action("images-build", "Docker Images" if is_en else "Obrazy Docker", grp_build, "Builds local Docker images for all microservices." if is_en else "Buduje lokalne obrazy wszystkich aplikacji.", "images-build"),
+        action("api-docs-urls", "OpenAPI / Swagger", grp_docs, "Shows Swagger UI documentation URLs for all services." if is_en else "Pokazuje adresy dokumentacji usług.", "api-docs-urls"),
+        action("resilience-status", "Service Resilience Status" if is_en else "Odporność usług", grp_docs, "Shows Prometheus metrics for Circuit Breaker, Retry, and Bulkhead." if is_en else "Pokazuje Retry, Circuit Breaker i Bulkhead.", "resilience-status"),
+        action("prod-status", "Prod Profile Status" if is_en else "Status profilu prod", grp_prod, "Explains why production profile is currently locked." if is_en else "Wyjaśnia, dlaczego prod jest zablokowany.", "prod-status"),
+        action("k8s-validate", "Validate Kubernetes" if is_en else "Waliduj Kubernetes", grp_prod, "Validates Kubernetes manifests without deploying." if is_en else "Sprawdza manifesty bez wdrażania.", "k8s-validate"),
+        action("k8s-status", "Kubernetes Status" if is_en else "Status Kubernetes", grp_prod, "Shows cluster status if configured." if is_en else "Pokazuje stan klastra, jeśli jest skonfigurowany.", "k8s-status"),
+        action("openbao-validate", "Validate OpenBao/TLS" if is_en else "Waliduj OpenBao/TLS", grp_prod, "Validates production OpenBao and TLS preparation files." if is_en else "Sprawdza pliki przygotowania produkcyjnego.", "openbao-validate"),
+        action("openbao-status", "OpenBao Status" if is_en else "Status OpenBao", grp_prod, "Checks OpenBao endpoint without exposing secrets." if is_en else "Sprawdza endpoint bez ujawniania sekretów.", "openbao-status"),
+        action("tls-status", "TLS Status" if is_en else "Status TLS", grp_prod, "Checks TLS certificate of specified host." if is_en else "Sprawdza certyfikat wskazanego hosta.", "tls-status"),
     ])
     return result
 
 
-ACTIONS = build_actions()
+ACTIONS = build_actions("pl")
 ACTION_BY_ID = {item["id"]: item for item in ACTIONS}
 
 
@@ -361,6 +388,14 @@ def active_profile() -> str:
         return value if value in {"dev", "test"} else "dev"
     except FileNotFoundError:
         return "dev"
+
+
+def active_language() -> str:
+    try:
+        value = LANGUAGE_FILE.read_text(encoding="utf-8").strip().lower()
+        return "en" if value in {"en", "english"} else "pl"
+    except FileNotFoundError:
+        return "pl"
 
 
 def secret_root_directory() -> Path:
@@ -641,14 +676,16 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         if path == "/api/ping":
-            self.send_json({"status": "UP", "profile": active_profile()})
+            self.send_json({"status": "UP", "profile": active_profile(), "language": active_language()})
             return
         if path == "/api/bootstrap":
+            current_lang = active_language()
             self.send_json({
                 "token": CSRF_TOKEN,
                 "profile": active_profile(),
+                "language": current_lang,
                 "project": str(PROJECT_ROOT),
-                "actions": ACTIONS,
+                "actions": build_actions(current_lang),
                 "links": {
                     "store": "http://127.0.0.1:18070",
                     "mailpit": "http://127.0.0.1:18025",
@@ -709,6 +746,13 @@ class Handler(SimpleHTTPRequestHandler):
             payload = self.read_json()
         except (ValueError, json.JSONDecodeError) as error:
             self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/language":
+            lang = str(payload.get("language", "pl")).strip().lower()
+            lang = "en" if lang in {"en", "english"} else "pl"
+            LANGUAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            LANGUAGE_FILE.write_text(f"{lang}\n", encoding="utf-8")
+            self.send_json({"ok": True, "language": lang, "actions": build_actions(lang)})
             return
         if path == "/api/secrets/setup":
             if payload.get("confirmed") is not True:

@@ -53,8 +53,9 @@ async function loadTracking(order) {
 }
 
 function renderOrder(order, tracking, invoice) {
-    document.title = `Zamówienie #${order.id} — MiniTech Store`;
-    subtitle.textContent = `Zamówienie #${order.id} · ${orderStatusLabel(order.status)}`;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    document.title = isEn ? `Order #${order.id} — MiniTech Store` : `Zamówienie #${order.id} — MiniTech Store`;
+    subtitle.textContent = isEn ? `Order #${order.id} · ${orderStatusLabel(order.status)}` : `Zamówienie #${order.id} · ${orderStatusLabel(order.status)}`;
     statusMessage.textContent = '';
     const address = order.deliveryAddress || {};
     const userName = [address.firstName, address.lastName]
@@ -66,73 +67,75 @@ function renderOrder(order, tracking, invoice) {
     const items = Array.isArray(order.items) ? order.items : [];
     const itemsMarkup = items.length
         ? items.map(item => renderItem(order, item)).join('')
-        : '<p class="order-detail-muted">Brak pozycji zamówienia.</p>';
+        : `<p class="order-detail-muted">${isEn ? 'No order items.' : 'Brak pozycji zamówienia.'}</p>`;
     const discount = Number(order.discountAmount || 0);
-    const fulfillmentLabel = order.fulfillmentType === 'STORE_PICKUP' ? 'Odbiór osobisty' : 'Dostawa';
+    const fulfillmentLabel = order.fulfillmentType === 'STORE_PICKUP'
+        ? (isEn ? 'Store pickup' : 'Odbiór osobisty')
+        : (isEn ? 'Delivery' : 'Dostawa');
     const scheduledDate = order.deliveryDate
         ? formatDeliveryDate(order.deliveryDate)
-        : 'Termin nieustalony';
+        : (isEn ? 'Date not set' : 'Termin nieustalony');
     const isPickup = order.fulfillmentType === 'STORE_PICKUP';
     const returnEligible = ['PAID', 'SHIPPED', 'COMPLETED']
         .includes(String(order.status || '').toUpperCase());
     detailCard.innerHTML = `
         <div class="order-detail-summary">
-            <div><span>Status</span><strong class="auth-order-status">${escapeHtml(orderStatusLabel(order.status))}</strong></div>
-            <div><span>Data</span><strong>${escapeHtml(formatOrderDate(order.createdAt))}</strong></div>
-            <div><span>Realizacja</span><strong>${escapeHtml(fulfillmentLabel)} · ${escapeHtml(order.deliveryMethod || '—')}</strong></div>
-            <div><span>Termin</span><strong>${escapeHtml(scheduledDate)}</strong></div>
-            ${order.pickupLocation ? `<div><span>Punkt odbioru</span><strong>${escapeHtml(order.pickupLocation)}</strong></div>` : ''}
+            <div><span>${isEn ? 'Status' : 'Status'}</span><strong class="auth-order-status">${escapeHtml(orderStatusLabel(order.status))}</strong></div>
+            <div><span>${isEn ? 'Date' : 'Data'}</span><strong>${escapeHtml(formatOrderDate(order.createdAt))}</strong></div>
+            <div><span>${isEn ? 'Fulfillment' : 'Realizacja'}</span><strong>${escapeHtml(fulfillmentLabel)} · ${escapeHtml(order.deliveryMethod || '—')}</strong></div>
+            <div><span>${isEn ? 'Scheduled' : 'Termin'}</span><strong>${escapeHtml(scheduledDate)}</strong></div>
+            ${order.pickupLocation ? `<div><span>${isEn ? 'Pickup location' : 'Punkt odbioru'}</span><strong>${escapeHtml(order.pickupLocation)}</strong></div>` : ''}
         </div>
         <section class="order-detail-data-group">
-            <p class="eyebrow">DANE UŻYTKOWNIKA</p>
-            ${userName ? `<div><span>Użytkownik</span><strong>${escapeHtml(userName)}</strong></div>` : ''}
-            ${order.customerEmail ? `<div><span>E-mail</span><strong>${escapeHtml(order.customerEmail)}</strong></div>` : ''}
+            <p class="eyebrow">${isEn ? 'USER DATA' : 'DANE UŻYTKOWNIKA'}</p>
+            ${userName ? `<div><span>${isEn ? 'User' : 'Użytkownik'}</span><strong>${escapeHtml(userName)}</strong></div>` : ''}
+            ${order.customerEmail ? `<div><span>${isEn ? 'Email' : 'E-mail'}</span><strong>${escapeHtml(order.customerEmail)}</strong></div>` : ''}
         </section>
         <section class="order-detail-data-group">
-            <p class="eyebrow">${isPickup ? 'PUNKT ODBIORU' : 'ADRES DOSTAWY'}</p>
+            <p class="eyebrow">${isPickup ? (isEn ? 'PICKUP POINT' : 'PUNKT ODBIORU') : (isEn ? 'DELIVERY ADDRESS' : 'ADRES DOSTAWY')}</p>
             ${isPickup
-                ? `<div><span>Punkt</span><strong>${escapeHtml(order.pickupLocation || 'MiniTech Store — Warszawa')}</strong></div>`
-                : (addressLine ? `<div><span>Adres</span><strong>${escapeHtml(addressLine)}</strong></div>` : '<p class="order-detail-muted">Brak danych adresowych.</p>')}
+                ? `<div><span>${isEn ? 'Point' : 'Punkt'}</span><strong>${escapeHtml(order.pickupLocation || 'MiniTech Store — Warszawa')}</strong></div>`
+                : (addressLine ? `<div><span>${isEn ? 'Address' : 'Adres'}</span><strong>${escapeHtml(addressLine)}</strong></div>` : `<p class="order-detail-muted">${isEn ? 'No address data.' : 'Brak danych adresowych.'}</p>`)}
         </section>
         <section class="order-detail-data-group">
-            <p class="eyebrow">ŚLEDZENIE DOSTAWY</p>
+            <p class="eyebrow">${isEn ? 'DELIVERY TRACKING' : 'ŚLEDZENIE DOSTAWY'}</p>
             ${tracking ? `
-                <div><span>Przewoźnik</span><strong>${escapeHtml(tracking.carrier)}</strong></div>
-                <div><span>Numer przesyłki</span><strong>${escapeHtml(tracking.trackingNumber)}</strong></div>
-                <div><span>Status przewoźnika</span><strong>${escapeHtml(shipmentStatusLabel(tracking.status))}</strong></div>
-                <div><span>Ostatnia aktualizacja</span><strong>${escapeHtml(formatOrderDate(tracking.updatedAt))}</strong></div>
-            ` : `<p class="order-detail-muted">Numer przesyłki nie został jeszcze nadany. Po opłaceniu zamówienia zostanie utworzone śledzenie w profilu dev/test.</p>`}
+                <div><span>${isEn ? 'Carrier' : 'Przewoźnik'}</span><strong>${escapeHtml(tracking.carrier)}</strong></div>
+                <div><span>${isEn ? 'Tracking number' : 'Numer przesyłki'}</span><strong>${escapeHtml(tracking.trackingNumber)}</strong></div>
+                <div><span>${isEn ? 'Carrier status' : 'Status przewoźnika'}</span><strong>${escapeHtml(shipmentStatusLabel(tracking.status))}</strong></div>
+                <div><span>${isEn ? 'Last update' : 'Ostatnia aktualizacja'}</span><strong>${escapeHtml(formatOrderDate(tracking.updatedAt))}</strong></div>
+            ` : `<p class="order-detail-muted">${isEn ? 'Tracking number has not been assigned yet.' : 'Numer przesyłki nie został jeszcze nadany. Po opłaceniu zamówienia zostanie utworzone śledzenie w profilu dev/test.'}</p>`}
         </section>
         <section class="order-detail-items">
-            <p class="eyebrow">POZYCJE ZAMÓWIENIA</p>
+            <p class="eyebrow">${isEn ? 'ORDER ITEMS' : 'POZYCJE ZAMÓWIENIA'}</p>
             ${itemsMarkup}
         </section>
         <section class="order-detail-data-group order-detail-invoice">
-            <p class="eyebrow">FAKTURA</p>
-            ${invoice ? `<div><span>Numer faktury</span><strong>${escapeHtml(invoice.invoiceNumber)}</strong></div>
-                <div><span>Netto</span><strong>${formatMoney(invoice.netAmount)}</strong></div>
-                <div><span>VAT</span><strong>${formatMoney(invoice.vatAmount)}</strong></div>
-                <div><span>Brutto</span><strong>${formatMoney(invoice.grossAmount)}</strong></div>
-                <div class="order-detail-invoice-download"><span>Plik</span><strong><a class="secondary-button" href="${API_BASE}/invoices/order/${encodeURIComponent(order.id)}/pdf" target="_blank" rel="noreferrer">Pobierz PDF</a></strong></div>`
-                : '<p class="order-detail-muted">Dla tego zamówienia nie wystawiono faktury.</p>'}
+            <p class="eyebrow">${isEn ? 'INVOICE' : 'FAKTURA'}</p>
+            ${invoice ? `<div><span>${isEn ? 'Invoice number' : 'Numer faktury'}</span><strong>${escapeHtml(invoice.invoiceNumber)}</strong></div>
+                <div><span>${isEn ? 'Net' : 'Netto'}</span><strong>${formatMoney(invoice.netAmount)}</strong></div>
+                <div><span>${isEn ? 'VAT' : 'VAT'}</span><strong>${formatMoney(invoice.vatAmount)}</strong></div>
+                <div><span>${isEn ? 'Gross' : 'Brutto'}</span><strong>${formatMoney(invoice.grossAmount)}</strong></div>
+                <div class="order-detail-invoice-download"><span>${isEn ? 'File' : 'Plik'}</span><strong><a class="secondary-button" href="${API_BASE}/invoices/order/${encodeURIComponent(order.id)}/pdf" target="_blank" rel="noreferrer">${isEn ? 'Download PDF' : 'Pobierz PDF'}</a></strong></div>`
+                : `<p class="order-detail-muted">${isEn ? 'No invoice has been issued for this order.' : 'Dla tego zamówienia nie wystawiono faktury.'}</p>`}
         </section>
         ${returnEligible ? `<section class="return-request-box">
-            <p class="eyebrow">ZWROT LUB REKLAMACJA</p>
-            <h2>Potrzebujesz pomocy z zakupem?</h2>
-            <p class="form-hint">Zgłoszenie trafi do obsługi i będzie widoczne na Twoim koncie.</p>
+            <p class="eyebrow">${isEn ? 'RETURN OR COMPLAINT' : 'ZWROT LUB REKLAMACJA'}</p>
+            <h2>${isEn ? 'Need help with your purchase?' : 'Potrzebujesz pomocy z zakupem?'}</h2>
+            <p class="form-hint">${isEn ? 'Your request will be forwarded to customer support and visible in your account.' : 'Zgłoszenie trafi do obsługi i będzie widoczne na Twoim koncie.'}</p>
             <form id="return-request-form" class="return-request-form">
-                <label>Typ zgłoszenia<select id="return-request-type"><option value="RETURN">Zwrot</option><option value="COMPLAINT">Reklamacja</option></select></label>
-                <label>Powód<input id="return-request-reason" maxlength="120" required placeholder="np. Produkt nie spełnia oczekiwań"></label>
-                <label>Opis<textarea id="return-request-description" maxlength="2000" rows="4" required placeholder="Opisz sprawę"></textarea></label>
-                <button class="primary-button" type="submit">Wyślij zgłoszenie</button>
+                <label>${isEn ? 'Request type' : 'Typ zgłoszenia'}<select id="return-request-type"><option value="RETURN">${isEn ? 'Return' : 'Zwrot'}</option><option value="COMPLAINT">${isEn ? 'Complaint' : 'Reklamacja'}</option></select></label>
+                <label>${isEn ? 'Reason' : 'Powód'}<input id="return-request-reason" maxlength="120" required placeholder="${isEn ? 'e.g. Product does not meet expectations' : 'np. Produkt nie spełnia oczekiwań'}"></label>
+                <label>${isEn ? 'Description' : 'Opis'}<textarea id="return-request-description" maxlength="2000" rows="4" required placeholder="${isEn ? 'Describe your case' : 'Opisz sprawę'}"></textarea></label>
+                <button class="primary-button" type="submit">${isEn ? 'Submit request' : 'Wyślij zgłoszenie'}</button>
                 <p class="return-request-status" id="return-request-status" role="status"></p>
             </form>
         </section>` : ''}
-        ${discount > 0 ? `<p class="order-detail-discount">Rabat: −${formatMoney(discount)}${order.promotionCode ? ` · kod ${escapeHtml(order.promotionCode)}` : ''}</p>` : ''}
-        <div class="order-detail-total"><span>Razem</span><strong>${formatMoney(order.totalPrice)}</strong></div>
+        ${discount > 0 ? `<p class="order-detail-discount">${isEn ? 'Discount' : 'Rabat'}: −${formatMoney(discount)}${order.promotionCode ? ` · ${isEn ? 'code' : 'kod'} ${escapeHtml(order.promotionCode)}` : ''}</p>` : ''}
+        <div class="order-detail-total"><span>${isEn ? 'Total' : 'Razem'}</span><strong>${formatMoney(order.totalPrice)}</strong></div>
         <p class="form-hint">${order.status === 'PAID'
-            ? 'Opłacone produkty możesz ocenić przyciskiem „Dodaj opinię”. Opinia trafi do moderacji.'
-            : 'Dodanie opinii będzie możliwe po opłaceniu zamówienia.'}</p>`;
+            ? (isEn ? 'Paid items can be reviewed using "Add review" button. Reviews are moderated.' : 'Opłacone produkty możesz ocenić przyciskiem „Dodaj opinię”. Opinia trafi do moderacji.')
+            : (isEn ? 'Reviews become available once the order is paid.' : 'Dodanie opinii będzie możliwe po opłaceniu zamówienia.')}</p>`;
     detailCard.hidden = false;
     detailCard.querySelector('#return-request-form')?.addEventListener('submit', submitReturnRequest);
     backLink.href = 'index.html#top';
@@ -268,6 +271,7 @@ function getApiBase() {
 }
 
 function orderStatusLabel(status) {
+    if (window.MiniTechI18n) return window.MiniTechI18n.translateOrderStatus(status);
     return ({
         CREATED: 'Utworzone',
         CONFIRMED: 'Potwierdzone',
@@ -279,7 +283,16 @@ function orderStatusLabel(status) {
 }
 
 function shipmentStatusLabel(status) {
-    return ({
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    const dict = isEn ? {
+        LABEL_CREATED: 'Label created',
+        READY_FOR_PICKUP: 'Ready for pickup',
+        IN_TRANSIT: 'In transit',
+        OUT_FOR_DELIVERY: 'Out for delivery',
+        DELIVERED: 'Delivered',
+        PICKED_UP: 'Picked up',
+        CANCELLED: 'Cancelled'
+    } : {
         LABEL_CREATED: 'Etykieta utworzona',
         READY_FOR_PICKUP: 'Gotowe do odbioru',
         IN_TRANSIT: 'W transporcie',
@@ -287,28 +300,36 @@ function shipmentStatusLabel(status) {
         DELIVERED: 'Doręczona',
         PICKED_UP: 'Odebrana',
         CANCELLED: 'Anulowana'
-    })[status] || status || 'Nieznany';
+    };
+    return dict[status] || status || (isEn ? 'Unknown' : 'Nieznany');
 }
 
 function formatDeliveryDate(value) {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const date = new Date(`${value}T12:00:00`);
     return Number.isNaN(date.getTime())
         ? String(value)
-        : date.toLocaleDateString('pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+        : date.toLocaleDateString(isEn ? 'en-US' : 'pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function formatOrderDate(value) {
-    if (!value) return 'Data niedostępna';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    if (!value) return isEn ? 'Date unavailable' : 'Data niedostępna';
     const date = new Date(value);
     return Number.isNaN(date.getTime())
         ? String(value)
-        : date.toLocaleString('pl-PL', { dateStyle: 'medium', timeStyle: 'short' });
+        : date.toLocaleString(isEn ? 'en-US' : 'pl-PL', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function formatMoney(value) {
+    if (window.MiniTechI18n) return window.MiniTechI18n.formatMoney(value);
     return `${Number(value || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`;
 }
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
+
+window.addEventListener('minitech:language-changed', () => {
+    loadOrderDetail();
+});
