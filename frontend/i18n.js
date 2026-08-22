@@ -535,9 +535,12 @@
     // Cart button
     const cartBtn = document.querySelector('#cart-toggle');
     if (cartBtn) {
-      const countEl = cartBtn.querySelector('#cart-count');
-      const count = countEl ? countEl.textContent : '0';
-      cartBtn.innerHTML = `${dict.cartCount} <span class="cart-count" id="cart-count">${count}</span>`;
+      for (let i = 0; i < cartBtn.childNodes.length; i++) {
+        if (cartBtn.childNodes[i].nodeType === Node.TEXT_NODE) {
+          cartBtn.childNodes[i].nodeValue = `${dict.cartCount} `;
+          break;
+        }
+      }
     }
 
     // Checkout Breadcrumbs
@@ -756,8 +759,12 @@
     // Cart preview
     const cartPreviewHeading = document.querySelector('.cart-preview-heading h2');
     if (cartPreviewHeading) {
-      const count = document.querySelector('#cart-preview-count')?.textContent || '0';
-      cartPreviewHeading.innerHTML = `${dict.cartTitle} (<span id="cart-preview-count">${count}</span>)`;
+      for (let i = 0; i < cartPreviewHeading.childNodes.length; i++) {
+        if (cartPreviewHeading.childNodes[i].nodeType === Node.TEXT_NODE) {
+          cartPreviewHeading.childNodes[i].nodeValue = `${dict.cartTitle} (`;
+          break;
+        }
+      }
     }
     const cartPreviewTotalSpan = document.querySelector('.cart-preview-footer div span');
     if (cartPreviewTotalSpan) cartPreviewTotalSpan.textContent = dict.cartTotal;
