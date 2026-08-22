@@ -54,7 +54,8 @@ button { color: inherit; }
 .profile-pill, .ghost-button, .icon-button { border: 1px solid var(--line); background: rgba(255,255,255,.025); border-radius: 11px; }
 .profile-pill { padding: 10px 13px; color: var(--muted); font-size: 12px; }
 .profile-pill strong { color: var(--green); text-transform: uppercase; margin-left: 4px; }
-.ghost-button { color: var(--text); text-decoration: none; padding: 10px 13px; font-size: 12px; font-weight: 750; }
+.ghost-button { color: var(--text); text-decoration: none; padding: 10px 13px; font-size: 12px; font-weight: 750; cursor: pointer; }
+.lang-pill strong { color: var(--accent); margin-left: 3px; }
 .icon-button { width: 39px; height: 39px; cursor: pointer; font-size: 18px; }
 .view { display: none; animation: fade .22s ease; }
 .view.active { display: block; }

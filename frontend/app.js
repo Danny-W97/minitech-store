@@ -729,12 +729,20 @@ async function loadDeliveryMethods() {
 
 function renderDeliveryMethods() {
     if (!deliveryMethod) return;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const selected = deliveryMethod.value;
     deliveryMethod.innerHTML = state.deliveryMethods.length
-        ? state.deliveryMethods.map(method => `
-            <option value="${escapeHtml(method.code)}">${escapeHtml(method.name)} — od ${formatMoney(method.basePrice)}</option>
-        `).join('')
-        : '<option value="">Brak dostępnych metod</option>';
+        ? state.deliveryMethods.map(method => {
+            let name = method.name;
+            if (isEn) {
+                if (method.code === 'STORE_PICKUP') name = 'Store pickup';
+                else if (method.code === 'COURIER_STANDARD') name = 'Standard courier';
+                else if (method.code === 'PARCEL_LOCKER') name = 'Parcel locker';
+                else if (method.code === 'COURIER_EXPRESS') name = 'Express courier';
+            }
+            return `<option value="${escapeHtml(method.code)}">${escapeHtml(name)} — ${isEn ? 'from' : 'od'} ${formatMoney(method.basePrice)}</option>`;
+        }).join('')
+        : `<option value="">${isEn ? 'No methods available' : 'Brak dostępnych metod'}</option>`;
     deliveryMethod.value = state.deliveryMethods.some(method => method.code === selected)
         ? selected
         : (state.deliveryMethods[0]?.code || '');
@@ -778,6 +786,7 @@ function roundMoney(value) {
 
 function renderPriceSummary() {
     if (!summaryGross) return;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const productsGross = roundMoney(cartSubtotal());
     const discountGross = roundMoney(Math.min(productsGross, Math.max(0, Number(state.coupon?.discountAmount || 0))));
     const deliveryGross = roundMoney(state.deliveryQuote?.deliveryCost || 0);
@@ -788,12 +797,15 @@ function renderPriceSummary() {
     summaryProductsGross.textContent = formatMoney(productsGross);
     summaryDiscountRow.hidden = discountGross <= 0;
     summaryDiscountLabel.textContent = state.coupon?.code
-        ? `Rabat (${state.coupon.code}${state.coupon.discountPercent ? ` · ${state.coupon.discountPercent}%` : ''})`
-        : 'Rabat';
+        ? `${isEn ? 'Discount' : 'Rabat'} (${state.coupon.code}${state.coupon.discountPercent ? ` · ${state.coupon.discountPercent}%` : ''})`
+        : (isEn ? 'Discount' : 'Rabat');
     summaryDiscount.textContent = `−${formatMoney(discountGross)}`;
     summaryDeliveryGross.textContent = formatMoney(deliveryGross);
+    const modeLabel = state.deliveryQuote?.fulfillmentType === 'STORE_PICKUP'
+        ? (isEn ? 'Pickup' : 'Odbiór')
+        : (isEn ? 'Delivery' : 'Dostawa');
     summaryDeliveryDate.textContent = state.deliveryQuote?.selectedDate
-        ? `${state.deliveryQuote.fulfillmentType === 'STORE_PICKUP' ? 'Odbiór' : 'Dostawa'} · ${formatDeliveryDate(state.deliveryQuote.selectedDate)}`
+        ? `${modeLabel} · ${formatDeliveryDate(state.deliveryQuote.selectedDate)}`
         : '—';
     summaryNet.textContent = formatMoney(net);
     summaryVat.textContent = formatMoney(vat);
@@ -808,9 +820,10 @@ function renderPriceSummary() {
 }
 
 async function loadDeliveryQuote() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     if (!deliveryMethod || !state.cart.length || !deliveryMethod.value) {
         state.deliveryQuote = null;
-        if (deliveryQuote) deliveryQuote.textContent = 'Wybierz sposób dostawy, aby zobaczyć koszt.';
+        if (deliveryQuote) deliveryQuote.textContent = isEn ? 'Select delivery method to see the cost.' : 'Wybierz sposób dostawy, aby zobaczyć koszt.';
         renderPriceSummary();
         return null;
     }
@@ -843,11 +856,20 @@ async function loadDeliveryQuote() {
         syncDeliveryModeUi();
         renderPriceSummary();
         if (deliveryQuote) {
-            const eta = quote.etaMinDays === quote.etaMaxDays
-                ? `${quote.etaMinDays} dzień`
-                : `${quote.etaMinDays}–${quote.etaMaxDays} dni`;
-            const modeLabel = quote.fulfillmentType === 'STORE_PICKUP' ? 'odbiór osobisty' : 'dostawa';
-            deliveryQuote.textContent = `${quote.name}: ${modeLabel}, ${quote.freeDelivery ? '0,00 zł' : formatMoney(quote.deliveryCost)} · termin: ${formatDeliveryDate(quote.selectedDate)} · przewidywany czas: ${eta}. Razem: ${formatMoney(quote.totalPrice)}`;
+            const eta = isEn
+                ? (quote.etaMinDays === quote.etaMaxDays ? `${quote.etaMinDays} day` : `${quote.etaMinDays}–${quote.etaMaxDays} days`)
+                : (quote.etaMinDays === quote.etaMaxDays ? `${quote.etaMinDays} dzień` : `${quote.etaMinDays}–${quote.etaMaxDays} dni`);
+            const modeLabel = quote.fulfillmentType === 'STORE_PICKUP'
+                ? (isEn ? 'store pickup' : 'odbiór osobisty')
+                : (isEn ? 'delivery' : 'dostawa');
+            let quoteName = quote.name;
+            if (isEn) {
+                if (quote.methodCode === 'STORE_PICKUP' || quoteName === 'Odbiór osobisty w salonie') quoteName = 'Store pickup';
+                else if (quote.methodCode === 'COURIER_STANDARD' || quoteName === 'Kurier standardowy') quoteName = 'Standard courier';
+                else if (quote.methodCode === 'PARCEL_LOCKER' || quoteName === 'Paczkomat') quoteName = 'Parcel locker';
+                else if (quote.methodCode === 'COURIER_EXPRESS' || quoteName === 'Kurier ekspresowy') quoteName = 'Express courier';
+            }
+            deliveryQuote.textContent = `${quoteName}: ${modeLabel}, ${quote.freeDelivery ? (isEn ? '0.00 PLN' : '0,00 zł') : formatMoney(quote.deliveryCost)} · ${isEn ? 'date' : 'termin'}: ${formatDeliveryDate(quote.selectedDate)} · ${isEn ? 'estimated time' : 'przewidywany czas'}: ${eta}. ${isEn ? 'Total' : 'Razem'}: ${formatMoney(quote.totalPrice)}`;
             deliveryQuote.classList.remove('error');
         }
         return quote;
@@ -855,7 +877,7 @@ async function loadDeliveryQuote() {
         state.deliveryQuote = null;
         renderPriceSummary();
         if (deliveryQuote) {
-            deliveryQuote.textContent = `Nie można wyliczyć kosztu dostawy: ${error.message}`;
+            deliveryQuote.textContent = isEn ? `Cannot calculate delivery cost: ${error.message}` : `Nie można wyliczyć kosztu dostawy: ${error.message}`;
             deliveryQuote.classList.add('error');
         }
         throw error;
@@ -863,11 +885,12 @@ async function loadDeliveryQuote() {
 }
 
 function formatDeliveryDate(value) {
-    if (!value) return 'brak terminu';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    if (!value) return isEn ? 'no date' : 'brak terminu';
     const date = new Date(`${value}T12:00:00`);
     return Number.isNaN(date.getTime())
         ? value
-        : date.toLocaleDateString('pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+        : date.toLocaleDateString(isEn ? 'en-US' : 'pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 async function validatePromotionCode() {
@@ -908,23 +931,28 @@ async function validatePromotionCode() {
 
 function fillCategories() {
     if (!categoryFilter) return;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const selected = categoryFilter.value;
     const categories = [...new Set(state.products.map(product => product.category).filter(Boolean))].sort();
-    categoryFilter.innerHTML = '<option value="all">Wszystkie</option>' + categories
-        .map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
+    categoryFilter.innerHTML = `<option value="all">${isEn ? 'All' : 'Wszystkie'}</option>` + categories
+        .map(category => {
+            const label = window.MiniTechI18n ? window.MiniTechI18n.translateCategory(category) : category;
+            return `<option value="${escapeHtml(category)}">${escapeHtml(label)}</option>`;
+        })
         .join('');
     categoryFilter.value = categories.includes(selected) ? selected : 'all';
 }
 
 function fillManufacturers(selectedOverride = null) {
     if (!manufacturerFilter) return;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const category = categoryFilter?.value || 'all';
     const selected = selectedOverride === null ? manufacturerFilter.value : selectedOverride;
     const categoryProducts = category === 'all'
         ? state.products
         : state.products.filter(product => product.category === category);
     const manufacturers = [...new Set(categoryProducts.map(product => product.manufacturer).filter(Boolean))].sort();
-    manufacturerFilter.innerHTML = '<option value="all">Wszyscy</option>' + manufacturers
+    manufacturerFilter.innerHTML = `<option value="all">${isEn ? 'All' : 'Wszyscy'}</option>` + manufacturers
         .map(manufacturer => `<option value="${escapeHtml(manufacturer)}">${escapeHtml(manufacturer)}</option>`)
         .join('');
     manufacturerFilter.value = manufacturers.includes(selected) ? selected : 'all';
@@ -932,6 +960,7 @@ function fillManufacturers(selectedOverride = null) {
 
 function fillTechnicalParameters(selectedOverride = null) {
     if (!technicalParameterFilter) return;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const category = categoryFilter?.value || 'all';
     const selected = selectedOverride === null ? technicalParameterFilter.value : selectedOverride;
     const categoryProducts = category === 'all'
@@ -942,11 +971,14 @@ function fillTechnicalParameters(selectedOverride = null) {
     const configuredKeys = CATEGORY_PARAMETER_KEYS[category] || [];
     const keys = (configuredKeys.length
         ? configuredKeys.filter(key => discoveredKeys.includes(key))
-        : discoveredKeys.sort((left, right) => left.localeCompare(right, 'pl')));
+        : discoveredKeys.sort((left, right) => left.localeCompare(right, isEn ? 'en' : 'pl')));
     const categorySelected = category !== 'all';
-    const emptyLabel = categorySelected ? 'Wszystkie parametry' : 'Wybierz kategorię';
+    const emptyLabel = categorySelected ? (isEn ? 'All parameters' : 'Wszystkie parametry') : (isEn ? 'Select category' : 'Wybierz kategorię');
     technicalParameterFilter.innerHTML = `<option value="all">${emptyLabel}</option>` + keys
-        .map(key => `<option value="${escapeHtml(key)}">${escapeHtml(TECHNICAL_PARAMETER_LABELS[key] || key)}</option>`)
+        .map(key => {
+            const label = window.MiniTechI18n ? window.MiniTechI18n.translateParamKey(key) : (TECHNICAL_PARAMETER_LABELS[key] || key);
+            return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
+        })
         .join('');
     technicalParameterFilter.value = keys.includes(selected) ? selected : 'all';
     technicalParameterFilter.disabled = !categorySelected || keys.length === 0;
@@ -954,15 +986,15 @@ function fillTechnicalParameters(selectedOverride = null) {
         technicalValueFilter.disabled = !categorySelected || keys.length === 0;
         technicalValueFilter.placeholder = categorySelected && keys.length > 0
             ? 'np. DDR5, 32GB'
-            : 'Najpierw wybierz kategorię';
+            : (isEn ? 'Select category first' : 'Najpierw wybierz kategorię');
         technicalValueFilter.setAttribute('aria-label', categorySelected
-            ? `Wartość parametru kategorii ${category}`
-            : 'Wartość parametru — wybierz kategorię');
+            ? (isEn ? `Parameter value for category ${category}` : `Wartość parametru kategorii ${category}`)
+            : (isEn ? 'Parameter value — select category' : 'Wartość parametru — wybierz kategorię'));
     }
     const parameterLabel = document.querySelector('#technical-parameter-label');
     if (parameterLabel) parameterLabel.textContent = categorySelected
-        ? `Parametr: ${category}`
-        : 'Parametr kategorii';
+        ? (isEn ? `Parameter: ${window.MiniTechI18n ? window.MiniTechI18n.translateCategory(category) : category}` : `Parametr: ${category}`)
+        : (isEn ? 'Category parameter' : 'Parametr kategorii');
 }
 
 function resetTechnicalFilterForCategory() {
@@ -1394,6 +1426,7 @@ function syncCategoryStrip(category = categoryFilter?.value || 'all') {
 }
 
 function productCard(product, variant = 'catalog') {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const symbol = escapeHtml((product.category || 'MT').slice(0, 3).toUpperCase());
     const stock = stockFor(product.id);
     const availableQuantity = stock?.availableQuantity;
@@ -1403,19 +1436,24 @@ function productCard(product, variant = 'catalog') {
         : `<span class="visual-symbol">${symbol}</span>`;
     const emphasizeNew = variant === 'new';
     const badgeLabel = emphasizeNew && product.newProduct
-        ? 'NOWOŚĆ'
+        ? (isEn ? 'NEW' : 'NOWOŚĆ')
         : (Number(product.discountPercent) > 0
         ? `-${Number(product.discountPercent)}%`
-        : (product.newProduct ? 'NOWOŚĆ' : 'ACTIVE'));
+        : (product.newProduct ? (isEn ? 'NEW' : 'NOWOŚĆ') : 'ACTIVE'));
     const badgeClass = emphasizeNew && product.newProduct
         ? 'product-badge-new'
         : (Number(product.discountPercent) > 0
         ? 'product-badge-promotion'
         : (product.newProduct ? 'product-badge-new' : ''));
     const compared = state.compareIds.has(Number(product.id));
+    const detailsLabel = isEn ? 'Details' : 'Szczegóły';
+    const compareLabel = compared ? (isEn ? '✓ Compare' : '✓ Porównaj') : (isEn ? 'Compare' : 'Porównaj');
+    const compareTitle = compared ? (isEn ? 'Remove from comparison' : 'Usuń z porównania') : (isEn ? 'Add to comparison' : 'Dodaj do porównania');
+    const wishlistTitle = state.wishlist.has(Number(product.id)) ? (isEn ? 'Remove from wishlist' : 'Usuń z ulubionych') : (isEn ? 'Add to wishlist' : 'Dodaj do ulubionych');
+    const addLabel = soldOut ? (isEn ? 'Out of stock' : 'Brak produktu') : (isEn ? 'Add to cart' : 'Dodaj do koszyka');
     return `
         <article class="product-card ${variant !== 'catalog' ? 'highlight-card' : ''}">
-            <a class="product-visual" href="product.html?id=${encodeURIComponent(product.id)}" aria-label="Zobacz szczegóły produktu ${escapeHtml(product.name)}">
+            <a class="product-visual" href="product.html?id=${encodeURIComponent(product.id)}" aria-label="${isEn ? 'View product details' : 'Zobacz szczegóły produktu'} ${escapeHtml(product.name)}">
                 <span class="product-badge ${badgeClass}">${badgeLabel}</span>
                 ${visual}
             </a>
@@ -1424,10 +1462,10 @@ function productCard(product, variant = 'catalog') {
             <div class="product-footer">
                 ${priceMarkup(product)}
                 <div class="product-actions">
-                    <a class="product-detail-button" href="product.html?id=${encodeURIComponent(product.id)}">Szczegóły</a>
-                    ${variant === 'catalog' ? `<button class="compare-button ${compared ? 'is-active' : ''}" type="button" data-action="compare" data-product-id="${product.id}" aria-pressed="${compared}" title="${compared ? 'Usuń z porównania' : 'Dodaj do porównania'}">${compared ? '✓ Porównaj' : 'Porównaj'}</button>` : ''}
-                    <button class="wishlist-button ${state.wishlist.has(Number(product.id)) ? 'is-active' : ''}" type="button" data-action="wishlist" data-product-id="${product.id}" aria-label="${state.wishlist.has(Number(product.id)) ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}" title="${state.wishlist.has(Number(product.id)) ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}" aria-pressed="${state.wishlist.has(Number(product.id))}">${state.wishlist.has(Number(product.id)) ? '♥' : '♡'}</button>
-                    <button class="add-button ${soldOut ? 'add-button-sold-out' : ''}" type="button" data-action="add" data-product-id="${product.id}" ${soldOut ? 'disabled' : ''}>${soldOut ? 'Brak produktu' : 'Dodaj do koszyka'}</button>
+                    <a class="product-detail-button" href="product.html?id=${encodeURIComponent(product.id)}">${detailsLabel}</a>
+                    ${variant === 'catalog' ? `<button class="compare-button ${compared ? 'is-active' : ''}" type="button" data-action="compare" data-product-id="${product.id}" aria-pressed="${compared}" title="${compareTitle}">${compareLabel}</button>` : ''}
+                    <button class="wishlist-button ${state.wishlist.has(Number(product.id)) ? 'is-active' : ''}" type="button" data-action="wishlist" data-product-id="${product.id}" aria-label="${wishlistTitle}" title="${wishlistTitle}" aria-pressed="${state.wishlist.has(Number(product.id))}">${state.wishlist.has(Number(product.id)) ? '♥' : '♡'}</button>
+                    <button class="add-button ${soldOut ? 'add-button-sold-out' : ''}" type="button" data-action="add" data-product-id="${product.id}" ${soldOut ? 'disabled' : ''}>${addLabel}</button>
                 </div>
             </div>
         </article>`;
@@ -1444,11 +1482,13 @@ function priceMarkup(product) {
 }
 
 function promotionSavingsMarkup(product) {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const salePrice = finitePrice(product.price, product.regularPrice);
     const regularPrice = finitePrice(product.regularPrice, salePrice);
     const savings = regularPrice - salePrice;
+    const note = isEn ? `You save ${formatMoney(savings)} · daily deal` : `Oszczędzasz ${formatMoney(savings)} · promocja dnia`;
     return Number(product.discountPercent) > 0 && savings > 0
-        ? `<p class="product-promotion-note">Oszczędzasz ${formatMoney(savings)} · promocja dnia</p>`
+        ? `<p class="product-promotion-note">${note}</p>`
         : '';
 }
 
@@ -1531,6 +1571,7 @@ function handleCartAction(event) {
 }
 
 function renderCart() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const quantity = state.cart.reduce((sum, item) => sum + item.quantity, 0);
     const total = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const stockIssues = getCartStockIssues();
@@ -1543,18 +1584,19 @@ function renderCart() {
     if (cartStockWarning) {
         cartStockWarning.hidden = stockIssues.length === 0;
         cartStockWarning.textContent = stockIssues.length
-            ? `Brak wystarczającej liczby produktów: ${formatCartStockIssues(stockIssues)}. Zmniejsz ilość lub usuń pozycję z koszyka.`
+            ? (isEn ? `Insufficient stock: ${formatCartStockIssues(stockIssues)}. Reduce quantity or remove item from cart.` : `Brak wystarczającej liczby produktów: ${formatCartStockIssues(stockIssues)}. Zmniejsz ilość lub usuń pozycję z koszyka.`)
             : '';
     }
     updateCartThresholdNote();
     cartItems.innerHTML = state.cart.map(item => {
         const stock = stockFor(item.id);
         const atLimit = Number.isInteger(stock?.availableQuantity) && item.quantity >= stock.availableQuantity;
+        const stockInfo = Number.isInteger(stock?.availableQuantity) ? (isEn ? ` · stock: ${stock.availableQuantity} pcs` : ` · magazyn: ${stock.availableQuantity} szt.`) : '';
         return `
         <div class="cart-row">
             <div>
                 <div class="cart-row-name">${escapeHtml(item.name)}</div>
-                <div class="cart-row-meta">${formatMoney(item.price)} · ${escapeHtml(item.sku || '')}${Number.isInteger(stock?.availableQuantity) ? ` · magazyn: ${stock.availableQuantity} szt.` : ''}</div>
+                <div class="cart-row-meta">${formatMoney(item.price)} · ${escapeHtml(item.sku || '')}${stockInfo}</div>
             </div>
             <div class="cart-row-actions">
                 <button class="quantity-button" data-action="decrease" data-product-id="${item.id}" type="button">−</button>
@@ -1568,14 +1610,21 @@ function renderCart() {
 
 function updateCartThresholdNote() {
     if (!cartThresholdNote) return;
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     if (!state.cart.length) {
         cartThresholdNote.textContent = '';
     } else if (cartSubtotal() > LOGIN_REQUIRED_THRESHOLD && !state.customer) {
-        cartThresholdNote.textContent = 'Zamówienie powyżej 1 000 zł wymaga zalogowania lub założenia konta.';
+        cartThresholdNote.textContent = isEn
+            ? 'Orders over 1,000 PLN require sign in or creating an account.'
+            : 'Zamówienie powyżej 1 000 zł wymaga zalogowania lub założenia konta.';
     } else if (state.customer) {
-        cartThresholdNote.textContent = `Zamówienie zostanie zapisane na koncie ${state.customer.email}.`;
+        cartThresholdNote.textContent = isEn
+            ? `Order will be saved to account ${state.customer.email}.`
+            : `Zamówienie zostanie zapisane na koncie ${state.customer.email}.`;
     } else {
-        cartThresholdNote.textContent = 'Do 1 000 zł możesz kupić jako gość — konto nie jest wymagane.';
+        cartThresholdNote.textContent = isEn
+            ? 'Up to 1,000 PLN you can purchase as a guest — no account required.'
+            : 'Do 1 000 zł możesz kupić jako gość — konto nie jest wymagane.';
     }
 }
 
@@ -1931,6 +1980,7 @@ function choosePurchaseMode(mode) {
 }
 
 function showCheckoutPage() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     checkoutSection.hidden = false;
     checkoutLayout.classList.remove('cart-only');
     checkoutLayout.classList.add('checkout-only');
@@ -1941,12 +1991,12 @@ function showCheckoutPage() {
     setCheckoutStep('delivery');
     if (purchaseMode === 'account' && state.customer) {
         fillCustomer(state.customer);
-        checkoutModeText.textContent = `Zamówienie na koncie ${state.customer.email}`;
-        setCheckoutStatus(`Zamówienie zostanie zapisane na koncie ${state.customer.email}.`);
+        checkoutModeText.textContent = isEn ? `Order for account ${state.customer.email}` : `Zamówienie na koncie ${state.customer.email}`;
+        setCheckoutStatus(isEn ? `Order will be saved to account ${state.customer.email}.` : `Zamówienie zostanie zapisane na koncie ${state.customer.email}.`);
     } else {
         clearCustomerCheckoutFields();
-        checkoutModeText.textContent = 'Kupuję jako gość';
-        setCheckoutStatus('Kupujesz jako gość. Wpisz dane dostawy, e-mail i telefon.');
+        checkoutModeText.textContent = isEn ? 'Purchasing as guest' : 'Kupuję jako gość';
+        setCheckoutStatus(isEn ? 'Purchasing as guest. Enter delivery details, email, and phone.' : 'Kupujesz jako gość. Wpisz dane dostawy, e-mail i telefon.');
     }
     syncGuestContactFields();
     renderDeliveryMethods();
@@ -2050,6 +2100,7 @@ function clearCustomerCheckoutFields() {
 }
 
 function openAuthModal() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     if (state.customer) {
         accountMenu.hidden = !accountMenu.hidden;
         authToggle.setAttribute('aria-expanded', String(!accountMenu.hidden));
@@ -2068,12 +2119,12 @@ function openAuthModal() {
         authEmail.value = state.customer.email || '';
         authSubmit.hidden = true;
         authLogout.hidden = false;
-        setAccountStatus(`Zalogowano jako ${state.customer.email}.`);
+        setAccountStatus(isEn ? `Logged in as ${state.customer.email}.` : `Zalogowano jako ${state.customer.email}.`);
     } else {
         authSubmit.hidden = false;
         authLogout.hidden = true;
         showResendVerification(authEmail.value);
-        setAccountStatus('Zaloguj się albo załóż konto, aby zapisać dane dostawy.');
+        setAccountStatus(isEn ? 'Sign in or create an account to save delivery details.' : 'Zaloguj się albo załóż konto, aby zapisać dane dostawy.');
     }
 }
 
@@ -2091,6 +2142,7 @@ function closeAuthModal() {
 }
 
 function updateAuthMode() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     authModeSelector.hidden = passwordResetMode;
     authForm.hidden = passwordResetMode;
     authResetForm.hidden = !passwordResetMode;
@@ -2098,17 +2150,21 @@ function updateAuthMode() {
     if (passwordResetMode) {
         authResetEmail.required = !authResetToken.value.trim();
         document.querySelector('#auth-title').textContent = authResetToken.value.trim()
-            ? 'Ustaw nowe haslo'
-            : 'Nie pamietam hasla';
+            ? (isEn ? 'Set new password' : 'Ustaw nowe hasło')
+            : (isEn ? 'Forgot password' : 'Nie pamiętam hasła');
         authResetTokenLabel.hidden = !authResetToken.value.trim();
         authResetPasswordLabel.hidden = !authResetToken.value.trim();
         authResetPassword.required = Boolean(authResetToken.value.trim());
-        authResetSubmit.textContent = authResetToken.value.trim() ? 'Zmien haslo' : 'Wyslij link resetu';
+        authResetSubmit.textContent = authResetToken.value.trim()
+            ? (isEn ? 'Change password' : 'Zmień hasło')
+            : (isEn ? 'Send reset link' : 'Wyślij link resetu');
         return;
     }
     authResetEmail.required = true;
-    document.querySelector('#auth-title').textContent = state.customer ? 'Konto' : 'Zaloguj sie';
     const registering = authMode.value === 'register';
+    document.querySelector('#auth-title').textContent = registering
+        ? (isEn ? 'Create account' : 'Załóż konto')
+        : (state.customer ? (isEn ? 'Account' : 'Konto') : (isEn ? 'Sign in' : 'Zaloguj się'));
     authPasswordConfirmLabel.hidden = !registering;
     authPasswordConfirm.required = registering;
     authRegisterFields.hidden = !registering;
@@ -2116,7 +2172,9 @@ function updateAuthMode() {
     authRegisterChoice?.classList.toggle('active', registering);
     authLoginChoice?.setAttribute('aria-pressed', String(!registering));
     authRegisterChoice?.setAttribute('aria-pressed', String(registering));
-    authSubmit.textContent = registering ? 'Załóż konto' : 'Zaloguj się';
+    authSubmit.textContent = registering
+        ? (isEn ? 'Create account' : 'Załóż konto')
+        : (isEn ? 'Sign in' : 'Zaloguj się');
     authResend.hidden = !registering || Boolean(state.customer);
     [...authRegisterFields.querySelectorAll('input')].forEach(input => {
         input.required = registering;
@@ -2135,6 +2193,7 @@ function selectAuthMode(mode) {
 }
 
 function selectPasswordResetMode(token = '') {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     passwordResetMode = true;
     authResetToken.value = token;
     authResetEmail.value = authEmail.value.trim();
@@ -2142,20 +2201,23 @@ function selectPasswordResetMode(token = '') {
     authModal.hidden = false;
     closeAccountMenu();
     updateAuthMode();
-    setAccountStatus(token ? 'Wpisz nowe haslo, aby zakonczyc reset.' : 'Podaj e-mail. Link resetu otrzymasz w Mailpit.');
+    setAccountStatus(token
+        ? (isEn ? 'Enter a new password to complete reset.' : 'Wpisz nowe hasło, aby zakończyć reset.')
+        : (isEn ? 'Enter email. You will receive a reset link in Mailpit.' : 'Podaj e-mail. Link resetu otrzymasz w Mailpit.'));
 }
 
 async function submitAuth(event) {
     event.preventDefault();
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     let registering = false;
     try {
         registering = authMode.value === 'register';
         if (registering && !validatePasswordMatch()) {
-            setAccountStatus('Hasła muszą być identyczne.', true);
+            setAccountStatus(isEn ? 'Passwords must match.' : 'Hasła muszą być identyczne.', true);
             authPasswordConfirm.reportValidity();
             return;
         }
-        setAccountStatus(registering ? 'Tworzenie konta…' : 'Logowanie…');
+        setAccountStatus(registering ? (isEn ? 'Creating account…' : 'Tworzenie konta…') : (isEn ? 'Signing in…' : 'Logowanie…'));
         const payload = { email: authEmail.value.trim(), password: authPassword.value };
         if (registering) {
             Object.assign(payload, {
@@ -2177,8 +2239,10 @@ async function submitAuth(event) {
             authPasswordConfirm.value = '';
             selectAuthMode('login');
             showResendVerification(authEmail.value);
-            setAccountStatus(`Confirmation email sent to ${authEmail.value}. The link is valid for 5 minutes.`);
-            showToast('Check Mailpit and confirm your account');
+            setAccountStatus(isEn
+                ? `Confirmation email sent to ${authEmail.value}. The link is valid for 5 minutes.`
+                : `Wiadomość potwierdzająca została wysłana na adres ${authEmail.value}. Link jest ważny przez 5 minut.`);
+            showToast(isEn ? 'Check Mailpit and confirm your account' : 'Sprawdź Mailpit i potwierdź konto');
             return;
         }
         if (authResult?.mfaRequired) {
@@ -2193,8 +2257,10 @@ async function submitAuth(event) {
         if (nextPurchaseMode === 'account') {
             purchaseMode = 'account';
         }
-        setAccountStatus(registering ? `Konto utworzone dla ${customer.email}.` : `Zalogowano jako ${customer.email}.`);
-        showToast(registering ? 'Konto zostało utworzone' : 'Zalogowano do konta');
+        setAccountStatus(registering
+            ? (isEn ? `Account created for ${customer.email}.` : `Konto utworzone dla ${customer.email}.`)
+            : (isEn ? `Logged in as ${customer.email}.` : `Zalogowano jako ${customer.email}.`));
+        showToast(registering ? (isEn ? 'Account created' : 'Konto zostało utworzone') : (isEn ? 'Signed in' : 'Zalogowano do konta'));
         window.setTimeout(() => {
             closeAuthModal();
             if (nextPurchaseMode === 'account') showCheckoutPage();
@@ -2204,9 +2270,9 @@ async function submitAuth(event) {
             showResendVerification(authEmail.value);
         }
         const message = !registering && error.status === 401
-            ? 'Nieprawidłowy e-mail lub hasło.'
+            ? (isEn ? 'Invalid email or password.' : 'Nieprawidłowy e-mail lub hasło.')
             : error.message;
-        setAccountStatus(`Operacja nie powiodła się: ${message}`, true);
+        setAccountStatus(isEn ? `Operation failed: ${message}` : `Operacja nie powiodła się: ${message}`, true);
     }
 }
 
@@ -2325,7 +2391,8 @@ async function openSecurityPanel() {
     authWishlistPanel.hidden = true;
     authSubmit.hidden = true;
     authLogout.hidden = true;
-    document.querySelector('#auth-title').textContent = 'Bezpieczeństwo konta';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    document.querySelector('#auth-title').textContent = isEn ? 'Account Security' : 'Bezpieczeństwo konta';
     await loadMfaStatus();
 }
 
@@ -2348,7 +2415,8 @@ function openProfilePanel() {
     authWishlistPanel.hidden = true;
     authSubmit.hidden = true;
     authLogout.hidden = true;
-    document.querySelector('#auth-title').textContent = 'Profil';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    document.querySelector('#auth-title').textContent = isEn ? 'Profile' : 'Profil';
     fillProfileForm(state.customer);
     authProfileStatus.textContent = '';
 }
@@ -2372,7 +2440,8 @@ async function openOrderHistoryPanel() {
     authWishlistPanel.hidden = true;
     authSubmit.hidden = true;
     authLogout.hidden = true;
-    document.querySelector('#auth-title').textContent = 'Moje zamówienia';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    document.querySelector('#auth-title').textContent = isEn ? 'My Orders' : 'Moje zamówienia';
     await loadOrderHistory();
 }
 
@@ -2395,7 +2464,8 @@ async function openWishlistPanel() {
     authWishlistPanel.hidden = false;
     authSubmit.hidden = true;
     authLogout.hidden = true;
-    document.querySelector('#auth-title').textContent = 'Moje ulubione';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    document.querySelector('#auth-title').textContent = isEn ? 'My Wishlist' : 'Moje ulubione';
     await loadWishlist();
 }
 
@@ -2467,31 +2537,36 @@ async function loadOrderHistory() {
 }
 
 function orderHistoryCard(order) {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const items = Array.isArray(order.items) ? order.items : [];
     const itemSummary = items.map(item => `${item.productName} × ${item.quantity}`).join(', ');
     const deliverySummary = order.deliveryMethod
-        ? `Dostawa: ${order.deliveryMethod} · ${formatMoney(order.deliveryCost)}`
+        ? `${isEn ? 'Delivery' : 'Dostawa'}: ${order.deliveryMethod} · ${formatMoney(order.deliveryCost)}`
         : '';
+    const invoiceLabel = isEn ? 'Invoice' : 'Faktura';
+    const downloadLabel = isEn ? 'download PDF' : 'pobierz PDF';
+    const noInvoiceLabel = isEn ? 'not requested' : 'niezamówiona';
     return `
         <article class="auth-order-card">
             <div class="auth-order-heading">
-                <strong>Zamówienie #${escapeHtml(order.id)}</strong>
+                <strong>${isEn ? 'Order' : 'Zamówienie'} #${escapeHtml(order.id)}</strong>
                 <span class="auth-order-status">${escapeHtml(orderStatusLabel(order.status))}</span>
             </div>
             <p>${escapeHtml(formatOrderDate(order.createdAt))}</p>
-            <p class="auth-order-items">${escapeHtml(itemSummary || 'Brak pozycji')}</p>
+            <p class="auth-order-items">${escapeHtml(itemSummary || (isEn ? 'No items' : 'Brak pozycji'))}</p>
             ${deliverySummary ? `<p>${escapeHtml(deliverySummary)}</p>` : ''}
-            <p>Faktura: ${order.invoiceRequested
-                ? `<a href="${API_BASE}/invoices/order/${encodeURIComponent(order.id)}/pdf" target="_blank" rel="noreferrer">pobierz PDF</a>`
-                : 'niezamówiona'}</p>
+            <p>${invoiceLabel}: ${order.invoiceRequested
+                ? `<a href="${API_BASE}/invoices/order/${encodeURIComponent(order.id)}/pdf" target="_blank" rel="noreferrer">${downloadLabel}</a>`
+                : noInvoiceLabel}</p>
             <strong class="auth-order-total">${formatMoney(order.totalPrice)}</strong>
             <div class="auth-order-actions">
-                <a class="secondary-button" href="order-detail.html?id=${encodeURIComponent(order.id)}">Szczegóły zamówienia</a>
+                <a class="secondary-button" href="order-detail.html?id=${encodeURIComponent(order.id)}">${isEn ? 'Order details' : 'Szczegóły zamówienia'}</a>
             </div>
         </article>`;
 }
 
 function orderStatusLabel(status) {
+    if (window.MiniTechI18n) return window.MiniTechI18n.translateOrderStatus(status);
     return ({
         CREATED: 'Utworzone',
         CONFIRMED: 'Potwierdzone',
@@ -2503,11 +2578,12 @@ function orderStatusLabel(status) {
 }
 
 function formatOrderDate(value) {
-    if (!value) return 'Data niedostępna';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    if (!value) return isEn ? 'Date unavailable' : 'Data niedostępna';
     const date = new Date(value);
     return Number.isNaN(date.getTime())
         ? String(value)
-        : date.toLocaleString('pl-PL', { dateStyle: 'medium', timeStyle: 'short' });
+        : date.toLocaleString(isEn ? 'en-US' : 'pl-PL', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function fillProfileForm(customer) {
@@ -3019,10 +3095,11 @@ function setSession(session) {
 }
 
 function updateCustomerSummary() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     if (state.customer) {
-        authToggle.textContent = `Konto: ${state.customer.email}`;
+        authToggle.textContent = `${isEn ? 'Account' : 'Konto'}: ${state.customer.email}`;
     } else {
-        authToggle.textContent = 'Zaloguj się';
+        authToggle.textContent = isEn ? 'Sign in' : 'Zaloguj się';
         closeAccountMenu();
     }
     updateCartThresholdNote();
@@ -3140,18 +3217,19 @@ function closeCompareModal() {
 }
 
 function renderComparisonTable(products) {
-    const parameterKeys = [...new Set(products.flatMap(product => Object.keys(product.technicalParameters || {})))].sort((left, right) => left.localeCompare(right, 'pl'));
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    const parameterKeys = [...new Set(products.flatMap(product => Object.keys(product.technicalParameters || {})))].sort((left, right) => left.localeCompare(right, isEn ? 'en' : 'pl'));
     const rows = [
-        ['Kategoria', product => product.category || '—'],
-        ['Producent', product => product.manufacturer || '—'],
-        ['Model', product => product.model || '—'],
-        ['SKU', product => product.sku || '—'],
-        ['Cena', product => formatMoney(product.price)],
-        ['Dostępność', product => {
+        [isEn ? 'Category' : 'Kategoria', product => (window.MiniTechI18n ? window.MiniTechI18n.translateCategory(product.category) : product.category) || '—'],
+        [isEn ? 'Manufacturer' : 'Producent', product => product.manufacturer || '—'],
+        [isEn ? 'Model' : 'Model', product => product.model || '—'],
+        [isEn ? 'SKU' : 'SKU', product => product.sku || '—'],
+        [isEn ? 'Price' : 'Cena', product => formatMoney(product.price)],
+        [isEn ? 'Availability' : 'Dostępność', product => {
             const quantity = stockFor(product.id)?.availableQuantity;
-            return Number.isInteger(quantity) ? `${quantity} szt.` : 'Niedostępna';
+            return Number.isInteger(quantity) ? (isEn ? `${quantity} pcs` : `${quantity} szt.`) : (isEn ? 'Unavailable' : 'Niedostępna');
         }],
-        ...parameterKeys.map(key => [key, product => product.technicalParameters?.[key] ?? '—'])
+        ...parameterKeys.map(key => [window.MiniTechI18n ? window.MiniTechI18n.translateParamKey(key) : (TECHNICAL_PARAMETER_LABELS[key] || key), product => product.technicalParameters?.[key] ?? '—'])
     ];
     const header = products.map(product => `<th scope="col">${escapeHtml(product.name)}</th>`).join('');
     const body = rows.map(([label, value]) => `
@@ -3161,7 +3239,7 @@ function renderComparisonTable(products) {
         </tr>
     `).join('');
     return `<div class="comparison-table-scroll"><table class="comparison-table">
-        <thead><tr><th scope="col">Parametr</th>${header}</tr></thead>
+        <thead><tr><th scope="col">${isEn ? 'Parameter' : 'Parametr'}</th>${header}</tr></thead>
         <tbody>${body}</tbody>
     </table></div>`;
 }
@@ -3187,6 +3265,7 @@ function finitePrice(primary, fallback = 0) {
 }
 
 function formatMoney(value) {
+    if (window.MiniTechI18n) return window.MiniTechI18n.formatMoney(value);
     return `${Number(value || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`;
 }
 
@@ -3313,3 +3392,22 @@ function clearCheckoutAttempt() {
         // No persisted attempt to remove in privacy mode.
     }
 }
+
+window.addEventListener('minitech:language-changed', () => {
+    fillCategories();
+    fillManufacturers();
+    fillTechnicalParameters();
+    renderHighlights();
+    renderProducts();
+    renderRecentlyViewed();
+    loadBestsellers().catch(() => {});
+    renderCart();
+    renderDeliveryMethods();
+    renderPriceSummary();
+    updateCustomerSummary();
+    if (typeof updateAuthMode === 'function') updateAuthMode();
+    renderCompareControls();
+    if (compareModal && !compareModal.hidden) {
+        openCompareModal();
+    }
+});

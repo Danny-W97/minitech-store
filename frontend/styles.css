@@ -61,7 +61,10 @@ a { color: inherit; text-decoration: none; }
 .cart-preview-checkout { width: 100%; padding: 12px 14px; }
 .cart-preview-checkout:disabled { color: var(--muted); background: #e9ecf0; box-shadow: none; cursor: not-allowed; }
 .account-area { position: relative; display: flex; align-items: center; }
-.auth-button { padding: 10px 14px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.auth-button, .lang-switch-button { padding: 10px 14px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.lang-switch-button { display: inline-flex; align-items: center; gap: 4px; }
+.lang-switch-button strong { color: var(--accent); font-weight: 800; }
+.auth-button:hover, .lang-switch-button:hover { border-color: var(--accent); }
 .account-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 12; min-width: 150px; padding: 7px; background: var(--card); border: 1px solid var(--line); border-radius: 9px; box-shadow: var(--shadow); }
 .account-menu[hidden] { display: none; }
 .account-menu-logout { width: 100%; padding: 10px 12px; color: var(--ink); background: transparent; border: 0; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 800; text-align: left; }

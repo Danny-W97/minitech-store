@@ -102,9 +102,11 @@ function renderRecommendation(item) {
 }
 
 function renderProduct() {
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
     const category = product.category || 'TECH';
+    const translatedCategory = window.MiniTechI18n ? window.MiniTechI18n.translateCategory(category) : category;
     document.title = `${product.name} — MiniTech Store`;
-    document.querySelector('#product-category').textContent = category;
+    document.querySelector('#product-category').textContent = translatedCategory;
     productSymbol.textContent = category.slice(0, 3).toUpperCase();
     if (product.imageUrl) {
         productImage.src = product.imageUrl;
@@ -115,10 +117,11 @@ function renderProduct() {
         productImage.hidden = true;
         productSymbol.hidden = false;
     }
+    const noData = isEn ? 'No data' : 'Brak danych';
     document.querySelector('#product-name').textContent = product.name;
-    document.querySelector('#product-manufacturer').textContent = product.manufacturer || 'Brak danych';
-    document.querySelector('#product-model').textContent = product.model || 'Brak danych';
-    document.querySelector('#product-sku').textContent = product.sku || 'Brak danych';
+    document.querySelector('#product-manufacturer').textContent = product.manufacturer || noData;
+    document.querySelector('#product-model').textContent = product.model || noData;
+    document.querySelector('#product-sku').textContent = product.sku || noData;
     document.querySelector('#product-price').textContent = formatMoney(product.price);
     const regularPriceElement = document.querySelector('#product-regular-price');
     const offerElement = document.querySelector('#product-offer');
@@ -127,25 +130,29 @@ function renderProduct() {
     regularPriceElement.textContent = hasDiscount ? formatMoney(product.regularPrice) : '';
     offerElement.hidden = !hasDiscount;
     offerElement.textContent = hasDiscount
-        ? `Promocja dnia: -${Number(product.discountPercent)}%. Oferta rotuje co 24 godziny.`
-        : (product.newProduct ? 'Nowość w dzisiejszej rotacji katalogu.' : '');
+        ? (isEn ? `Daily deal: -${Number(product.discountPercent)}%. Rotates every 24 hours.` : `Promocja dnia: -${Number(product.discountPercent)}%. Oferta rotuje co 24 godziny.`)
+        : (product.newProduct ? (isEn ? 'New arrival in today\'s rotation.' : 'Nowość w dzisiejszej rotacji katalogu.') : '');
     if (lowestPriceElement) {
         lowestPriceElement.hidden = !Number.isFinite(lowestPrice30Days);
         lowestPriceElement.textContent = Number.isFinite(lowestPrice30Days)
-            ? `Najniższa cena z ostatnich 30 dni: ${formatMoney(lowestPrice30Days)}`
+            ? (isEn ? `Lowest price in last 30 days: ${formatMoney(lowestPrice30Days)}` : `Najniższa cena z ostatnich 30 dni: ${formatMoney(lowestPrice30Days)}`)
             : '';
     }
     const soldOut = availableQuantity === 0;
     const stock = document.querySelector('#product-stock');
     stock.textContent = Number.isInteger(availableQuantity)
-        ? (soldOut ? 'Brak w magazynie' : `Dostępne: ${availableQuantity} szt.`)
-        : 'Stan magazynowy niedostępny';
+        ? (soldOut ? (isEn ? 'Out of stock' : 'Brak w magazynie') : (isEn ? `In stock: ${availableQuantity} pcs` : `Dostępne: ${availableQuantity} szt.`))
+        : (isEn ? 'Stock information unavailable' : 'Stan magazynowy niedostępny');
     stock.classList.toggle('empty', soldOut);
     addButton.disabled = soldOut;
-    addButton.textContent = soldOut ? 'Brak produktu' : 'Dodaj do koszyka';
-    document.querySelector('#product-specs').innerHTML = Object.entries(product.technicalParameters || {})
-        .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd>`)
-        .join('') || '<dt>Informacja</dt><dd>Brak dodatkowych parametrów.</dd>';
+    addButton.textContent = soldOut ? (isEn ? 'Out of stock' : 'Brak produktu') : (isEn ? 'Add to cart' : 'Dodaj do koszyka');
+    const paramEntries = Object.entries(product.technicalParameters || {});
+    document.querySelector('#product-specs').innerHTML = paramEntries
+        .map(([key, value]) => {
+            const label = window.MiniTechI18n ? window.MiniTechI18n.translateParamKey(key) : key;
+            return `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`;
+        })
+        .join('') || (isEn ? '<dt>Information</dt><dd>No additional parameters.</dd>' : '<dt>Informacja</dt><dd>Brak dodatkowych parametrów.</dd>');
     loading.hidden = true;
     detail.hidden = false;
 }
@@ -438,15 +445,24 @@ function showError(message) {
 }
 
 function formatMoney(value) {
+    if (window.MiniTechI18n) return window.MiniTechI18n.formatMoney(value);
     return `${Number(value || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`;
 }
 
 function formatDate(value) {
-    if (!value) return 'niedawno';
+    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    if (!value) return isEn ? 'recently' : 'niedawno';
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? 'niedawno' : date.toLocaleDateString('pl-PL');
+    return Number.isNaN(date.getTime()) ? (isEn ? 'recently' : 'niedawno') : date.toLocaleDateString(isEn ? 'en-US' : 'pl-PL');
 }
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
+
+window.addEventListener('minitech:language-changed', () => {
+    if (product) {
+        renderProduct();
+        loadRecommendations();
+    }
+});
