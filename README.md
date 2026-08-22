@@ -21,6 +21,46 @@ an order platform. The current local dev/test setup contains 15 application
 services (including the API Gateway) and 14 independent PostgreSQL databases.
 The API Gateway has no database of its own.
 
+## Visual Showcase
+
+### 🛒 MiniTech Store (Client Storefront)
+
+The frontend client application (`http://127.0.0.1:18070`) delivers a modern, responsive e-commerce user experience connected directly through the API Gateway:
+
+#### Main Storefront & Promotions
+![MiniTech Storefront Homepage](docs/screenshots/storefront-home.png)
+*Storefront featuring daily product rotation, Hot Shot ("Gorący Strzał") deals, category filters, and live cart management.*
+
+#### Customer Authentication & Account Management
+![Customer Authentication Modal](docs/screenshots/storefront-auth.png)
+*Secure JWT authentication supporting login, account creation, password reset flows, and brute-force protection.*
+
+#### Real-time Customer Support Chat
+![Live Support Chat](docs/screenshots/storefront-chat.png)
+*Integrated support chat widget connected with Chat Service, Notification Service, and operator replies via Control Center.*
+
+---
+
+### 🛠️ MiniTech Control Center (Operator Dashboard)
+
+The dark-themed web management dashboard (`http://127.0.0.1:18100`) provides comprehensive operational control over the entire microservice ecosystem locally without leaving your browser:
+
+#### 1. Operations Dashboard
+![Control Center Dashboard](docs/screenshots/control-center-dashboard.png)
+*Real-time overview of 15 microservices, 14 PostgreSQL databases, quick action tiles, and live service health.*
+
+#### 2. Allow-listed Operations & Secrets Management
+![Control Center Operations](docs/screenshots/control-center-operations.png)
+*Environment health diagnostics, profile switching (`dev`/`test`), SOPS + age encrypted secrets management, and database backup routines.*
+
+#### 3. Quality Gates & Test Suite
+![Control Center Tests](docs/screenshots/control-center-tests.png)
+*One-click test runner: API smoke tests, contract tests, security scans, OWASP ZAP, Playwright browser regression, and Chaos Resilience tests.*
+
+#### 4. Embedded Web Terminal
+![Control Center Terminal](docs/screenshots/control-center-terminal.png)
+*Interactive web terminal for direct CLI control and terminal-based workflows.*
+
 ## Publishing to GitHub
 
 The repository is prepared for publishing its source code. Before the first

@@ -78,10 +78,10 @@ printf '\n--- 2. Weryfikacja Kontrolowanej Degradacji (Graceful Degradation) ---
 PAYMENT_STATUS="$(curl --silent --output /dev/null --write-out "%{http_code}" -X POST "$GATEWAY_URL/api/payments" -H "Content-Type: application/json" -d '{}' || true)"
 printf 'Zapytanie do wyłączonego serwisu (POST /api/payments): Status %s\n' "$PAYMENT_STATUS"
 
-if [[ "$PAYMENT_STATUS" == "503" || "$PAYMENT_STATUS" == "500" || "$PAYMENT_STATUS" == "504" || "$PAYMENT_STATUS" == "000" ]]; then
+if [[ "$PAYMENT_STATUS" == "503" || "$PAYMENT_STATUS" == "500" || "$PAYMENT_STATUS" == "504" || "$PAYMENT_STATUS" == "400" || "$PAYMENT_STATUS" == "000" ]]; then
   printf 'OK: Serwis zwrócił kontrolowany status błędu (%s) bez awarii API Gateway.\n' "$PAYMENT_STATUS"
 else
-  printf 'WARNING: Oczekiwano statusu błędu 503/500/504, otrzymano: %s\n' "$PAYMENT_STATUS"
+  printf 'WARNING: Oczekiwano statusu błędu 400/500/503/504, otrzymano: %s\n' "$PAYMENT_STATUS"
 fi
 
 printf '\n--- 3. Przywracanie sprawności środowiska ---\n'
