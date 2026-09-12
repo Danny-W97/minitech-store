@@ -30,6 +30,7 @@ public class Invoice {
     @Column(nullable = false, length = 3) private String currency;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private InvoiceStatus status;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
+    @org.hibernate.annotations.BatchSize(size = 50)
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("positionNo ASC")
     private List<InvoiceItem> items = new ArrayList<>();

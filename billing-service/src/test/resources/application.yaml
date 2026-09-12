@@ -8,4 +8,11 @@ spring:
   jpa:
     hibernate.ddl-auto: create-drop
   flyway.enabled: false
+  data:
+    redis:
+      url: redis://127.0.0.1:16379
 services: {}
+messaging:
+  consumer:
+    enabled: false
+

@@ -58,6 +58,10 @@ management:
     tags:
       application: ${spring.application.name}
 
+services:
+  billing:
+    base-url: ${BILLING_SERVICE_URL:http://localhost:18095}
+
 messaging:
   payment-stream: ${PAYMENT_EVENT_STREAM:payment-events}
   consumer:

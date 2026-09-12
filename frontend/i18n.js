@@ -109,9 +109,9 @@
       heroTopicPromo: 'Promocje dnia',
       heroTopicBuild: 'Zbuduj zestaw',
       statsMicroservices: 'mikroserwisów',
-      statsDatabases: 'osobnych baz',
+      statsDatabases: 'baz danych i Redis',
       statsBroker: 'zdarzenia i outbox',
-      statsDev: 'Mailpit + WSL',
+      statsDev: 'Mailpit · SOPS · Multi-OS',
       promoHeadingEyebrow: 'OFERTA DNIA',
       promoHeadingTitle: 'Promocje i Gorący Strzał',
       promoRotationNote: 'Promocje zmieniają się co 24 godziny.',
@@ -281,9 +281,9 @@
       heroTopicPromo: 'Daily deals',
       heroTopicBuild: 'Build setup',
       statsMicroservices: 'microservices',
-      statsDatabases: 'separate databases',
+      statsDatabases: 'databases & Redis',
       statsBroker: 'events & outbox',
-      statsDev: 'Mailpit + WSL',
+      statsDev: 'Mailpit · SOPS · Multi-OS',
       promoHeadingEyebrow: 'DEAL OF THE DAY',
       promoHeadingTitle: 'Promotions & Hot Shot',
       promoRotationNote: 'Promotions change every 24 hours.',
@@ -803,10 +803,30 @@
 
     // Stats strip
     const statsDivs = document.querySelectorAll('.stats-strip > div');
-    if (statsDivs[0]) statsDivs[0].querySelector('span').textContent = dict.statsMicroservices;
-    if (statsDivs[1]) statsDivs[1].querySelector('span').textContent = dict.statsDatabases;
-    if (statsDivs[2]) statsDivs[2].querySelector('span').textContent = dict.statsBroker;
-    if (statsDivs[3]) statsDivs[3].querySelector('span').textContent = dict.statsDev;
+    if (statsDivs[0]) {
+      const strong = statsDivs[0].querySelector('strong');
+      if (strong) strong.textContent = '15';
+      const span = statsDivs[0].querySelector('span');
+      if (span) span.textContent = dict.statsMicroservices;
+    }
+    if (statsDivs[1]) {
+      const strong = statsDivs[1].querySelector('strong');
+      if (strong) strong.textContent = '14+';
+      const span = statsDivs[1].querySelector('span');
+      if (span) span.textContent = dict.statsDatabases;
+    }
+    if (statsDivs[2]) {
+      const strong = statsDivs[2].querySelector('strong');
+      if (strong) strong.textContent = '24/7';
+      const span = statsDivs[2].querySelector('span');
+      if (span) span.textContent = dict.statsBroker;
+    }
+    if (statsDivs[3]) {
+      const strong = statsDivs[3].querySelector('strong');
+      if (strong) strong.textContent = 'DEV';
+      const span = statsDivs[3].querySelector('span');
+      if (span) span.textContent = dict.statsDev;
+    }
 
     // Promotions section
     const promoEye = document.querySelector('.promotion-showcase-heading .eyebrow');

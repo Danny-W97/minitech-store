@@ -19,9 +19,19 @@ public class MfaEncryptionService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     public MfaEncryptionService(
-            @Value("${customer.auth.mfa-encryption-key-material:}") String keyMaterial
+            @Value("${customer.auth.mfa-encryption-key-material:}") String directKeyMaterial,
+            @Value("${customer.auth.jwt.private-key-base64:}") String rsaPrivateKey,
+            @Value("${customer.auth.jwt-secret:}") String jwtSecret
     ) {
-        if (keyMaterial == null || keyMaterial.isBlank()) {
+        String keyMaterial = null;
+        if (directKeyMaterial != null && !directKeyMaterial.isBlank()) {
+            keyMaterial = directKeyMaterial;
+        } else if (rsaPrivateKey != null && !rsaPrivateKey.isBlank()) {
+            keyMaterial = rsaPrivateKey;
+        } else if (jwtSecret != null && !jwtSecret.isBlank()) {
+            keyMaterial = jwtSecret;
+        }
+        if (keyMaterial == null) {
             throw new IllegalStateException("CUSTOMER_MFA_ENCRYPTION_KEY_BASE64 or JWT key material is required");
         }
         try {

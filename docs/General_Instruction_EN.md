@@ -68,8 +68,12 @@ bash ./scripts/start.sh
 ```
 
 It is available only on `http://127.0.0.1:18100`. Use
-`bash ./scripts/start.sh --cli` for the original terminal menu. The dashboard
-offers service health, allow-listed operations, customer chat replies, tests,
+`bash ./scripts/start.sh --cli` for the original terminal menu, or manage the web server in the background via
+`bash scripts/control-center/control-center.sh web-start|web-stop|web-status`. The dashboard
+offers service health (with real-time RAM/CPU container metrics), allow-listed operations, business data exploration
+(orders, invoices with sequential numbers and Model A credit note sub-rows, bulk ZIP export, inventory restock, customers),
+asynchronous messaging & DLQ inspection (Redis streams `payment-events` & `invoice-events`, Transactional Outbox, DLQ replay),
+a Failure Simulator (Chaos Engineering), an embedded AI Assistant (which operates by default in offline mode powered by top prompt chips with frequently asked questions; full conversational chat requires connecting an external LLM agent in AI Settings), customer chat replies, tests,
 job logs, and an embedded WSL terminal for interactive SOPS/Vim workflows.
 
 First-time secret setup is also available in the browser: start the dashboard,
@@ -104,6 +108,7 @@ default; English is available as the second option.
 |---|---|---|
 | Store frontend | `http://127.0.0.1:18070` | customer-facing UI |
 | API Gateway | `http://127.0.0.1:18080/api` | public backend entry point |
+| Swagger UI (Aggregated) | `http://127.0.0.1:18080/swagger-ui.html` | interactive API documentation for all 15 services |
 | Mailpit UI | `http://127.0.0.1:18025` | captured dev/test e-mails |
 | Prometheus | `http://127.0.0.1:19090` | metrics and target status |
 | Grafana | `http://127.0.0.1:13000` | provisioned dashboards |
@@ -576,6 +581,38 @@ Default routes include products, orders, inventory, payments, notifications,
 customers, deliveries, promotions, wishlists, reviews, recommendations, chat,
 returns, and invoices.
 
+#### OpenAPI and Swagger UI
+
+Each microservice automatically generates OpenAPI documentation and exposes a Swagger UI interface. All 15 microservices are integrated into **a single aggregated Swagger UI** hosted directly on the API Gateway port:
+
+```text
+Main aggregated Swagger UI: http://127.0.0.1:18080/swagger-ui.html
+```
+
+The top-right corner of the Swagger UI provides a dropdown menu (*Select a definition*) allowing developers to switch the specification to any platform service (`Product Service`, `Order Service`, `Payment Service`, `Customer Service`, `Billing Service`, `Delivery Service`, `Review Service`, etc.) and test endpoints directly through the gateway without CORS errors.
+
+Individual direct Swagger UI URLs for each microservice:
+
+```text
+Gateway      http://127.0.0.1:18080/swagger-ui.html (Aggregated for all 15 services)
+Product      http://127.0.0.1:18081/swagger-ui.html
+Order        http://127.0.0.1:18082/swagger-ui.html
+Inventory    http://127.0.0.1:18083/swagger-ui.html
+Payment      http://127.0.0.1:18084/swagger-ui.html
+Notification http://127.0.0.1:18086/swagger-ui.html
+Customer     http://127.0.0.1:18087/swagger-ui.html
+Delivery     http://127.0.0.1:18088/swagger-ui.html
+Promotion    http://127.0.0.1:18089/swagger-ui.html
+Wishlist     http://127.0.0.1:18090/swagger-ui.html
+Review       http://127.0.0.1:18091/swagger-ui.html
+Recommend    http://127.0.0.1:18092/swagger-ui.html
+Chat         http://127.0.0.1:18093/swagger-ui.html
+Returns      http://127.0.0.1:18094/swagger-ui.html
+Billing      http://127.0.0.1:18095/swagger-ui.html
+```
+
+Raw OpenAPI JSON documents are exposed at `/v3/api-docs`. The `bearerAuth` scheme describes the `Authorization: Bearer <access-token>` header. Protected Customer Service endpoints are flagged with the JWT requirement in documentation. In the `prod` profile, OpenAPI and Swagger UI are disabled via `application-prod.yaml`. They can be toggled using `SPRINGDOC_API_DOCS_ENABLED` and `SPRINGDOC_SWAGGER_UI_ENABLED` in local profiles.
+
 ### Product Service
 
 Owns product identity and catalog information: SKU, name, category,
@@ -755,31 +792,42 @@ net amount, 23% VAT, and gross amount. It stores immutable snapshots of the
 purchased products and shows their names, quantities, unit prices and line
 totals, together with delivery cost and discount when applicable. A company
 invoice requires a separate personal name, company name, and exactly ten NIP
-digits.
+digits. Numbering is continuous and gap-free based on pessimistic locking in
+`invoice_sequences`, producing formats `FV/YYYY/nnnnnn` and `KOR/YYYY/nnnnnn`.
+
+Billing Service also supports credit notes / correction invoices (`InvoiceCorrection`),
+calculating gross/net/VAT deltas and final amounts after correction. In event-driven
+architecture (EDA), Billing Service consumes `payment-events` and publishes both
+`INVOICE_ISSUED` and `INVOICE_CORRECTED` to `invoice-events`.
 
 ```bash
 bash scripts/control-center/control-center.sh orders-list 100
 bash scripts/control-center/control-center.sh invoice-show <orderId>
 bash scripts/control-center/control-center.sh invoice-pdf <orderId>
+bash scripts/control-center/control-center.sh invoices-export-zip
+bash scripts/control-center/control-center.sh invoice-correct <invoiceId> "<reason>" <gross_delta>
+bash scripts/control-center/control-center.sh corrections-list
 ```
 
 `orders-list` shows the ID, status, amount, e-mail, invoice-request flag, and
 the ordered items with quantities. `invoice-pdf` saves the document under
 `gitIgnoreOwn/runtime/invoices/`; this directory is local runtime data and must
 not be published to the repository. The PDF is also available through
-`GET /api/invoices/order/{orderId}/pdf`.
+`GET /api/invoices/order/{orderId}/pdf`. The command `invoice-correct` issues
+a credit note (KOR) with the specified delta amount (negative value for discounts/refunds),
+and `corrections-list` displays all registered credit notes.
 
-After a successful payment, Payment Service issues the invoice, stores its ID
-in the payment Outbox event, and Notification Service downloads the PDF from
-Billing Service and attaches it to the payment-confirmation e-mail. In Mailpit
-(`http://127.0.0.1:18025`), look for the latest `Payment confirmed` message and
-the attachment `faktura-order-<id>.pdf`.
+In Control Center Web, operators can navigate to the **Invoices** tab (with expandable
+accordion sub-rows for corrections history and interactive modal) as well as the dedicated
+**Document Dispatch** tab (`✉️ Wysyłka dokumentów`). The Document Dispatch center allows
+filtering documents (`All`, `Invoices FV`, `Credit Notes KOR`), editing recipient emails,
+adding an **optional custom note/message for the customer**, and dispatching the document
+with its PDF attached directly via SMTP to Mailpit (`127.0.0.1:11025`) with live delivery status tracking.
 
-The local invoice is a demonstration record, not a production accounting
-document. Checkout creates one Order for the entire cart. The products are
-stored as multiple `order_items`, while Payment Service uses one `orderId` and
-the paid order produces one reservation, one payment, one invoice, and one
-confirmation message even when the cart contains different products.
+After a successful payment, Notification Service downloads the PDF from Billing Service
+(in Docker via `BILLING_SERVICE_URL: http://billing-service:8080`) and attaches it to the
+payment-confirmation e-mail. In Mailpit (`http://127.0.0.1:18025`), messages can be inspected
+with their full PDF attachments.
 
 ---
 
@@ -902,6 +950,23 @@ Payment and its Outbox event are stored in one PostgreSQL transaction. A
 publisher later writes to Redis Stream. Notification uses a consumer group and
 stores provider failures. After the configured retries, a durable DLQ entry can
 be inspected and replayed.
+
+### BOOTSTRAP Initialization Event in Redis Streams
+
+When inspecting Redis streams (e.g. `payment-events` or `invoice-events`), a technical initialization entry marked as **`BOOTSTRAP`** may appear alongside business events (`PAYMENT_SUCCEEDED`, `INVOICE_ISSUED`).
+
+![BOOTSTRAP Event in Control Center Web](screenshots/control-center-redis-bootstrap.png)
+
+#### Why does the BOOTSTRAP event occur?
+In Redis Streams, executing `XGROUP CREATE payment-events billing-service 0-0` fails with `ERR no such key` if the target stream key does not exist yet (e.g. on fresh startup before any customer checkout).
+
+#### Microservice implementation details
+Consumer services (`Notification Service` and `Billing Service`) handle this in their `ensureConsumerGroup()` initialization routine:
+1. **Emit technical seed record:** The service adds a minimal `{"_bootstrap": "true"}` record to the stream, ensuring Redis allocates the stream structure.
+2. **Create consumer group:** Once the stream key exists, `XGROUP CREATE` succeeds without error.
+3. **Idempotent acknowledgment (ACK):** The consumer processor immediately acknowledges (`XACK`) and skips records where `_bootstrap=true` without triggering any notifications or invoices (which is why *ORDER ID* and *AMOUNT* display dashes `—`).
+
+Control Center Web recognizes the `_bootstrap: true` payload and styles it with a prominent yellow **`BOOTSTRAP`** badge to distinguish technical seed entries from business domain events.
 
 ---
 
@@ -1225,11 +1290,60 @@ removed before reviewing repository contents for publication.
 
 ## Docker, Kubernetes, OpenBao, and production preparation
 
+The platform container architecture relies on strictly isolated Docker images built in compliance with cloud-native security best practices (non-root execution, minimal footprint, and zero build toolchains in runtime images).
+
+### 1. Backend Microservices (`deploy/docker/service.Dockerfile`)
+
+All 15 Spring Boot microservices (API Gateway and 14 domain services) share **a single generic Dockerfile template** utilizing the **Multi-Stage Build** pattern:
+
+* **Stage 1 — Builder (`maven:3.9-eclipse-temurin-25 AS build`):**
+  * Accepts the `--build-arg SERVICE_MODULE=<service-name>` parameter (e.g. `product-service`, `order-service`), enabling monorepo-wide reusability.
+  * Copies root `pom.xml`, wrapper `./mvnw`, and all submodule `pom.xml` descriptors, enabling Maven to resolve multi-module reactor dependencies correctly.
+  * Copies the source code strictly for the specified service (`${SERVICE_MODULE}/src`).
+  * Utilizes Docker BuildKit caching (`--mount=type=cache,target=/root/.m2/repository`) so that downloaded Maven artifacts are persisted across builds.
+  * Compiles the production executable JAR (`./mvnw package -DskipTests`) and stores it at `/tmp/app.jar`.
+* **Stage 2 — Runtime (`eclipse-temurin:25-jre`):**
+  * Starts from a clean, lightweight Java 25 JRE base — **no Java compiler (`javac`), no source code, and no Maven binaries**. This shrinks image size from ~900 MB to under 200 MB and substantially minimizes the CVE attack surface.
+  * Installs `fonts-dejavu-core` required by Billing Service for headless PDF invoice generation (OpenPDF engine).
+  * Copies only the final compiled artifact `app.jar` from the build stage.
+  * **Principle of Least Privilege (Non-Root):** Runs under dedicated unprivileged credentials (`USER 10001:10001`).
+  * **Memory Safeguards:** Enforces `JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"` to prevent silent container termination by Linux kernel OOM killer.
+
+### 2. Store Frontend (`deploy/docker/frontend.Dockerfile`)
+
+The frontend container is **fundamentally different** from the backend:
+* **Base Image:** `nginx:1.29-alpine` — an ultralight Alpine Linux distribution running an optimized Nginx HTTP server (~30-40 MB total).
+* **Zero Java / Node.js Dependencies:** Because the storefront is built with Vanilla JS (pure HTML5, CSS3, and standard ECMAScript without heavy bundlers), no runtime compiler or Node engine is required.
+* **Image Contents:** Copies static assets from `frontend/` straight into `/usr/share/nginx/html/` and injects [deploy/docker/nginx.frontend.conf](file:///c:/Dysk%20D/stuff/Mini%20Order%20Platform/deploy/docker/nginx.frontend.conf) to manage SPA routing, gzip compression, and security headers.
+
+### 3. Container Platform Overview
+
+| Category | Base Image | Role & Contents | Privileges | Internal Port | Host Port |
+|---|---|---|:---:|:---:|:---:|
+| **15 Backend Microservices** | `eclipse-temurin:25-jre` | Compiled Spring Boot JAR (`app.jar`) + DejaVu fonts | `10001:10001` (non-root) | `8080` | `18080`–`18095` |
+| **Store Frontend** | `nginx:1.29-alpine` | Nginx HTTP server + static HTML/CSS/JS | `nginx` | `8080` | `18070` |
+| **14 PostgreSQL DBs** | `postgres:16-alpine` | Isolated relational database engine per service | `postgres` | `5432` | `15432`–`15446` |
+| **Redis Broker** | `redis:7-alpine` | Redis Streams (`payment-events`, `invoice-events`) + cache | `redis` | `6379` | `16379` |
+| **Mailpit Server** | `axllent/mailpit` | SMTP catch-all mail server & dev web mailbox | `mailpit` | `1025` / `8025` | `18025` |
+| **Telemetry (Prometheus / Grafana)** | `prom/prometheus` / `grafana/grafana` | Micrometer metrics scraping & visual dashboards | `nobody` / `grafana` | `9090` / `3000` | `19090` / `13000` |
+
+### 4. Image Build & Internal Networking
+
 Build local application images:
 
 ```bash
 bash scripts/control-center/control-center.sh images-build
 ```
+
+Custom registry prefix and tags can be specified:
+
+```bash
+IMAGE_PREFIX=ghcr.io/<organization>/mini-order-platform \
+IMAGE_TAG=dev \
+bash scripts/deploy/build-images.sh
+```
+
+Inside the Docker Compose network bridge (`compose.apps.yaml`), all microservices listen on internal port `8080` and resolve each other via internal container DNS hostnames (e.g. `http://product-service:8080`, `http://order-service:8080`). External port bindings (`18070` for frontend, `18080` for API Gateway, and `18081`–`18095` for domain services) expose endpoints to the host system for debugging and testing.
 
 The repository contains Dockerfiles and Kubernetes manifests with Services,
 ConfigMaps, Ingress, rolling updates, readiness/liveness probes, and secret

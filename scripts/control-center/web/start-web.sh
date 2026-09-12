@@ -11,6 +11,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-browser) OPEN_BROWSER=1 ;;
     --port) shift; PORT="${1:?Brak numeru portu po --port}" ;;
+    -h|--help)
+      printf 'Uzycie: bash start-web.sh [--port <PORT>] [--no-browser]\n'
+      exit 0
+      ;;
     *) printf 'Nieznany argument panelu: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift

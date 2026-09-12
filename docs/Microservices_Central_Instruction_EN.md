@@ -58,8 +58,10 @@ uses the MiniTech Store visual language with a darker operator theme. It can:
   deliveries, chat, returns, complaints, and invoices;
 - validate production templates without pretending that production is ready.
 
-The web dashboard provides `Dashboard`, `Services`, `Operations`, `Customer
-chat`, `Tests`, `Jobs and logs`, and `WSL terminal` views. Commands are selected
+The web dashboard provides `Dashboard`, `Services` (with real-time RAM/CPU metrics),
+`Operations`, `Data & Store` (orders, invoices, corrections, inventory, customers),
+`Events & DLQ` (Redis Streams, Outbox, DLQ, Trace Timeline), `Failure Simulator` (Chaos Engineering),
+`Customer chat`, `AI Assistant`, `Tests`, `Jobs and logs`, and `WSL terminal` views. Commands are selected
 from a server-side allow-list; the backend does not accept arbitrary shell
 commands. It binds only to `127.0.0.1` and state-changing requests require a
 local session token.
@@ -175,20 +177,83 @@ bash ./scripts/start.sh --port 18101
 ### Using the web dashboard
 
 - `Dashboard` shows the active profile, online services, and frequent actions.
-- `Services` checks the minimal Actuator endpoint of all 15 applications.
-- `Operations` exposes 112 allow-listed actions for infrastructure, databases,
-  backups, security, e-mail, terminal-menu language settings, store operations,
-  and production preparation. Parameters are passed as separate arguments;
-  arbitrary shell commands are not executed.
+- `Services` checks the minimal Actuator endpoint of all 15 applications. Each service card displays response latency and real-time container metrics: RAM usage and CPU percentage (`🧠 [RAM] / [Limit] • [CPU]%`).
+- `Operations` exposes allow-listed actions structured into clear functional groups:
+  - **Apps:** microservices lifecycle management. Features a distinct separation between **Docker containers** (`docker-apps-up`, `docker-apps-down`, `docker-apps-status`) and **local WSL Maven processes** (`app-run-all`, `app-stop-all`, `app-status-all`, `app-run`, `app-stop`).
+  - **Building:** monorepo packaging and image build operations (`app-test`, `app-package`, `images-build`). Redundant container start/stop cards were removed to maintain focus solely on build tools.
+  - **API documentation:** direct tile linking to aggregated Swagger UI (`swagger-ui`) and Resilience4j metrics (`resilience-status`).
+  - **Infrastructure:** unified start and stop for all 14 PostgreSQL databases, Redis broker, and Mailpit (`infra-up`, `infra-down`).
+  - **Databases, Redis & Events, Mailpit, Backups, Security, Store operations, Profiles & secrets, Preflight & Diagnostics, Prod — validation only, Settings.**
+- `Data & Store` — comprehensive business data explorer:
+  - **Orders:** live orders table from `order-service`, status filters (`ALL`, `COMPLETED`, `PAID`, `PENDING`, `CANCELLED`), multi-column sorting, and quick invoice generation via `➕ Issue`.
+  - **Invoices:** complete invoice ledger from `billing-service`. Features KPI summary cards (Total Invoices, Net, VAT, Gross amounts), multi-column sorting, bulk ZIP export (`📦 Export ZIP`), JSON inspection, PDF download, and quick email dispatch shortcuts (`✉️`). For corrected invoices, it utilizes **Model A (Accordion Sub-row)** — clicking `[📜 X corrs. ▼]` expands the correction history with delta amounts, reasons, and individual PDF/JSON downloads. The `📝 Correction` button opens an interactive modal with a real-time calculator to issue new credit notes (KOR).
+  - **Document Dispatch (✉️ Wysyłka dokumentów):** dedicated communications center for dispatching accounting documents (standard invoices `FV` and credit notes `KOR`) to customers via SMTP (Mailpit). Features document type filters (`All`, `Invoices FV`, `Credit Notes KOR`), real-time search, recipient email overrides (e.g. sending directly to accounting offices), optional **custom notes/messages to the customer** embedded in the HTML email body, and automatic PDF attachment. Delivery status is persistently tracked in Control Center (`🟢 Sent (date)` / `⚪ Ready`).
+  - **Inventory:** live stock levels, reserved quantities, and quick restock buttons (`+10`, `+50`, `+100`).
+  - **Customers:** registered customer accounts, contact information, status, and company Tax IDs (NIP).
+- `Events & DLQ` — asynchronous messaging and resilience monitoring:
+  - **Redis Stream:** real-time stream inspection with a toggle between `payment-events` (published by Payment Service) and `invoice-events` (EDA invoicing published by Billing Service). In `invoice-events`, `INVOICE_CORRECTED` records explicitly display the gross delta amount and the final amount after correction (e.g. `-289.00 PLN (after: 2821.47 PLN)`) with an amber status badge. Technical seed records that initialize the stream on startup are prominently badged as `BOOTSTRAP`.
+  - **Outbox Events:** live inspection of `payment_outbox_events` (Transactional Outbox) ensuring *At-Least-Once Delivery*.
+  - **Dead Letter Queue (DLQ):** failed notification messages from `notification_db` with an immediate `Replay` button.
+  - **Trace Timeline:** distributed transaction visualizer for tracking flows across services by `correlationId`.
+- `Failure Simulator` — Chaos Engineering module enabling fault injection (latency delays and HTTP 500 errors) into target microservices to test resilience patterns (Circuit Breaker, Retry, Fallback).
 - `Customer chat` lists conversations and replies without manually entering an
   ID; the reply is also passed to Notification Service.
+- `AI Assistant` (MiniTech Architecture Assistant) — interactive assistant supporting developers with architecture knowledge, database schemas, routing, and troubleshooting:
+  - **Default Built-in Mode (Offline) & Top Prompt Chips:**
+    - Without integrating an external agent or CLI model, the AI assistant operates in its **default built-in (offline) mode**.
+    - It is driven by the embedded monorepo domain knowledge engine and **quick action buttons (prompt chips)** placed at the top of the view containing **frequently asked questions** (e.g. *Orders in DB*, *Service health*, *Product catalog*, *VAT invoices*, *Discount codes*, *Customer chat*, *Docker & Containers*, *Microservice ports*, *Outbox & Redis*, *SOPS Secrets*, *Tests & Quality*, *Error knowledge base*).
+    - This mode operates 100% locally, private, zero-cost, requiring no API keys, internet connectivity, or external processes.
+  - **Conversational Chat Mode (Requires External Agent):**
+    - If you wish to use the AI Assistant as an **open conversational chat** for answering arbitrary natural language prompts, **you must connect an external LLM or agent** (such as a local model from your computer via Ollama `http://localhost:11434/v1`, Google Gemini API, or OpenAI Codex).
+    - This clear distinction ensures users are not misled regarding the capabilities of the offline rule-based knowledge engine.
+  - **Mode Indicator (Status Badge):** dynamic LED indicator displaying active engine status:
+    - 🟢 `Built-in Mode (Offline)` — active default local mode operating on chips and rule diagnostics.
+    - 🟣 `Custom AI Agent` — indicates an active connection to an external engine (e.g., local `Ollama / qwen2.5-coder`, `OpenAI / gpt-4o`, or `Google Gemini`).
+  - **`⚙ AI Settings` Button:** opens the AI engine configuration modal:
+    - **Local LLM (Ollama / Local):** connect to any locally hosted model via OpenAI-compatible endpoint (defaults to `http://localhost:11434/v1`).
+    - **Google Gemini:** connect to Gemini (`gemini-2.5-flash`) using a free API key from Google AI Studio.
+    - **OpenAI Codex:** connect to OpenAI models (`gpt-4o`) with your API key.
+    - **Knowledge Base Context:** toggle to automatically inject monorepo architectural context into external agent prompts.
 - `Tests` runs the same smoke, E2E, ZAP, and Playwright scripts as the CLI.
 - `Jobs and logs` shows process output stored under
   `gitIgnoreOwn/runtime/control-center-web/jobs/`.
 - `WSL terminal` embeds the original menu for `secrets-edit`, `db-shell`, Vim,
-  and other operations that require an interactive terminal. First-time secret
-  setup is also available directly in the web panel; the terminal
-  `secrets-setup` wizard remains an alternative.
+  and other operations that require an interactive terminal.
+
+### API Documentation & Aggregated Swagger UI (:18080)
+
+The centralized OpenAPI documentation entrypoint for all 15 microservices is hosted directly on the **API Gateway** on port `18080`:
+
+- **Direct URL:** `http://127.0.0.1:18080/swagger-ui.html`
+- **Dynamic Service Dropdown (*Select a definition*):** The top-right dropdown allows instant switching of OpenAPI specs across any microservice (`Product Service`, `Order Service`, `Payment Service`, `Billing Service`, `Delivery Service`, etc.).
+- **Zero CORS Issues:** Because interactive `Try it out` requests are issued directly through the gateway port `18080`, there are no cross-origin restrictions or header conflicts.
+- **Access Points across Dashboard:**
+  - `📖 Swagger UI ↗` button in top navigation bar,
+  - Dedicated banner and action tile in `Operations → API documentation`,
+  - Link in `About platform` view,
+  - Command Palette shortcut (`Ctrl+K`).
+
+### Sidebar Navigation & Monitoring Section
+
+The left sidebar of the Control Center includes a dedicated **MONITORING** section restricted exclusively to telemetry and metric observation tools:
+- 📊 **Grafana** (`http://127.0.0.1:13000`) — metric dashboards, resource consumption, and JVM telemetry.
+- 🔥 **Prometheus** (`http://127.0.0.1:19090`) — Prometheus metric scrapers and scraping target inspection (Targets).
+*(Documentation tools like Swagger UI are placed in the top bar and operational views to preserve telemetry purity).*
+
+### Managing the Web Dashboard in the background (Daemon)
+
+The Web Dashboard can be run and controlled as a background daemon process:
+
+```bash
+# Start the web dashboard daemon in the background
+bash scripts/control-center/control-center.sh web-start
+
+# Check daemon status and PID
+bash scripts/control-center/control-center.sh web-status
+
+# Stop the web dashboard daemon
+bash scripts/control-center/control-center.sh web-stop
+```
 
 The language action changes the classic terminal menu. The graphical operator
 dashboard currently uses Polish labels, while its complete manual is also
@@ -501,6 +566,31 @@ bash scripts/control-center/control-center.sh health all
 `app-run-all` starts all fifteen Spring Boot applications: API Gateway,
 Product, Inventory, Order, Payment, Notification, Customer, Delivery,
 Promotion, Wishlist, Review, Recommendation, Chat, Returns, and Billing.
+
+### Running microservices and frontend in Docker containers
+
+Alternatively to local Maven processes, all 15 microservices and the frontend can be run in Docker containers using a single `compose.apps.yaml` file:
+
+```bash
+# 1. Build local Docker images (if not built yet):
+bash scripts/control-center/control-center.sh images-build
+
+# 2. Start all services and frontend in Docker containers with a single command:
+bash scripts/control-center/control-center.sh docker-apps-up
+# or via standalone script:
+bash scripts/start-apps-docker.sh     # (PowerShell: .\scripts\start-apps-docker.ps1)
+
+# 3. Inspect status and logs:
+bash scripts/control-center/control-center.sh docker-apps-status
+bash scripts/control-center/control-center.sh docker-apps-logs [service_name]
+
+# 4. Stop Docker application containers:
+bash scripts/control-center/control-center.sh docker-apps-down
+# or via standalone script:
+bash scripts/stop-apps-docker.sh      # (PowerShell: .\scripts\stop-apps-docker.ps1)
+```
+
+All application containers connect to PostgreSQL databases and Redis via the shared Docker Compose network using internal DNS names (`order-db`, `product-db`, `event-broker`, `mailpit`).
 
 ### Start one service
 
@@ -851,19 +941,23 @@ bash scripts/control-center/control-center.sh returns-status 1 UNDER_REVIEW "Req
 List requests first, copy the identifier, then set an allowed status and an
 operator note. Re-run `returns-list` to verify the result.
 
-### Invoices
+### Invoices and Corrections (Billing Service)
 
 ```bash
 bash scripts/control-center/control-center.sh orders-list 100
 bash scripts/control-center/control-center.sh invoice-show 1
 bash scripts/control-center/control-center.sh invoice-pdf 1
+bash scripts/control-center/control-center.sh invoices-export-zip
+bash scripts/control-center/control-center.sh invoice-correct 1 "Post-transaction discount" -50.00
+bash scripts/control-center/control-center.sh corrections-list
 ```
 
 `orders-list` reads through API Gateway and shows the order ID, status, amount,
 recipient, line items with quantities, and the invoice-request flag.
-`invoice-show` displays invoice data. `invoice-pdf` saves the PDF under
-`gitIgnoreOwn/runtime/invoices/`. After a new paid order, Mailpit should contain
-the same PDF as an attachment on the payment-confirmation message. Orders
+`invoice-show` displays invoice data. `invoice-pdf` downloads and saves the PDF under
+`gitIgnoreOwn/runtime/invoices/`. The `invoices-export-zip` command exports all issued invoice PDFs into a compressed archive under
+`gitIgnoreOwn/runtime/invoices_export_<timestamp>.zip`. The
+`invoice-correct <id> "<reason>" <gross_delta>` command issues a credit note (KOR) with the specified delta amount (negative value for discounts/refunds), and `corrections-list` displays all registered credit notes. In Control Center Web, operators can navigate to the dedicated **Document Dispatch** tab (or click the `✉️` shortcut in the invoice table) to send or resend any invoice or credit note via email with an optional custom message to the customer (e.g. discount reason or refund ETA) and the PDF attached. Messages arrive directly in Mailpit (`http://127.0.0.1:18025`). After a new paid order, Mailpit should also contain the initial invoice PDF as an attachment on the payment-confirmation message. Orders
 created before the `invoiceRequested` migration may show `NO` when the original
 invoice choice cannot be reconstructed from Order Service data.
 

@@ -7,18 +7,20 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - host.docker.internal:18080
-          - host.docker.internal:18081
-          - host.docker.internal:18082
-          - host.docker.internal:18083
-          - host.docker.internal:18084
-          - host.docker.internal:18086
-          - host.docker.internal:18087
-          - host.docker.internal:18088
-          - host.docker.internal:18089
-          - host.docker.internal:18090
-          - host.docker.internal:18091
-          - host.docker.internal:18092
-          - host.docker.internal:18093
+          - api-gateway:8080
+          - product-service:8080
+          - order-service:8080
+          - inventory-service:8080
+          - payment-service:8080
+          - notification-service:8080
+          - customer-service:8080
+          - delivery-service:8080
+          - promotion-service:8080
+          - wishlist-service:8080
+          - review-service:8080
+          - recommendation-service:8080
+          - chat-service:8080
+          - returns-service:8080
+          - billing-service:8080
         labels:
           platform: mini-order-platform

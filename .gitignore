@@ -32,6 +32,7 @@ test-results/
 
 ### IntelliJ IDEA ###
 .idea
+.run/
 .mini-order-platform/
 .env
 .env.dev

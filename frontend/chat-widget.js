@@ -3,7 +3,7 @@
     const widget = document.createElement('div');
     widget.className = 'chat-widget';
     widget.innerHTML = `
-        <button class="chat-launcher" id="chat-launcher" type="button" aria-expanded="false" aria-controls="chat-panel">
+        <button class="chat-launcher" id="chat-launcher" type="button" aria-expanded="false" aria-controls="chat-panel" aria-label="Czat">
             <span class="chat-launcher-icon" aria-hidden="true">✉</span>
             <span class="chat-launcher-label" id="chat-launcher-text">Czat</span>
         </button>
@@ -220,6 +220,8 @@
 
     function applyChatLanguage() {
         const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+        const launcherBtn = widget.querySelector('#chat-launcher');
+        if (launcherBtn) launcherBtn.setAttribute('aria-label', isEn ? 'Chat' : 'Czat');
         const launcherText = widget.querySelector('#chat-launcher-text');
         if (launcherText) launcherText.textContent = isEn ? 'Chat' : 'Czat';
         const title = widget.querySelector('#chat-title');

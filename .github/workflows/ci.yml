@@ -2,12 +2,29 @@ name: MiniTech Store CI
 
 on:
   push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       deploy:
         description: Deploy the selected image tag to the configured Kubernetes cluster
-        required: true
+        required: false
+        default: false
+        type: boolean
+      build_all_images:
+        description: Build, scan and publish all 16 Docker container images
+        required: false
         default: false
         type: boolean
 
@@ -56,32 +73,49 @@ jobs:
       - name: Full API and business E2E
         run: bash scripts/qa/ci-e2e.sh
 
+      - name: Print service logs on failure
+        if: failure()
+        run: |
+          for log in gitIgnoreOwn/runtime/ci-*.log; do
+            if [ -f "$log" ]; then
+              echo "==================== $log (last 80 lines) ===================="
+              tail -n 80 "$log"
+            fi
+          done
+
       - name: Upload OWASP ZAP report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: minitech-store-zap-report
           path: gitIgnoreOwn/runtime/zap/
           if-no-files-found: ignore
+          retention-days: 1
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: minitech-store-playwright-report
           path: gitIgnoreOwn/runtime/playwright/
           if-no-files-found: ignore
+          retention-days: 1
 
       - name: Upload service logs on failure
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: minitech-store-ci-logs
           path: gitIgnoreOwn/runtime/ci-*.log
           if-no-files-found: ignore
+          retention-days: 1
 
   build-images:
     needs: verify
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.build_all_images == true))
     runs-on: ubuntu-latest
     permissions:
       contents: read

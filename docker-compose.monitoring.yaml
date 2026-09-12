@@ -8,6 +8,9 @@ services:
       - "127.0.0.1:19090:9090"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - app-network
     volumes:
       - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -24,8 +27,11 @@ services:
       - "127.0.0.1:13000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin123}"
       GF_USERS_ALLOW_SIGN_UP: "false"
+    networks:
+      - default
+      - app-network
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -37,3 +43,9 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+
+networks:
+  default:
+  app-network:
+    name: miniorderplatform_default
+    external: true

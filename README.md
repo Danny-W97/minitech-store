@@ -57,9 +57,9 @@ The dark-themed web management dashboard (`http://127.0.0.1:18100`) provides com
 ![Control Center Tests](docs/screenshots/control-center-tests.png)
 *One-click test runner: API smoke tests, contract tests, security scans, OWASP ZAP, Playwright browser regression, and Chaos Resilience tests.*
 
-#### 4. Embedded Web Terminal
-![Control Center Terminal](docs/screenshots/control-center-terminal.png)
-*Interactive web terminal for direct CLI control and terminal-based workflows.*
+#### 4. Business Data Explorer
+![Control Center Business Data](docs/screenshots/control-center-data.png)
+*Live inspection and management of orders, VAT invoices, stock levels, and customer accounts across independent microservice databases.*
 
 ## Publishing to GitHub
 
@@ -201,18 +201,20 @@ customer's requests, and supports status changes such as review or resolution.
 The operational list and status changes are available from Control Center.
 
 Billing Service has its own PostgreSQL database on host port `15445` and runs
-at `http://localhost:18095`. It issues one demonstration VAT invoice per paid
-order, stores buyer and company invoice data, calculates net/VAT/gross values,
-and generates a branded PDF. The invoice stores immutable snapshots of the
-purchased products and presents their names, quantities, unit prices and line
-totals, together with delivery cost and discount when applicable. A mixed cart
-remains one order and therefore has one invoice, not one invoice per product or
-per service. Control Center can show the invoice and save its PDF under the
-ignored runtime directory.
+at `http://localhost:18095`. It issues demonstration VAT invoices per paid
+order with continuous monthly numbering (`FV/YYYY/MM/...`), stores buyer and
+company invoice data, calculates net/VAT/gross values, and generates branded
+PDFs with font caching. It also supports credit notes / corrections
+(`KOR/YYYY/MM/...`) with value deltas and reason tracking. Control Center can
+list, filter, export invoices to a ZIP archive, issue corrections, and download
+PDFs.
 
 Redis Event Broker runs on host port `16379`, mapped to container port `6379`.
-Payment Service publishes to the `payment-events` stream, while Notification
-Service consumes events through the `notification-service` consumer group.
+Payment Service publishes payment events to the `payment-events` stream.
+Notification Service (`notification-service` consumer group) consumes events to
+send emails, while Billing Service (`billing-service` consumer group) consumes
+`OrderPaid` events to issue invoices asynchronously and publishes resulting
+`InvoiceIssued` events to the `invoice-events` stream.
 
 Endpoint and service-startup details are available in
 [order-service/README.md](<order-service/README.md>).
@@ -380,6 +382,22 @@ Build local images for the microservices and frontend with:
 
 ```bash
 bash scripts/control-center/control-center.sh images-build
+```
+
+Run all 15 microservices and frontend inside Docker containers with a single command:
+
+```bash
+bash scripts/control-center/control-center.sh docker-apps-up
+# or using standalone script:
+bash scripts/start-apps-docker.sh
+```
+
+Inspect and stop containerized applications with:
+
+```bash
+bash scripts/control-center/control-center.sh docker-apps-status
+bash scripts/control-center/control-center.sh docker-apps-logs [service]
+bash scripts/control-center/control-center.sh docker-apps-down
 ```
 
 Kubernetes manifests with rolling updates, Actuator probes, Services,

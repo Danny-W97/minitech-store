@@ -106,7 +106,7 @@ customer:
     refresh-cookie-secure: ${CUSTOMER_REFRESH_COOKIE_SECURE:false}
     # In dev/test this may derive from the JWT material. Prod must provide a
     # dedicated key through OpenBao as CUSTOMER_MFA_ENCRYPTION_KEY_BASE64.
-    mfa-encryption-key-material: ${CUSTOMER_MFA_ENCRYPTION_KEY_BASE64:${CUSTOMER_JWT_PRIVATE_KEY_BASE64:${CUSTOMER_JWT_SECRET:}}}
+    mfa-encryption-key-material: ${CUSTOMER_MFA_ENCRYPTION_KEY_BASE64:}
   password-reset:
     link-base-url: ${CUSTOMER_PASSWORD_RESET_LINK_BASE_URL:http://127.0.0.1:18070/?reset=}
     ttl-seconds: ${CUSTOMER_PASSWORD_RESET_TTL_SECONDS:900}

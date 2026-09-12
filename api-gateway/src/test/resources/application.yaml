@@ -6,3 +6,43 @@ spring:
 services:
   product:
     base-url: http://127.0.0.1:1
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    urls-primary-name: "🌐 00. API Gateway (Publiczne trasy proxy)"
+    urls:
+      - name: "🌐 00. API Gateway (Publiczne trasy proxy)"
+        url: /v3/api-docs
+      - name: "👤 01. Customer Service (Użytkownicy, Auth & Sesje)"
+        url: /v3/api-docs/customer
+      - name: "📦 02. Product Service (Katalog produktów)"
+        url: /v3/api-docs/product
+      - name: "🛒 03. Order Service (Zamówienia & Koszyk)"
+        url: /v3/api-docs/order
+      - name: "📊 04. Inventory Service (Stany magazynowe)"
+        url: /v3/api-docs/inventory
+      - name: "💳 05. Payment Service (Płatności & Transakcje)"
+        url: /v3/api-docs/payment
+      - name: "🚚 06. Delivery Service (Dostawy & Kurierzy)"
+        url: /v3/api-docs/delivery
+      - name: "🏷️ 07. Promotion Service (Promocje & Rabaty)"
+        url: /v3/api-docs/promotion
+      - name: "⭐ 08. Review Service (Opinie & Oceny)"
+        url: /v3/api-docs/review
+      - name: "❤️ 09. Wishlist Service (Listy życzeń)"
+        url: /v3/api-docs/wishlist
+      - name: "🎯 10. Recommendation Service (Rekomendacje AI/ML)"
+        url: /v3/api-docs/recommendation
+      - name: "💬 11. Chat Service (Czat z obsługą klienta)"
+        url: /v3/api-docs/chat
+      - name: "🔄 12. Returns Service (Zwroty & Reklamacje)"
+        url: /v3/api-docs/returns
+      - name: "🧾 13. Billing Service (Faktury & Rozliczenia)"
+        url: /v3/api-docs/billing
+      - name: "🔔 14. Notification Service (Powiadomienia & E-mail)"
+        url: /v3/api-docs/notification

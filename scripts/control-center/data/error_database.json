@@ -1,0 +1,385 @@
+{
+  "version": "1.0.0",
+  "description": "Local Error Knowledge Base for Mini Order Platform Control Center",
+  "errors": [
+    {
+      "id": "DB_CONNECTION_REFUSED",
+      "category": "database",
+      "patterns": [
+        "Connection.*5432.*refused",
+        "Connection to localhost:1543.*refused",
+        "org\\.postgresql\\.util\\.PSQLException: Connection to",
+        "The connection attempt failed",
+        "Connection refused.*5432"
+      ],
+      "title": {
+        "pl": "Brak połączenia z bazą danych PostgreSQL",
+        "en": "PostgreSQL Database Connection Refused"
+      },
+      "cause": {
+        "pl": "Mikroserwis nie może nawiązać połączenia z kontenerem bazy PostgreSQL (baza jest wyłączona lub jeszcze się inicjalizuje).",
+        "en": "The microservice cannot establish a connection to the PostgreSQL container (it is stopped or still starting)."
+      },
+      "solution": {
+        "pl": "Uruchom kontenery baz danych za pomocą przycisku „Infrastruktura (infra-up)” w Centrali.",
+        "en": "Start database containers using the 'Infrastructure (infra-up)' button in Control Center."
+      },
+      "fix_action": "infra-up",
+      "fix_button_label": {
+        "pl": "◫ Uruchom bazy (infra-up)",
+        "en": "◫ Start Databases (infra-up)"
+      }
+    },
+    {
+      "id": "DB_PASSWORD_AUTH_FAILED",
+      "category": "database",
+      "patterns": [
+        "password authentication failed for user",
+        "FATAL: password authentication failed",
+        "org\\.postgresql\\.util\\.PSQLException: FATAL: password authentication failed"
+      ],
+      "title": {
+        "pl": "Błąd uwierzytelnienia hasła PostgreSQL",
+        "en": "PostgreSQL Password Authentication Failed"
+      },
+      "cause": {
+        "pl": "Hasło przekazane w konfiguracji mikroserwisu nie zgadza się z hasłem w bazie danych PostgreSQL.",
+        "en": "The password configured for the microservice does not match the database password."
+      },
+      "solution": {
+        "pl": "Zweryfikuj hasła w Centrali w zakładce „Operacje -> Sekrety DEV” lub zsynchronizuj wolumeny baz danych.",
+        "en": "Verify passwords in Control Center under 'Operations -> DEV Secrets' or synchronize database volumes."
+      },
+      "fix_action": "secrets-edit-dev",
+      "fix_button_label": {
+        "pl": "🔒 Sprawdź Sekrety DEV",
+        "en": "🔒 Check DEV Secrets"
+      }
+    },
+    {
+      "id": "DB_DOES_NOT_EXIST",
+      "category": "database",
+      "patterns": [
+        "database \".*\" does not exist",
+        "FATAL: database .* does not exist"
+      ],
+      "title": {
+        "pl": "Baza danych PostgreSQL nie istnieje",
+        "en": "PostgreSQL Database Does Not Exist"
+      },
+      "cause": {
+        "pl": "Dedykowana baza danych dla mikroserwisu nie została poprawnie zainicjalizowana w kontenerze.",
+        "en": "The dedicated database for this service has not been initialized in the container."
+      },
+      "solution": {
+        "pl": "Zrestartuj infrastrukturę baz danych poleceniem „Infrastruktura (infra-up)”.",
+        "en": "Restart database infrastructure using 'Infrastructure (infra-up)'."
+      },
+      "fix_action": "infra-up",
+      "fix_button_label": {
+        "pl": "◫ Inicjalizuj bazy (infra-up)",
+        "en": "◫ Initialize Databases (infra-up)"
+      }
+    },
+    {
+      "id": "JWT_SECRET_MISSING",
+      "category": "auth",
+      "patterns": [
+        "CUSTOMER_JWT_SECRET is required",
+        "CUSTOMER_MFA_ENCRYPTION_KEY_BASE64 or JWT key material is required",
+        "CUSTOMER_JWT_SECRET must be valid Base64",
+        "CUSTOMER_JWT_SECRET must contain at least 32 decoded bytes"
+      ],
+      "title": {
+        "pl": "Brakujący lub nieprawidłowy klucz JWT / MFA",
+        "en": "Missing or Invalid JWT / MFA Secret"
+      },
+      "cause": {
+        "pl": "W profilu brakuje klucza CUSTOMER_JWT_SECRET lub klucz nie spełnia wymagań kryptograficznych (min. 32 bajty Base64).",
+        "en": "CUSTOMER_JWT_SECRET is missing or does not meet cryptographic requirements (min. 32 bytes Base64)."
+      },
+      "solution": {
+        "pl": "Wygeneruj automatycznie bezpieczny klucz JWT poleceniem „secrets-ensure-auth dev” lub wykonaj rotację kluczy RSA.",
+        "en": "Automatically generate a secure JWT secret via 'secrets-ensure-auth dev' or perform RSA key rotation."
+      },
+      "fix_action": "jwt-rotate-dev",
+      "fix_button_label": {
+        "pl": "🔑 Generuj / Rotuj klucze JWT",
+        "en": "🔑 Generate / Rotate JWT Keys"
+      }
+    },
+    {
+      "id": "JWT_RSA_MISCONFIGURED",
+      "category": "auth",
+      "patterns": [
+        "CUSTOMER_JWT_ACTIVE_KID, CUSTOMER_JWT_PRIVATE_KEY_BASE64 and .* must be configured together",
+        "Active JWT key is missing from CUSTOMER_JWT_PUBLIC_KEYS_JSON"
+      ],
+      "title": {
+        "pl": "Niespójna konfiguracja kluczy asymetrycznych RSA JWT",
+        "en": "Inconsistent RSA JWT Key Configuration"
+      },
+      "cause": {
+        "pl": "Klucze RSA (KID, klucz prywatny Base64, JWKS publiczny) muszą być skonfigurowane kompletnie razem.",
+        "en": "RSA keys (KID, Base64 private key, public JWKS) must all be configured together."
+      },
+      "solution": {
+        "pl": "Wykonaj automatyczną rotację zestawu kluczy RSA poleceniem „jwt-rotate dev”.",
+        "en": "Perform automated RSA key rotation using 'jwt-rotate dev'."
+      },
+      "fix_action": "jwt-rotate-dev",
+      "fix_button_label": {
+        "pl": "🔑 Rotuj klucze RSA JWT",
+        "en": "🔑 Rotate RSA JWT Keys"
+      }
+    },
+    {
+      "id": "REDIS_CONNECTION_REFUSED",
+      "category": "messaging",
+      "patterns": [
+        "RedisConnectionException",
+        "Unable to connect to Redis",
+        "6379.*Connection refused",
+        "16379.*Connection refused",
+        "io\\.lettuce\\.core\\.RedisConnectionException"
+      ],
+      "title": {
+        "pl": "Brak połączenia z brokerem zdarzeń Redis",
+        "en": "Redis Event Broker Connection Refused"
+      },
+      "cause": {
+        "pl": "Kontener event-broker (Redis) jest wyłączony. Outbox i publikacja zdarzeń asynchronicznych nie działają.",
+        "en": "The event-broker (Redis) container is down. Outbox and event streaming cannot operate."
+      },
+      "solution": {
+        "pl": "Uruchom broker zdarzeń poleceniem „Infrastruktura (infra-up)” lub „broker-up”.",
+        "en": "Start event broker using 'Infrastructure (infra-up)' or 'broker-up'."
+      },
+      "fix_action": "broker-up",
+      "fix_button_label": {
+        "pl": "⚡ Uruchom Redis Broker",
+        "en": "⚡ Start Redis Broker"
+      }
+    },
+    {
+      "id": "PORT_ALREADY_IN_USE",
+      "category": "network",
+      "patterns": [
+        "Address already in use",
+        "BindException: Address already in use",
+        "port is already allocated",
+        "failed: port is already allocated",
+        "Web server failed to start\\. Port .* was already in use"
+      ],
+      "title": {
+        "pl": "Kolizja portu sieciowego (Port zajęty)",
+        "en": "Network Port Collision (Port in Use)"
+      },
+      "cause": {
+        "pl": "Wskazany port TCP jest już zajęty przez inny proces na komputerze (np. proces w tle lub poprzedni kontener).",
+        "en": "The requested TCP port is already in use by another running process or container."
+      },
+      "solution": {
+        "pl": "Zatrzymaj stare kontenery aplikacji (docker-apps-down) oraz lokalne aplikacje Java (app-stop-all).",
+        "en": "Stop stale application containers (docker-apps-down) and local Java apps (app-stop-all)."
+      },
+      "fix_action": "docker-apps-down",
+      "fix_button_label": {
+        "pl": "⏹ Zatrzymaj kontenery serwisów",
+        "en": "⏹ Stop App Containers"
+      }
+    },
+    {
+      "id": "FLYWAY_CHECKSUM_MISMATCH",
+      "category": "database",
+      "patterns": [
+        "FlywayException",
+        "MigrationChecksumDiffersException",
+        "Validate failed: Migrations have failed validation",
+        "Checksum mismatch for migration",
+        "org\\.flywaydb\\.core\\.api\\.exception\\.FlywayValidateException"
+      ],
+      "title": {
+        "pl": "Niezgodność sumy kontrolnej migracji Flyway",
+        "en": "Flyway Migration Checksum Mismatch"
+      },
+      "cause": {
+        "pl": "Zaaplikowany wcześniej plik migracji SQL został zmodyfikowany. Flyway blokuje start w celu ochrony danych.",
+        "en": "An already executed SQL migration file was modified. Flyway halts startup to prevent data corruption."
+      },
+      "solution": {
+        "pl": "Przywróć oryginalną zawartość skryptu SQL lub dodaj nowy plik migracji (np. V2__...). W środowisku DEV można zresetować bazę.",
+        "en": "Revert the SQL file or create a new versioned migration (e.g. V2__...). In DEV, you can recreate the DB."
+      },
+      "fix_action": "infra-up",
+      "fix_button_label": {
+        "pl": "◫ Zrestartuj bazy danych",
+        "en": "◫ Restart Databases"
+      }
+    },
+    {
+      "id": "JVM_OUT_OF_MEMORY",
+      "category": "system",
+      "patterns": [
+        "java\\.lang\\.OutOfMemoryError",
+        "Java heap space",
+        "GC overhead limit exceeded",
+        "Container killed by OOM killer",
+        "exit code: 137"
+      ],
+      "title": {
+        "pl": "Brak pamięci RAM (JVM Out Of Memory / OOM)",
+        "en": "JVM Out Of Memory / Container OOM"
+      },
+      "cause": {
+        "pl": "Aplikacje Java lub kontenery Docker przekroczyły limit pamięci RAM przydzielony środowisku WSL2.",
+        "en": "Java applications or Docker containers exceeded available memory allocated to WSL2."
+      },
+      "solution": {
+        "pl": "Zwiększ limit pamięci RAM w pliku %USERPROFILE%\\.wslconfig (np. memory=12GB) i zrestartuj WSL (`wsl --shutdown`).",
+        "en": "Increase RAM limit in %USERPROFILE%\\.wslconfig (e.g. memory=12GB) and restart WSL (`wsl --shutdown`)."
+      },
+      "fix_action": "environment-check",
+      "fix_button_label": {
+        "pl": "🔍 Sprawdź środowisko",
+        "en": "🔍 Check Environment"
+      }
+    },
+    {
+      "id": "SOPS_AGE_KEY_MISSING",
+      "category": "security",
+      "patterns": [
+        "Brak klucza .*\\.agekey",
+        "Brak sekretow .*sops",
+        "SOPS_AGE_KEY_FILE",
+        "could not decrypt with any of the recipient keys"
+      ],
+      "title": {
+        "pl": "Brak klucza szyfrowania SOPS / Age",
+        "en": "Missing SOPS / Age Encryption Key"
+      },
+      "cause": {
+        "pl": "Brak lokalnego klucza prywatnego Age w ~/.config/mini-order-platform lub brak zainicjalizowanego pliku sekretów.",
+        "en": "Missing Age private key in ~/.config/mini-order-platform or uninitialized secrets file."
+      },
+      "solution": {
+        "pl": "Zainicjalizuj klucze Age poleceniem „secrets-init”, a następnie skonfiguruj sekrety w Centrali.",
+        "en": "Initialize Age keys via 'secrets-init' and complete setup in Control Center."
+      },
+      "fix_action": "secrets-init",
+      "fix_button_label": {
+        "pl": "🔐 Inicjalizuj klucze Age (secrets-init)",
+        "en": "🔐 Initialize Age Keys (secrets-init)"
+      }
+    },
+    {
+      "id": "UPSTREAM_SERVICE_UNAVAILABLE",
+      "category": "network",
+      "patterns": [
+        "503 Service Unavailable",
+        "502 Bad Gateway",
+        "CallNotPermittedException",
+        "ResourceAccessException.*1808",
+        "ConnectException.*1808"
+      ],
+      "title": {
+        "pl": "Niedostępna usługa nadrzędna / Circuit Breaker OPEN",
+        "en": "Upstream Service Unavailable / Circuit Breaker OPEN"
+      },
+      "cause": {
+        "pl": "Mikroserwis zależny nie odpowiada lub Circuit Breaker tymczasowo odciął ruch w celu ochrony przed przeciążeniem.",
+        "en": "Dependent microservice is down or Circuit Breaker opened to prevent cascading failures."
+      },
+      "solution": {
+        "pl": "Uruchom wszystkie mikroserwisy w kontenerach Docker (Uruchom serwisy) i sprawdź ich stan w zakładce Mikroserwisy.",
+        "en": "Start all microservices in Docker (Start Apps) and verify health in Microservices tab."
+      },
+      "fix_action": "docker-apps-up",
+      "fix_button_label": {
+        "pl": "▶ Uruchom wszystkie serwisy (Docker)",
+        "en": "▶ Start All Services (Docker)"
+      }
+    },
+    {
+      "id": "DOCKER_DAEMON_NOT_RUNNING",
+      "category": "system",
+      "patterns": [
+        "Cannot connect to the Docker daemon",
+        "Is the docker daemon running\\?",
+        "docker\\.sock.*no such file or directory",
+        "error during connect:.*docker_engine"
+      ],
+      "title": {
+        "pl": "Usługa Docker Desktop jest wyłączona",
+        "en": "Docker Daemon Not Running"
+      },
+      "cause": {
+        "pl": "Docker Engine / Docker Desktop nie działa w systemie Windows lub nie ma aktywnej integracji z WSL2.",
+        "en": "Docker Engine / Docker Desktop is not running or WSL2 integration is disabled."
+      },
+      "solution": {
+        "pl": "Uruchom program Docker Desktop w systemie Windows i upewnij się, że integracja z WSL jest włączona w ustawieniach.",
+        "en": "Start Docker Desktop in Windows and ensure WSL integration is enabled in Settings."
+      },
+      "fix_action": "environment-check",
+      "fix_button_label": {
+        "pl": "🔍 Sprawdź środowisko",
+        "en": "🔍 Check Environment"
+      }
+    },
+    {
+      "id": "INVOICE_NOT_FOUND",
+      "category": "billing",
+      "patterns": [
+        "Billing Service jest niedostepny albo faktura nie istnieje",
+        "Brak faktury dla zamowienia",
+        "The requested URI returned error: 404",
+        "faktura nie istnieje"
+      ],
+      "title": {
+        "pl": "Brak faktury dla wskazanego zamówienia (404)",
+        "en": "Invoice Not Found for Order (404)"
+      },
+      "cause": {
+        "pl": "Dla podanego ID zamówienia nie została wygenerowana faktura VAT. Zamówienie zostało złożone bez zaznaczenia opcji faktury VAT (kolumna FAKTURA = NIE) lub zamówienie o takim ID nie istnieje.",
+        "en": "No VAT invoice was issued for this order ID. The order was placed without requesting a VAT invoice (column INVOICE = NO), or the order does not exist."
+      },
+      "solution": {
+        "pl": "Sprawdź listę zamówień (orders-list), aby wybrać ID zamówienia z oznaczeniem FAKTURA = TAK (np. zamówienie demonstracyjne #46), lub wykonaj zamówienie z prośbą o fakturę VAT.",
+        "en": "Check the orders list (orders-list) to choose an order marked with INVOICE = YES (e.g. demo order #46), or place an order requesting a VAT invoice."
+      },
+      "fix_action": "orders-list",
+      "fix_button_label": {
+        "pl": "📋 Pokaż listę zamówień (orders-list)",
+        "en": "📋 Show Orders List (orders-list)"
+      }
+    },
+    {
+      "id": "PLAYWRIGHT_MISSING_HOST_DEPENDENCIES",
+      "category": "qa",
+      "patterns": [
+        "Host system is missing dependencies to run browsers",
+        "Missing libraries:.*libgtk",
+        "Missing system dependencies",
+        "browserType\\.launch:.*Host system is missing dependencies"
+      ],
+      "title": {
+        "pl": "Brakujące biblioteki systemowe dla silnika WebKit (Safari w WSL)",
+        "en": "Missing System Dependencies for WebKit Browser (WSL)"
+      },
+      "cause": {
+        "pl": "Silnik WebKit w Playwright (emulacja Safari na Linuksie) wymaga bibliotek systemowych GTK4, GStreamer i X11, których domyślnie brak w minimalistycznej instalacji WSL2. Silniki Chromium, Firefox i Mobile-Chrome działają w pełni sprawnie.",
+        "en": "The WebKit engine in Playwright requires GTK4, GStreamer, and X11 system libraries not preinstalled in minimal WSL2. Chromium, Firefox, and Mobile-Chrome are fully working."
+      },
+      "solution": {
+        "pl": "Aby doinstalować brakujące biblioteki WebKit, wpisz w terminalu WSL: sudo npx playwright install-deps webkit. Możesz też bez przeszkód uruchamiać pełną regresję Chromium (ui-test-regression).",
+        "en": "To install missing WebKit libraries, run in WSL terminal: sudo npx playwright install-deps webkit. You can also run the full Chromium regression (ui-test-regression)."
+      },
+      "fix_action": "ui-test-regression",
+      "fix_button_label": {
+        "pl": "▶ Uruchom testy Chromium (ui-test-regression)",
+        "en": "▶ Run Chromium Tests (ui-test-regression)"
+      }
+    }
+  ]
+}

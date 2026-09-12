@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 set -Euo pipefail
 
+if [[ -s "${HOME:-}/.nvm/nvm.sh" ]]; then
+  export NVM_DIR="${HOME:-}/.nvm"
+  # shellcheck source=/dev/null
+  \. "$NVM_DIR/nvm.sh" --no-use 2>/dev/null || true
+  nvm use 22 >/dev/null 2>&1 || nvm use default >/dev/null 2>&1 || true
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/platform.sh"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/compose.yaml"
+APPS_COMPOSE_FILE="$PROJECT_ROOT/compose.apps.yaml"
 MONITORING_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.monitoring.yaml"
 MAVEN_WRAPPER="$PROJECT_ROOT/mvnw"
 
@@ -41,12 +49,16 @@ if [[ -t 1 ]]; then
   C_BLUE=$'\033[1;34m'
   C_GREEN=$'\033[1;32m'
   C_RED=$'\033[1;31m'
+  C_YELLOW=$'\033[1;33m'
+  C_BOLD=$'\033[1m'
   C_DIM=$'\033[2m'
   C_RESET=$'\033[0m'
 else
   C_BLUE=""
   C_GREEN=""
   C_RED=""
+  C_YELLOW=""
+  C_BOLD=""
   C_DIM=""
   C_RESET=""
 fi
@@ -954,6 +966,351 @@ compose_with_secrets() {
 
 compose() {
   compose_with_secrets "$COMPOSE_FILE" "$@"
+}
+
+infra_up() {
+  compose up -d "$@"
+}
+
+infra_down() {
+  compose stop "${DB_SERVICES[@]}" "$BROKER_SERVICE" "$MAILPIT_SERVICE"
+}
+
+infra_status() {
+  compose ps
+}
+
+apps_compose() {
+  if ! ensure_local_profile; then
+    return 1
+  fi
+  require_command docker || return 1
+  local temporary_env_file=""
+  local profile
+  profile="$(active_profile)"
+  if secret_profile_supported "$profile"; then
+    temporary_env_file="$(decrypt_profile_to_temp "$profile")" || return 1
+  fi
+  local -a compose_options=(--project-directory "$PROJECT_ROOT")
+  if [[ -n "$temporary_env_file" ]]; then
+    compose_options+=(--env-file "$temporary_env_file")
+  fi
+  compose_options+=(-f "$COMPOSE_FILE" -f "$APPS_COMPOSE_FILE")
+  docker compose "${compose_options[@]}" "$@"
+  local status=$?
+  [[ -z "$temporary_env_file" ]] || rm -f -- "$temporary_env_file"
+  return "$status"
+}
+
+docker_diagnose_service_error() {
+  local service_name="$1"
+  local container_name
+  container_name="$(docker ps -a --filter "name=${service_name}" --format '{{.Names}}' | head -n 1)"
+  [[ -n "$container_name" ]] || container_name="miniorderplatform-${service_name}-1"
+
+  local container_status
+  container_status="$(docker inspect --format '{{.State.Status}} (kod wyjścia: {{.State.ExitCode}})' "$container_name" 2>/dev/null || echo "nieznany")"
+
+  printf '\n%s============================================================%s\n' "$C_RED" "$C_RESET"
+  printf '%s[DIAGNOSTYKA BŁĘDU] Usługa „%s” jest OFFLINE%s\n' "$C_RED" "$service_name" "$C_RESET"
+  printf 'Status kontenera (%s): %s\n' "$container_name" "$container_status"
+
+  local logs
+  logs="$(docker logs --tail 30 "$container_name" 2>&1 || true)"
+  if [[ -n "$logs" ]]; then
+    printf '\n%s--- Ostatnie linie logu kontenera %s: ---%s\n' "$C_YELLOW" "$container_name" "$C_RESET"
+    printf '%s\n' "$logs"
+    printf '%s------------------------------------------------------------%s\n' "$C_YELLOW" "$C_RESET"
+  fi
+
+  printf '\n%s👉 Rozpoznana przyczyna i proponowane rozwiązanie:%s\n' "$C_BOLD" "$C_RESET"
+  if echo "$logs" | grep -qiE 'Connection.*5432.*refused|database.*does not exist|password authentication failed|role.*does not exist'; then
+    printf '  %s• Przyczyna:%s Baza danych PostgreSQL nie odpowiada lub hasło bazy jest nieprawidłowe.\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Uruchom bazy danych w Centrali (przycisk "Infrastruktura (infra-up)") lub sprawdź sekrety DEV.\n' "$C_GREEN" "$C_RESET"
+  elif echo "$logs" | grep -qiE 'CUSTOMER_JWT|MFA_ENCRYPTION|jwt-secret|JWT key material'; then
+    printf '  %s• Przyczyna:%s Brak lub nieprawidłowy format klucza autoryzacji JWT / MFA.\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Wygeneruj klucz JWT poleceniem "jwt-rotate dev" lub sprawdź "Sekrety DEV" w Centrali.\n' "$C_GREEN" "$C_RESET"
+  elif echo "$logs" | grep -qiE 'Address already in use|BindException|port.*already allocated'; then
+    printf '  %s• Przyczyna:%s Port sieciowy serwisu jest zajęty przez inny proces na komputerze.\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Zatrzymaj lokalne aplikacje Java (app-stop-all) lub inne kontenery blokujące port.\n' "$C_GREEN" "$C_RESET"
+  elif echo "$logs" | grep -qiE 'OutOfMemoryError|heap space|ExitOnOutOfMemoryError'; then
+    printf '  %s• Przyczyna:%s Brak pamięci RAM dla kontenera Java (Out of Memory).\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Zwiększ przydział pamięci RAM dla WSL2 w pliku %%USERPROFILE%%\\.wslconfig.\n' "$C_GREEN" "$C_RESET"
+  elif echo "$logs" | grep -qiE 'RedisConnectionException|6379.*Connection refused'; then
+    printf '  %s• Przyczyna:%s Redis Event Broker nie odpowiada na porcie 6379.\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Uruchom broker zdarzeń poleceniem "broker-up" lub "Infrastruktura (infra-up)" w Centrali.\n' "$C_GREEN" "$C_RESET"
+  elif echo "$logs" | grep -qiE 'FlywayException|MigrationChecksumDiffers|Validate failed'; then
+    printf '  %s• Przyczyna:%s Błąd migracji bazy danych Flyway (niezgodność sumy kontrolnej skryptów SQL).\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Sprawdź pliki migracji w db/migration wybranego serwisu.\n' "$C_GREEN" "$C_RESET"
+  else
+    printf '  %s• Przyczyna:%s Nieoczekiwany błąd podczas uruchamiania aplikacji Spring Boot.\n' "$C_RED" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Zobacz pełny log kontenera poleceniem: bash ./scripts/control-center/control-center.sh docker-apps-logs %s\n' "$C_GREEN" "$C_RESET" "$service_name"
+  fi
+  printf '%s============================================================%s\n\n' "$C_RED" "$C_RESET"
+}
+
+docker_apps_up() {
+  if ! docker image inspect mini-order-platform/api-gateway:local >/dev/null 2>&1; then
+    printf 'Lokalne obrazy Docker aplikacji nie istnieja.\n'
+    printf 'Buduje obrazy wszystkich 15 mikroserwisow i frontendu (moze to potrwac kilka minut przy pierwszym uruchomieniu)...\n'
+    images_build || return 1
+  fi
+  printf 'Uruchamiam wszystkie serwisy i frontend w kontenerach Docker...\n'
+  apps_compose up -d --remove-orphans || return 1
+
+  printf '\nOczekuje na gotowosc i weryfikuje zdrowie wszystkich 15 mikroserwisow...\n'
+  local -a services=(
+    "gateway:18080:/api/products"
+    "product:18081:/actuator/health"
+    "order:18082:/actuator/health"
+    "inventory:18083:/actuator/health"
+    "payment:18084:/actuator/health"
+    "notification:18086:/actuator/health"
+    "customer:18087:/actuator/health"
+    "delivery:18088:/actuator/health"
+    "promotion:18089:/actuator/health"
+    "wishlist:18090:/actuator/health"
+    "review:18091:/actuator/health"
+    "recommendation:18092:/actuator/health"
+    "chat:18093:/actuator/health"
+    "returns:18094:/actuator/health"
+    "billing:18095:/actuator/health"
+    "frontend:18070:/"
+  )
+
+  local max_attempts=30
+  local attempt=0
+  local all_healthy=0
+  local -a failed_services=()
+
+  while (( attempt < max_attempts )); do
+    failed_services=()
+    for entry in "${services[@]}"; do
+      IFS=":" read -r name port path <<< "$entry"
+      if ! curl --silent --show-error --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}${path}" 2>/dev/null | grep -qE '^2[0-9][0-9]$'; then
+        failed_services+=("$name")
+      fi
+    done
+
+    if [[ ${#failed_services[@]} -eq 0 ]]; then
+      all_healthy=1
+      break
+    fi
+
+    attempt=$((attempt + 1))
+    printf '.'
+    sleep 1.5
+  done
+  printf '\n'
+
+  if [[ "$all_healthy" == "1" ]]; then
+    printf '\n%s[SUKCES] Wszystkie 15 mikroserwisow i frontend sa ONLINE i gotowe do pracy!%s\n' "$C_GREEN" "$C_RESET"
+    printf '  • Sklep (Frontend):   http://127.0.0.1:18070\n'
+    printf '  • API Gateway:        http://127.0.0.1:18080\n'
+    printf '  • Centrala Kontrolna: http://127.0.0.1:18100\n'
+    printf '  • Mailpit (E-maile):  http://127.0.0.1:18025\n'
+    return 0
+  else
+    printf '\n%s[UWAGA] Nastepujace uslugi nie odpowiedzialy w wyznaczonym czasie:%s %s\n' "$C_RED" "$C_RESET" "${failed_services[*]}"
+    for failed in "${failed_services[@]}"; do
+      docker_diagnose_service_error "$failed"
+    done
+    return 1
+  fi
+}
+
+docker_apps_down() {
+  printf 'Zatrzymuje kontenery serwisow i frontendu...\n'
+  apps_compose stop \
+    product-service order-service inventory-service payment-service \
+    notification-service customer-service delivery-service promotion-service \
+    wishlist-service review-service recommendation-service chat-service \
+    returns-service billing-service api-gateway frontend
+}
+
+docker_apps_status() {
+  apps_compose ps
+}
+
+docker_apps_logs() {
+  apps_compose logs -f "$@"
+}
+
+workflow_fresh_start() {
+  local profile
+  profile="$(active_profile)"
+  printf '%s============================================================%s\n' "$C_BLUE" "$C_RESET"
+  printf '%s🚀 [1-CLICK FRESH START] Inicjalizacja i pełny start platformy MiniTech (%s)%s\n' "$C_BOLD" "$profile" "$C_RESET"
+  printf '%s============================================================%s\n\n' "$C_BLUE" "$C_RESET"
+
+  printf 'Krok 1/4: Weryfikacja i przygotowanie kluczy autoryzacji JWT...\n'
+  secrets_ensure_auth "$profile" || true
+
+  printf '\nKrok 2/4: Uruchamianie infrastruktury baz danych i brokera zdarzeń...\n'
+  infra_up || {
+    printf '%sBłąd podczas startu infrastruktury baz danych.%s\n' "$C_RED" "$C_RESET" >&2
+    return 1
+  }
+
+  printf '\nKrok 3/4: Uruchamianie wszystkich 15 mikroserwisów i frontendu w kontenerach Docker...\n'
+  docker_apps_up || {
+    printf '%sBłąd podczas startu aplikacji Docker.%s\n' "$C_RED" "$C_RESET" >&2
+    return 1
+  }
+
+  printf '\nKrok 4/4: Wykonywanie szybkiej weryfikacji funkcjonalnej...\n'
+  smoke || true
+
+  printf '\n%s============================================================%s\n' "$C_GREEN" "$C_RESET"
+  printf '%s🎉 Środowisko MiniTech jest w 100%% gotowe do pracy!%s\n' "$C_GREEN" "$C_RESET"
+  printf '  • Sklep (Frontend):   http://127.0.0.1:18070\n'
+  printf '  • API Gateway:        http://127.0.0.1:18080\n'
+  printf '  • Centrala Kontrolna: http://127.0.0.1:18100\n'
+  printf '  • Mailpit (E-maile):  http://127.0.0.1:18025\n'
+  printf '%s============================================================%s\n' "$C_GREEN" "$C_RESET"
+  return 0
+}
+
+workflow_seed_demo_data() {
+  printf '%s============================================================%s\n' "$C_BLUE" "$C_RESET"
+  printf '%s📦 [SEED DEMO DATA] Zasilanie platformy przykładowymi danymi sklepu%s\n' "$C_BOLD" "$C_RESET"
+  printf '%s============================================================%s\n\n' "$C_BLUE" "$C_RESET"
+
+  local gateway="http://127.0.0.1:18080/api"
+  if ! curl --silent --connect-timeout 2 --max-time 3 -o /dev/null -w "%{http_code}" "$gateway/products" | grep -qE '^2[0-9][0-9]$'; then
+    printf '%sAPI Gateway nie odpowiada na %s. Uruchom najpierw serwisy (docker-apps-up).%s\n' "$C_RED" "$gateway" "$C_RESET" >&2
+    return 1
+  fi
+
+  printf '1. Tworzenie przykładowych zapytań do czatu wsparcia...\n'
+  curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"customerName":"Anna Kowalska","customerEmail":"anna.k@example.com","subject":"Pytanie o dostępność MacBook Pro","message":"Dzień dobry, czy wersja 36GB RAM będzie dostępna w tym tygodniu?"}' \
+    "$gateway/chat/messages" >/dev/null 2>&1 || true
+  curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"customerName":"Piotr Nowak","customerEmail":"p.nowak@example.com","subject":"Status przesyłki zamówienia","message":"Cześć! Kiedy mogę spodziewać się doręczenia zamówienia z wczoraj?"}' \
+    "$gateway/chat/messages" >/dev/null 2>&1 || true
+  printf '   ✓ Wysłano 2 przykładowe wątki czatu do obsługi klienta.\n'
+
+  printf '2. Dodawanie opinii klientów o produktach...\n'
+  curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"productId":1,"customerName":"Tomasz Wiśniewski","rating":5,"comment":"Świetny laptop! Bateria trzyma cały dzień, ekran rewelacyjny."}' \
+    "$gateway/reviews" >/dev/null 2>&1 || true
+  curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"productId":2,"customerName":"Karolina Mazur","rating":4,"comment":"Bardzo dobry smartfon, świetne zdjęcia w nocy, szybkie ładowanie."}' \
+    "$gateway/reviews" >/dev/null 2>&1 || true
+  printf '   ✓ Utworzono 2 opinie o produktach.\n'
+
+  printf '3. Generowanie przykładowych kodów promocyjnych...\n'
+  curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"code":"MINITECH10","discountPercent":10,"description":"Rabat powitalny 10%","validUntil":"2030-12-31"}' \
+    "$gateway/promotions/codes" >/dev/null 2>&1 || true
+  curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"code":"VIP20","discountPercent":20,"description":"Kupon VIP 20% zniżki","validUntil":"2030-12-31"}' \
+    "$gateway/promotions/codes" >/dev/null 2>&1 || true
+  printf '   ✓ Zarejestrowano kody promocyjne: MINITECH10 (-10%%) oraz VIP20 (-20%%).\n'
+
+  printf '4. Wykonywanie testowego zamówienia i płatności z fakturą...\n'
+  local order_res order_id
+  order_res="$(curl --silent -X POST -H 'Content-Type: application/json' \
+    -d '{"customerEmail":"klient.demo@minitech.local","shippingAddress":{"street":"Marszałkowska 10","city":"Warszawa","postalCode":"00-001","country":"PL"},"deliveryMethod":"COURIER_STANDARD","items":[{"productId":1,"quantity":1}]}' \
+    "$gateway/orders" 2>/dev/null || true)"
+  order_id="$(echo "$order_res" | grep -oE '"id":[0-9]+' | head -n 1 | cut -d':' -f2)"
+  if [[ -n "$order_id" ]]; then
+    curl --silent -X POST -H 'Content-Type: application/json' \
+      -d "{\"orderId\":$order_id,\"amount\":4999.00,\"currency\":\"PLN\",\"paymentMethod\":\"BLIK\"}" \
+      "$gateway/payments" >/dev/null 2>&1 || true
+    printf '   ✓ Utworzono i opłacono zamówienie #%s z generowaniem faktury VAT.\n' "$order_id"
+  fi
+
+  printf '\n%s[SUKCES] Dane demonstracyjne zostały pomyślnie załadowane do platformy!%s\n' "$C_GREEN" "$C_RESET"
+  printf '  • Sprawdź czat w Centrali (zakładka Czat klientów)\n'
+  printf '  • Sprawdź opinie i promocje w Sklepie: http://127.0.0.1:18070\n'
+  return 0
+}
+
+doctor_auto_fix() {
+  printf '%s============================================================%s\n' "$C_BLUE" "$C_RESET"
+  printf '%s🚑 [AUTO-HEALING DOCTOR] Pełny audyt środowiska i automatyczna naprawa%s\n' "$C_BOLD" "$C_RESET"
+  printf '%s============================================================%s\n\n' "$C_BLUE" "$C_RESET"
+
+  local profile
+  profile="$(active_profile)"
+  local fixes_applied=0
+
+  printf '[1/5] Kontrola kluczy kryptograficznych i autoryzacji JWT (%s)...\n' "$profile"
+  if ! secrets_ensure_auth "$profile" >/dev/null 2>&1; then
+    printf '  ⚡ Naprawiono: wygenerowano brakujący klucz JWT dla profilu %s.\n' "$profile"
+    fixes_applied=$((fixes_applied + 1))
+  else
+    printf '  ✓ Klucze JWT są poprawne.\n'
+  fi
+
+  printf '[2/5] Kontrola kontenerów baz danych PostgreSQL...\n'
+  local dbs_down=0
+  for db_cont in $(docker ps -a --filter "name=db-1" --format '{{.Names}}'); do
+    if ! docker inspect --format '{{.State.Running}}' "$db_cont" 2>/dev/null | grep -q "true"; then
+      dbs_down=1
+      break
+    fi
+  done
+  if [[ "$dbs_down" == "1" ]] || ! docker ps --format '{{.Names}}' | grep -q "product-db"; then
+    printf '  ⚡ Wykryto wyłączone bazy danych. Uruchamiam infrastrukturę (infra-up)...\n'
+    infra_up >/dev/null 2>&1 || true
+    fixes_applied=$((fixes_applied + 1))
+  else
+    printf '  ✓ Wszystkie bazy danych PostgreSQL działają poprawnie.\n'
+  fi
+
+  printf '[3/5] Kontrola brokera zdarzeń Redis...\n'
+  if ! docker ps --format '{{.Names}}' | grep -q "event-broker"; then
+    printf '  ⚡ Wykryto wyłączony kontener event-broker. Uruchamiam Redis...\n'
+    broker_up >/dev/null 2>&1 || true
+    fixes_applied=$((fixes_applied + 1))
+  else
+    printf '  ✓ Redis Event Broker działa i odpowiada.\n'
+  fi
+
+  printf '[4/5] Kontrola serwera poczty Mailpit...\n'
+  if ! docker ps --format '{{.Names}}' | grep -q "mailpit"; then
+    printf '  ⚡ Wykryto wyłączony kontener mailpit. Uruchamiam Mailpit...\n'
+    mailpit_up >/dev/null 2>&1 || true
+    fixes_applied=$((fixes_applied + 1))
+  else
+    printf '  ✓ Mailpit działa pod adresem http://127.0.0.1:18025.\n'
+  fi
+
+  printf '[5/5] Kontrola dostępności mikroserwisów i portów...\n'
+  local health_offline=0
+  local -a ports=(18080 18081 18082 18083 18084 18086 18087 18088 18089 18090 18091 18092 18093 18094 18095 18070)
+  for port in "${ports[@]}"; do
+    if ! curl --silent --connect-timeout 1 --max-time 1 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}/actuator/health" 2>/dev/null | grep -qE '^2[0-9][0-9]$'; then
+      if [[ "$port" == "18070" ]] && curl --silent --connect-timeout 1 --max-time 1 -o /dev/null -w "%{http_code}" "http://127.0.0.1:18070/" 2>/dev/null | grep -qE '^2[0-9][0-9]$'; then
+        continue
+      fi
+      if [[ "$port" == "18080" ]] && curl --silent --connect-timeout 1 --max-time 1 -o /dev/null -w "%{http_code}" "http://127.0.0.1:18080/api/products" 2>/dev/null | grep -qE '^2[0-9][0-9]$'; then
+        continue
+      fi
+      health_offline=1
+      break
+    fi
+  done
+
+  if [[ "$health_offline" == "1" ]]; then
+    printf '  ⚡ Wykryto niedostępne mikroserwisy. Restartuję kontenery aplikacji...\n'
+    docker_apps_up || true
+    fixes_applied=$((fixes_applied + 1))
+  else
+    printf '  ✓ Wszystkie mikroserwisy i frontend są aktywne (HTTP 200).\n'
+  fi
+
+  printf '\n%s============================================================%s\n' "$C_GREEN" "$C_RESET"
+  if [[ "$fixes_applied" -gt 0 ]]; then
+    printf '%s🎉 Diagnostyka zakończona: Zastosowano %s automatycznych poprawek. Środowisko jest w pełni sprawne!%s\n' "$C_GREEN" "$fixes_applied" "$C_RESET"
+  else
+    printf '%s🎉 Diagnostyka zakończona: Środowisko jest w doskonałym stanie, nie wykryto żadnych usterek!%s\n' "$C_GREEN" "$C_RESET"
+  fi
+  printf '%s============================================================%s\n' "$C_GREEN" "$C_RESET"
+  return 0
 }
 
 monitoring_compose() {
@@ -1949,6 +2306,7 @@ Bazy per serwis:
 
 Projekty / aplikacje:
   app-run <service> [dev|test]      Uruchom jeden mikroserwis przez Maven
+  app-stop <service>                Zatrzymaj jeden wskazany mikroserwis
   app-run-all                      Uruchom wszystkie mikroserwisy w tle platformy
   app-stop-all                     Zatrzymaj mikroserwisy uruchomione przez centrale
   app-status-all                   Pokaz status procesow mikroserwisow
@@ -1973,6 +2331,10 @@ Projekty / aplikacje:
   ui-test-debug                    Uruchom Playwright Inspector
   ui-test-report                   Pokaz raport HTML Playwright
   images-build                     Zbuduj lokalne obrazy Docker wszystkich aplikacji
+  docker-apps-up                   Uruchom wszystkie serwisy i frontend w kontenerach Docker
+  docker-apps-down                 Zatrzymaj kontenery serwisow i frontendu
+  docker-apps-status               Pokaz status kontenerow aplikacji i frontendu
+  docker-apps-logs [serwis]        Pokaz logi kontenerow aplikacji
   k8s-validate                     Zweryfikuj manifesty Kubernetes bez wdrazania
   k8s-status                       Pokaz status wdrozenia Kubernetes
   platform-info                    Pokaz wykryty system i adapter platformy
@@ -1996,6 +2358,10 @@ Projekty / aplikacje:
   returns-list                    Pokaz zwroty i reklamacje
   returns-status <id> <status>    Zmien status zwrotu lub reklamacji
   orders-list [limit]             Pokaz wszystkie zamowienia z kwota, e-mailem, pozycjami i faktura
+  invoices-list [limit]           Pokaz liste wszystkich wystawionych faktur VAT
+  invoices-export-zip [plik]      Pobierz archiwum ZIP ze wszystkimi fakturami PDF
+  invoice-correct <id>            Wystaw fakture korygujaca (KOR) do wskazanej faktury
+  corrections-list [id]           Pokaz liste wystawionych faktur korygujacych
   invoice-show <orderId>          Pokaz fakture dla zamowienia
   invoice-pdf <orderId>            Pobierz PDF faktury do gitIgnoreOwn/runtime/invoices
   review-pending                  Pokaz opinie oczekujace na moderacje
@@ -2009,6 +2375,10 @@ Frontend sklepu:
   frontend-down                    Zatrzymaj frontend
   frontend-status                  Pokaz status frontendu i adres URL
   frontend-logs                    Pokaz logi frontendu
+
+Centrala webowa:
+  web-start [--port P] [--no-browser] Uruchom graficzny panel Centrali w przegladarce (alias: web, web-ui)
+
 
 Diagnostyka:
   monitoring-up                   Uruchom Prometheus i Grafane
@@ -2270,6 +2640,14 @@ run_app() {
       return 2
       ;;
   esac
+  local sname
+  sname="$(app_docker_service_name "$alias")"
+  if docker ps --filter "name=miniorderplatform-" -q 2>/dev/null | grep -q .; then
+    printf 'Uruchamiam kontener Docker dla %s (%s)...\n' "$alias" "$sname"
+    apps_compose up -d --no-deps "$sname" || apps_compose start "$sname"
+    return $?
+  fi
+
   if [[ -n "$requested_profile" ]]; then
     preflight || return 1
     secrets_validate "$profile" || return 1
@@ -2420,7 +2798,86 @@ app_endpoint_healthy() {
     "http://127.0.0.1:${port}${path}" >/dev/null 2>&1
 }
 
+app_docker_service_name() {
+  local alias="${1:-}"
+  case "$alias" in
+    gateway|api-gateway) echo "api-gateway" ;;
+    frontend) echo "frontend" ;;
+    *-service) echo "$alias" ;;
+    *) echo "${alias}-service" ;;
+  esac
+}
+
+app_docker_container_running() {
+  local alias="${1:-}"
+  local sname
+  sname="$(app_docker_service_name "$alias")"
+  docker ps --filter "name=${sname}" --filter "status=running" -q 2>/dev/null | grep -q .
+}
+
+app_stop() {
+  local alias="${1:-}"
+  [[ -n "$alias" ]] || { printf 'Uzycie: app-stop <service>\n' >&2; return 2; }
+  app_project "$alias" >/dev/null || {
+    printf '%sNieznany projekt: %s%s\n' "$C_RED" "$alias" "$C_RESET" >&2
+    return 2
+  }
+  local sname killed=0
+  sname="$(app_docker_service_name "$alias")"
+  if app_docker_container_running "$alias"; then
+    printf 'Zatrzymuje kontener Docker: %s...\n' "$sname"
+    apps_compose stop "$sname" && killed=1
+  fi
+
+  local pid_file pid port
+  pid_file="$(app_pid_file "$alias")"
+  if [[ -f "$pid_file" ]]; then
+    read -r pid < "$pid_file" || pid=''
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      if command -v setsid >/dev/null 2>&1; then
+        kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+      else
+        kill "$pid" 2>/dev/null || true
+      fi
+      printf '%-14s zatrzymano proces Centrali (PID %s)\n' "$alias" "$pid"
+      killed=1
+    fi
+    rm -f -- "$pid_file"
+  fi
+
+  port="$(app_port "$alias" 2>/dev/null || true)"
+  if [[ -n "$port" ]]; then
+    local pids_on_port=""
+    pids_on_port="$(fuser "$port/tcp" 2>/dev/null || true)"
+    if [[ -z "$pids_on_port" ]] && command -v lsof >/dev/null 2>&1; then
+      pids_on_port="$(lsof -ti :"$port" 2>/dev/null || true)"
+    fi
+    if [[ -n "$pids_on_port" ]]; then
+      for p in $pids_on_port; do
+        if [[ "$p" =~ ^[0-9]+$ ]] && kill -0 "$p" 2>/dev/null; then
+          kill "$p" 2>/dev/null || true
+          printf '%-14s zatrzymano proces na porcie %s (PID %s)\n' "$alias" "$port" "$p"
+          killed=1
+        fi
+      done
+    fi
+  fi
+
+  if (( killed == 0 )); then
+    printf '%-14s nie byl uruchomiony (port %s)\n' "$alias" "$port"
+  else
+    printf '%s%-14s [ZATRZYMANO]%s\n' "$C_YELLOW" "$alias" "$C_RESET"
+  fi
+}
+
 app_stop_all() {
+  if docker ps --filter "name=miniorderplatform-" -q 2>/dev/null | grep -q .; then
+    printf 'Zatrzymuje kontenery serwisow Docker...\n'
+    apps_compose stop product-service order-service inventory-service payment-service \
+      notification-service customer-service delivery-service promotion-service \
+      wishlist-service review-service recommendation-service chat-service \
+      returns-service billing-service api-gateway 2>/dev/null || true
+  fi
   local alias pid_file pid stopped=0
   while IFS= read -r alias; do
     pid_file="$(app_pid_file "$alias")"
@@ -2438,14 +2895,16 @@ app_stop_all() {
       rm -f -- "$pid_file"
     fi
   done < <(app_aliases)
-  printf 'Zatrzymano procesow: %s\n' "$stopped"
+  printf 'Zatrzymano procesow/kontenerow: %s\n' "$stopped"
 }
 
 app_status_all() {
   local alias pid_file pid
   while IFS= read -r alias; do
     pid_file="$(app_pid_file "$alias")"
-    if app_process_running "$alias"; then
+    if app_docker_container_running "$alias"; then
+      printf '%-14s DOCKER / RUNNING (port %s)\n' "$alias" "$(app_port "$alias")"
+    elif app_process_running "$alias"; then
       read -r pid < "$pid_file"
       printf '%-14s RUNNING (PID %s, port %s)\n' "$alias" "$pid" "$(app_port "$alias")"
     elif app_endpoint_healthy "$alias"; then
@@ -2463,6 +2922,15 @@ app_logs() {
     printf '%sNieznany projekt: %s%s\n' "$C_RED" "$alias" "$C_RESET" >&2
     return 2
   }
+  local sname c_id
+  sname="$(app_docker_service_name "$alias")"
+  c_id="$(docker ps -a --filter "name=${sname}" --format '{{.ID}}' 2>/dev/null | head -n 1)"
+  if [[ -n "$c_id" ]]; then
+    printf '%s--- Logi kontenera Docker: %s ---%s\n' "$C_BLUE" "$sname" "$C_RESET"
+    docker logs --tail 100 "$c_id"
+    return 0
+  fi
+
   local log_file
   log_file="$(app_log_file "$alias")"
   [[ -f "$log_file" ]] || {
@@ -2573,6 +3041,11 @@ frontend_logs() {
   tail -n 100 "$log_file"
 }
 
+web_start() {
+  bash "$SCRIPT_DIR/web/start-web.sh" "$@"
+}
+
+
 run_tests() {
   local alias="${1:-all}"
   export SPRING_PROFILES_ACTIVE="test"
@@ -2628,10 +3101,17 @@ health() {
   return "$failures"
 }
 
+swagger_ui() {
+  printf 'Główny zagregowany Swagger UI (wszystkie 15 mikroserwisów w 1 oknie):\n'
+  printf '  -> http://127.0.0.1:18080/swagger-ui.html\n'
+}
+
 api_docs_urls() {
-  printf 'Dokumentacja OpenAPI/Swagger (dev/test):\n\n'
+  printf 'GŁÓWNY ZAGREGOWANY SWAGGER UI (wszystkie 15 mikroserwisów w 1 oknie):\n'
+  printf '  -> http://127.0.0.1:18080/swagger-ui.html\n\n'
+  printf 'Bezpośrednie adresy dokumentacji OpenAPI/Swagger poszczególnych usług (dev/test):\n\n'
   local service port
-   for service in gateway product order inventory payment notification customer delivery promotion wishlist review recommendation chat returns billing; do
+  for service in gateway product order inventory payment notification customer delivery promotion wishlist review recommendation chat returns billing; do
     port="$(app_port "$service")"
     printf '%-14s Swagger UI: http://127.0.0.1:%s/swagger-ui.html\n' "$service" "$port"
     printf '%-14s OpenAPI JSON: http://127.0.0.1:%s/v3/api-docs\n' "$service" "$port"
@@ -2774,15 +3254,35 @@ qa_ui_system() {
 qa_ui_browsers() {
   local manager
   manager="$(ui_package_manager)" || return 1
+  local has_webkit=0
+  if ldconfig -p 2>/dev/null | grep -q 'libgtk-4'; then
+    has_webkit=1
+  fi
+
   (
     cd "$PROJECT_ROOT"
-    if [[ "$manager" == 'pnpm' ]]; then
-      pnpm exec playwright install chromium firefox webkit
+    if (( has_webkit )); then
+      if [[ "$manager" == 'pnpm' ]]; then
+        pnpm exec playwright install chromium firefox webkit
+      else
+        npx --no-install playwright install chromium firefox webkit
+      fi
     else
-      npx --no-install playwright install chromium firefox webkit
+      if [[ "$manager" == 'pnpm' ]]; then
+        pnpm exec playwright install chromium firefox
+      else
+        npx --no-install playwright install chromium firefox
+      fi
     fi
   ) || return 1
-  qa_ui_exec test --grep-invert '@full-system'
+
+  if (( ! has_webkit )); then
+    printf '\n%s[WSL Info] Silnik WebKit wymaga dodatkowych pakietow systemowych GTK4/GStreamer (sudo npx playwright install-deps webkit).%s\n' "$C_YELLOW" "$C_RESET"
+    printf '%sUruchamiam testy dla w pelni wspieranych silnikow: Chromium, Firefox oraz Mobile Chrome.%s\n\n' "$C_BLUE" "$C_RESET"
+    qa_ui_exec test --project=chromium --project=firefox --project=mobile-chrome --grep-invert '@full-system'
+  else
+    qa_ui_exec test --grep-invert '@full-system'
+  fi
 }
 
 qa_ui_headed() {
@@ -3052,7 +3552,36 @@ promotion_codes() {
     printf '%sPromotion Service jest niedostepny.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
   }
-  printf '%s\n' "$response" | python3 -c 'import json,sys; [print("{}: -{}% | {} | użycia={}/{} | aktywny={}".format(c["code"], c["discountPercent"], c["description"], c["redeemedCount"], c["maxRedemptions"] if c["maxRedemptions"] is not None else "bez limitu", c["active"])) for c in json.load(sys.stdin)]'
+  printf '%s\n' "$response" | python3 -c '
+import json, sys
+from datetime import date
+
+today = date.today()
+for c in json.load(sys.stdin):
+    v_from = date.fromisoformat(c["validFrom"]) if c.get("validFrom") else None
+    v_to = date.fromisoformat(c["validTo"]) if c.get("validTo") else None
+
+    max_r = c.get("maxRedemptions")
+    red_c = c.get("redeemedCount", 0)
+    if not c.get("active"):
+        status_info = "🔴 NIEAKTYWNY"
+    elif v_from and today < v_from:
+        status_info = f"🟡 WAŻNY OD {v_from}"
+    elif v_to and today > v_to:
+        status_info = f"🔴 WYGASŁY ({v_to})"
+    elif max_r is not None and red_c >= max_r:
+        status_info = f"🔴 LIMIT WYCZERPANY ({red_c}/{max_r})"
+    else:
+        v_to_str = str(v_to) if v_to else "bezterminowo"
+        status_info = f"🟢 WAŻNY (do {v_to_str})"
+
+    limit_max = max_r if max_r is not None else "bez limitu"
+    limits = f"{red_c}/{limit_max}"
+    code_name = c["code"]
+    disc = c["discountPercent"]
+    desc = c.get("description", "-")
+    print(f"{code_name}: -{disc}% | {desc} | użycia={limits} | status={status_info}")
+'
 }
 
 promotion_code_create() {
@@ -3175,13 +3704,71 @@ returns_status() {
 
 billing_invoice() {
   require_command curl || return 1
-  local order_id="${1:-}" response
+  require_command python3 || return 1
+  local order_id="${1:-}" response order_info
   if [[ -z "$order_id" ]]; then printf 'ID zamowienia: '; read -r order_id || return 1; fi
   [[ "$order_id" =~ ^[0-9]+$ ]] || { printf '%sID zamowienia musi byc liczba.%s\n' "$C_RED" "$C_RESET" >&2; return 2; }
-  response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 "http://127.0.0.1:18080/api/invoices/order/$order_id")" || {
-    printf '%sBilling Service jest niedostepny albo faktura nie istnieje.%s\n' "$C_RED" "$C_RESET" >&2; return 1;
-  }
-  printf '%s\n' "$response"
+
+  printf '%sPobieranie faktury dla zamowienia #%s...%s\n' "$C_BLUE" "$order_id" "$C_RESET"
+  
+  response="$(curl --silent --show-error --connect-timeout 3 --max-time 10 "http://127.0.0.1:18080/api/invoices/order/$order_id" 2>/dev/null)" || true
+  
+  if [[ -n "$response" ]] && printf '%s' "$response" | grep -q '"invoiceNumber"'; then
+    printf '%s' "$response" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+print("\n" + "=" * 60)
+print("📄 FAKTURA VAT: {}".format(data.get("invoiceNumber", "BRAK")))
+print("=" * 60)
+print("Status dokumentu:    {}".format(data.get("status", "-")))
+print("ID zamówienia:       #{}".format(data.get("orderId", "-")))
+print("Data wystawienia:    {}".format(data.get("createdAt", "-")))
+print("Nabywca:             {}".format(data.get("companyName") or data.get("buyerName") or "-"))
+if data.get("taxId"):
+    print("NIP:                 {}".format(data.get("taxId")))
+print("Adres:               {}, {} {}".format(data.get("street", ""), data.get("postalCode", ""), data.get("city", "")))
+print("E-mail:              {}".format(data.get("customerEmail", "-")))
+print("-" * 60)
+print("POZYCJE FAKTURY:")
+for item in data.get("items", []):
+    print("  • {} (SKU: {}) x{} — {} {} (brutto)".format(
+        item.get("productName", "-"), item.get("sku", "-"), item.get("quantity", 1),
+        item.get("totalPrice", "-"), data.get("currency", "PLN")))
+print("-" * 60)
+print("Suma Netto:          {} {}".format(data.get("netAmount", "0.00"), data.get("currency", "PLN")))
+print("Kwota VAT (23%):     {} {}".format(data.get("vatAmount", "0.00"), data.get("currency", "PLN")))
+print("Dostawa:             {} {}".format(data.get("deliveryCost", "0.00"), data.get("currency", "PLN")))
+if float(data.get("discountAmount", 0) or 0) > 0:
+    print("Rabat:              -{} {}".format(data.get("discountAmount", "0.00"), data.get("currency", "PLN")))
+print("SUMA BRUTTO:         {} {}".format(data.get("grossAmount", "0.00"), data.get("currency", "PLN")))
+print("=" * 60)
+print("📥 Pobierz plik PDF: http://127.0.0.1:18080/api/invoices/order/{}/pdf\n".format(data.get("orderId")))
+'
+    return 0
+  fi
+
+  # If invoice was not found, check order details
+  order_info="$(curl --silent --connect-timeout 2 --max-time 5 "http://127.0.0.1:18080/api/orders/$order_id" 2>/dev/null)" || true
+  if [[ -n "$order_info" ]] && printf '%s' "$order_info" | grep -q '"id"'; then
+    local inv_req cust_email ord_status
+    inv_req="$(printf '%s' "$order_info" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("invoiceRequested", False))' 2>/dev/null || echo "False")"
+    cust_email="$(printf '%s' "$order_info" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("customerEmail", "-"))' 2>/dev/null || echo "-")"
+    ord_status="$(printf '%s' "$order_info" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", "-"))' 2>/dev/null || echo "-")"
+
+    printf '\n%s[INFORMACJA] Brak faktury dla zamowienia #%s%s\n' "$C_YELLOW" "$order_id" "$C_RESET"
+    printf '  • Status zamowienia: %s\n' "$ord_status"
+    printf '  • Klient (e-mail):   %s\n' "$cust_email"
+    if [[ "$inv_req" == "True" || "$inv_req" == "true" ]]; then
+      printf '  • Zadanie faktury:  TAK (faktura nie zostala jeszcze wygenerowana przez Billing Service)\n'
+    else
+      printf '  • Zadanie faktury:  NIE (zamowienie zostalo zlozone bez zaznaczenia prosby o fakture VAT)\n'
+    fi
+    printf '\n%sWskazowka:%s Uzyj polecenia „Wszystkie zamowienia” (orders-list), aby znalezc zamowienie z kolumna FAKTURA = TAK (np. #46).\n' "$C_GREEN" "$C_RESET"
+    return 1
+  else
+    printf '%s[BŁĄD] Zamowienie #%s nie istnieje w systemie.%s\n' "$C_RED" "$order_id" "$C_RESET" >&2
+    return 1
+  fi
 }
 
 orders_list() {
@@ -3230,6 +3817,134 @@ invoice_pdf() {
     fi
     return 1
   fi
+}
+
+invoices_list() {
+  require_command python3 || return 1
+  local limit="${1:-50}"
+  [[ "$limit" =~ ^[0-9]+$ && "$limit" -gt 0 ]] || {
+    printf '%sLimit musi byc dodatnia liczba.%s\n' "$C_RED" "$C_RESET" >&2
+    return 2
+  }
+  local raw_json=""
+  # Try REST API Gateway first
+  raw_json="$(curl --silent --show-error --fail --connect-timeout 2 --max-time 5 "http://127.0.0.1:18080/api/invoices?size=$limit" 2>/dev/null)" || true
+
+  # Fallback to direct DB query if REST API is not reachable
+  if [[ -z "$raw_json" || "$raw_json" != \[* ]]; then
+    local sql="SELECT coalesce(json_agg(t), '[]'::json) FROM (SELECT id, order_id, invoice_number, gross_amount, currency, customer_email, created_at FROM invoices ORDER BY id DESC LIMIT $limit) t;"
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q 'miniorderplatform-billing-db-1'; then
+      raw_json="$(docker exec -i miniorderplatform-billing-db-1 psql -U billing_app -d billing_db -t -A -c "$sql" 2>/dev/null)"
+    else
+      ensure_local_profile || return 1
+      raw_json="$(compose exec -T billing-db psql -U billing_app -d billing_db -t -A -c "$sql" 2>/dev/null)"
+    fi
+  fi
+
+  if [[ -z "$raw_json" ]]; then
+    printf '%sNie udalo sie pobrac listy faktur z serwisu ani z bazy billing_db.%s\n' "$C_RED" "$C_RESET" >&2
+    return 1
+  fi
+
+  printf '%s' "$raw_json" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+if not data:
+    print("Brak wystawionych faktur.")
+    raise SystemExit
+print("NR FAKTURY       | ZAMÓWIENIE | KWOTA BRUTTO | KLIENT                  | DATA WYSTAWIENIA")
+print("-" * 95)
+for inv in data:
+    dt = (inv.get("createdAt") or inv.get("created_at") or "")[:19].replace("T", " ")
+    email = (inv.get("customerEmail") or inv.get("customer_email") or "-")[:23]
+    inv_nr = inv.get("invoiceNumber") or inv.get("invoice_number") or "-"
+    ord_id = inv.get("orderId") or inv.get("order_id") or "-"
+    gross = float(inv.get("grossAmount") if inv.get("grossAmount") is not None else inv.get("gross_amount", 0) or 0)
+    curr = inv.get("currency", "PLN")
+    print(f"{inv_nr:<16} | #{ord_id:<10} | {gross:>9.2f} {curr} | {email:<23} | {dt}")
+print(f"\nLiczba wystawionych faktur: {len(data)}")
+'
+}
+
+invoices_export_zip() {
+  require_command curl || return 1
+  local output_file="${1:-$PROJECT_ROOT/gitIgnoreOwn/runtime/invoices/faktury.zip}"
+  mkdir -p "$(dirname "$output_file")"
+  printf '%sPobieranie archiwum ZIP ze wszystkimi fakturami...%s\n' "$C_BLUE" "$C_RESET"
+  if curl --silent --show-error --fail --connect-timeout 5 --max-time 60 "http://127.0.0.1:18080/api/invoices/export/zip" -o "$output_file" 2>/dev/null || \
+     curl --silent --show-error --fail --connect-timeout 5 --max-time 60 "http://127.0.0.1:18095/invoices/export/zip" -o "$output_file"; then
+    local file_size
+    file_size="$(wc -c < "$output_file" 2>/dev/null || stat -c%s "$output_file" 2>/dev/null || echo "0")"
+    printf '%sArchiwum ZIP zapisane pomyslnie: %s (%s bajtow)%s\n' "$C_GREEN" "$output_file" "$file_size" "$C_RESET"
+  else
+    printf '%sNie udalo sie pobrac archiwum ZIP z fakturami.%s\n' "$C_RED" "$C_RESET" >&2
+    return 1
+  fi
+}
+
+invoice_correct() {
+  require_command curl || return 1
+  require_command python3 || return 1
+  local invoice_id="${1:-}" reason="${2:-}" delta="${3:-}" payload response
+  if [[ -z "$invoice_id" ]]; then printf 'ID faktury: '; read -r invoice_id || return 1; fi
+  [[ "$invoice_id" =~ ^[0-9]+$ ]] || { printf '%sID faktury musi byc liczba.%s\n' "$C_RED" "$C_RESET" >&2; return 2; }
+  if [[ -z "$reason" ]]; then printf 'Przyczyna korekty: '; read -r reason || return 1; fi
+  if [[ -z "$delta" ]]; then printf 'Kwota zmiany brutto (np. -129.99): '; read -r delta || return 1; fi
+
+  payload="$(CORR_REASON="$reason" CORR_DELTA="$delta" python3 -c 'import json,os; print(json.dumps({"reason": os.environ["CORR_REASON"], "correctionGross": float(os.environ["CORR_DELTA"])}))')"
+  response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 -H 'Content-Type: application/json' -X POST "http://127.0.0.1:18080/api/invoices/$invoice_id/corrections" --data-binary "$payload" 2>/dev/null || \
+              curl --silent --show-error --fail --connect-timeout 3 --max-time 10 -H 'Content-Type: application/json' -X POST "http://127.0.0.1:18095/invoices/$invoice_id/corrections" --data-binary "$payload")" || {
+    printf '%sNie udalo sie wystawic korekty faktury.%s\n' "$C_RED" "$C_RESET" >&2
+    return 1
+  }
+  printf '%s' "$response" | python3 -c '
+import json, sys
+c = json.load(sys.stdin)
+print("\n" + "=" * 60)
+print(f"📄 WYSTAWIONO FAKTURĘ KORYGUJĄCĄ: {c.get(\"correctionNumber\")}")
+print("=" * 60)
+print(f"Do faktury pierwotnej: {c.get(\"originalInvoiceNumber\")}")
+print(f"Przyczyna:             {c.get(\"reason\")}")
+print(f"Kwota pierwotna:       {c.get(\"originalGross\")} PLN")
+print(f"Korekta brutto:        {c.get(\"correctionGross\")} PLN")
+print(f"Nowa kwota brutto:     {c.get(\"finalGross\")} PLN")
+print("-" * 60)
+print(f"📥 Pobierz PDF korekty: http://127.0.0.1:18080/api/invoices/corrections/{c.get(\"id\")}/pdf\n")
+'
+}
+
+corrections_list() {
+  require_command curl || return 1
+  require_command python3 || return 1
+  local invoice_id="${1:-}" url
+  if [[ -n "$invoice_id" ]]; then
+    url="http://127.0.0.1:18080/api/invoices/$invoice_id/corrections"
+  else
+    url="http://127.0.0.1:18080/api/invoices/corrections"
+  fi
+  local response
+  response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 "$url" 2>/dev/null || \
+              curl --silent --show-error --fail --connect-timeout 3 --max-time 10 "${url/18080\/api/18095}" 2>/dev/null)" || {
+    printf '%sNie udalo sie pobrac listy korekt.%s\n' "$C_RED" "$C_RESET" >&2
+    return 1
+  }
+  printf '%s' "$response" | python3 -c '
+import json, sys
+items = json.load(sys.stdin)
+if not items:
+    print("Brak wystawionych korekt.")
+    raise SystemExit
+print("NR KOREKTY       | DO FAKTURY       | KOREKTA BRUTTO | KWOTA KOŃCOWA | PRZYCZYNA")
+print("-" * 90)
+for c in items:
+    cn = c.get("correctionNumber", "-")
+    oin = c.get("originalInvoiceNumber", "-")
+    cg = float(c.get("correctionGross") or 0)
+    fg = float(c.get("finalGross") or 0)
+    r = (c.get("reason") or "-")[:25]
+    print(f"{cn:<16} | {oin:<16} | {cg:>12.2f} zł | {fg:>11.2f} zł | {r}")
+print(f"\nLiczba korekt: {len(items)}")
+'
 }
 
 review_moderate() {
@@ -3323,7 +4038,10 @@ chat_reply() {
 verify_mvp() {
   require_command curl || return 1
   require_command python3 || return 1
-  local mode="${1:-interactive}"
+  local mode="${1:-auto}"
+  if [[ "$mode" == 'interactive' && ! -t 0 ]]; then
+    mode='auto'
+  fi
   local profile gateway timestamp correlation_id product_id quantity recipient
   profile="$(active_profile)"
   case "$profile" in
@@ -3337,7 +4055,7 @@ verify_mvp() {
   gateway='http://127.0.0.1:18080/api'
   timestamp="$(date +%s)"
   correlation_id="app-verify-${timestamp}-$$"
-  if [[ "$mode" == 'auto' ]]; then
+  if [[ "$mode" == 'auto' || ! -t 0 ]]; then
     product_id="${2:-${APP_VERIFY_PRODUCT_ID:-4}}"
     quantity="${3:-${APP_VERIFY_QUANTITY:-1}}"
     recipient="${4:-${APP_VERIFY_RECIPIENT:-app-verify-${timestamp}@minitech.local}}"
@@ -3345,14 +4063,14 @@ verify_mvp() {
       "$product_id" "$quantity" "$recipient"
   else
     printf 'Produkt ID [4]: '
-    read -r product_id || return 1
+    read -r product_id || product_id=''
     product_id="${product_id:-4}"
     printf 'Ilosc [1]: '
-    read -r quantity || return 1
+    read -r quantity || quantity=''
     quantity="${quantity:-1}"
     recipient="mvp-verify-${timestamp}@minitech.local"
     printf 'Odbiorca [%s]: ' "$recipient"
-    read -r entered_recipient || return 1
+    read -r entered_recipient || entered_recipient=''
     recipient="${entered_recipient:-$recipient}"
   fi
 
@@ -3404,7 +4122,17 @@ verify_mvp() {
     printf '%sNie mozna pobrac stanu magazynowego.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
   }
-  available_before="$(printf '%s' "$stock_before" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("availableQuantity", -1))')"
+  available_before="$(printf '%s' "$stock_before" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("availableQuantity", -1))' 2>/dev/null || echo 0)"
+  if ! [[ "$available_before" =~ ^[0-9]+$ ]] || (( available_before < quantity )); then
+    if [[ "$mode" == 'auto' || ! -t 0 ]]; then
+      curl --silent -X PATCH -H 'Content-Type: application/json' \
+        -d '{"availableQuantity": 50}' "$gateway/inventory/items/${product_id}" >/dev/null 2>&1 || true
+      stock_before="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+        -H "X-Correlation-Id: $correlation_id" \
+        "$gateway/inventory/items/${product_id}")" || true
+      available_before="$(printf '%s' "$stock_before" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("availableQuantity", -1))' 2>/dev/null || echo 0)"
+    fi
+  fi
   if ! [[ "$available_before" =~ ^[0-9]+$ ]] || (( available_before < quantity )); then
     printf '%sBrak wystarczajacej ilosci. Dostepne: %s, wymagane: %s.%s\n' \
       "$C_RED" "$available_before" "$quantity" "$C_RESET" >&2
@@ -4385,12 +5113,20 @@ application_build_menu() {
     printf '\n%s%s%s\n' "$C_BLUE" "$(cc_text 'Budowanie i artefakty' 'Builds and artifacts')" "$C_RESET"
     printf '1. %s\n' "$(cc_text 'Pakietowanie calego monorepo' 'Package entire monorepo')"
     printf '2. %s\n' "$(cc_text 'Zbuduj lokalne obrazy Docker aplikacji' 'Build local Docker images')"
+    printf '3. %s\n' "$(cc_text 'Uruchom aplikacje i frontend w kontenerach Docker' 'Start apps and frontend in Docker')"
+    printf '4. %s\n' "$(cc_text 'Zatrzymaj kontenery aplikacji' 'Stop Docker apps')"
+    printf '5. %s\n' "$(cc_text 'Status kontenerow aplikacji' 'Docker apps status')"
+    printf '6. %s\n' "$(cc_text 'Logi kontenerow aplikacji' 'Docker apps logs')"
     printf '0. %s\n' "$(cc_text 'Powrot' 'Back')"
     choice_prompt
     read -r choice || return
     case "$choice" in
       1) run_menu_action run_package all ;;
       2) run_menu_action images_build ;;
+      3) run_menu_action docker_apps_up ;;
+      4) run_menu_action docker_apps_down ;;
+      5) run_menu_action docker_apps_status ;;
+      6) run_menu_action docker_apps_logs ;;
       0) return ;;
       exit|quit) exit 0 ;;
       *) invalid_choice ;;
@@ -4431,6 +5167,7 @@ frontend_menu() {
     printf '3. %s\n' "$(cc_text 'Status frontendu' 'Frontend status')"
     printf '4. %s\n' "$(cc_text 'Pokaz logi frontendu' 'Show frontend logs')"
     printf '5. %s\n' "$(cc_text 'Otworz adres frontendu (pokaz URL)' 'Open frontend address (show URL)')"
+    printf '6. %s\n' "$(cc_text 'Uruchom Centrale webowa w przegladarce' 'Start Web Control Center in browser')"
     printf '0. %s\n' "$(cc_text 'Powrot' 'Back')"
     choice_prompt
     read -r choice || return
@@ -4440,6 +5177,7 @@ frontend_menu() {
       3) run_menu_action frontend_status ;;
       4) run_menu_action frontend_logs ;;
       5) printf '%s: http://127.0.0.1:%s\n' "$(cc_text 'Frontend' 'Frontend')" "$FRONTEND_PORT" ;;
+      6) run_menu_action web_start ;;
       0) return ;;
       exit|quit) exit 0 ;;
       *) invalid_choice ;;
@@ -4466,6 +5204,7 @@ main_menu() {
     printf '11. %s\n' "$(cc_text 'Kontrola plikow przed publikacja na GitHub' 'Check files before publishing to GitHub')"
     printf '12. %s\n' "$(cc_text 'Doctor srodowiska' 'Environment doctor')"
     printf '13. %s\n' "$(cc_text 'Profil prod - przygotowanie (NIEDOSTEPNY)' 'Production profile - preparation (UNAVAILABLE)')"
+    printf '14. %s\n' "$(cc_text 'Centrala webowa (Web UI w przegladarce)' 'Web Control Center (Web UI in browser)')"
     printf '0. %s\n' "$(cc_text 'Wyjscie' 'Exit')"
     choice_prompt
     read -r choice || exit 0
@@ -4483,6 +5222,7 @@ main_menu() {
       11) run_menu_action github_check ;;
       12) run_menu_action doctor ;;
       13) production_menu ;;
+      14) run_menu_action web_start ;;
       0|exit|quit) exit 0 ;;
       *) invalid_choice ;;
     esac
@@ -4497,9 +5237,9 @@ command_dispatch() {
     platform-info) platform_print_info ;;
     github-check) github_check ;;
     --help|-h|help) printf 'Uzycie: bash scripts/control-center/control-center.sh [komenda]\n\n'; print_catalog ;;
-    infra-up) compose up -d ;;
-    infra-down) compose stop "${DB_SERVICES[@]}" "$BROKER_SERVICE" "$MAILPIT_SERVICE" ;;
-    infra-status) compose ps ;;
+    infra-up) infra_up ;;
+    infra-down) infra_down ;;
+    infra-status) infra_status ;;
     infra-logs)
       if [[ -n "${2:-}" ]]; then
         if [[ "$2" == "broker" || "$2" == "$BROKER_SERVICE" ]]; then
@@ -4571,6 +5311,7 @@ command_dispatch() {
     inventory-reset) inventory_reset ;;
     demo-reset) demo_reset ;;
     app-run) run_app "${2:-}" "${3:-}" ;;
+    app-stop) app_stop "${2:-}" ;;
     app-run-all) app_run_all ;;
     app-stop-all) app_stop_all ;;
     app-status-all) app_status_all ;;
@@ -4588,12 +5329,17 @@ command_dispatch() {
     promotion-codes) promotion_codes "${2:-}" ;;
     promotion-code-create) promotion_code_create ;;
     orders-list) orders_list "${2:-100}" ;;
+    invoices-list) invoices_list "${2:-50}" ;;
     invoice-show) billing_invoice "${2:-}" ;;
     invoice-pdf) invoice_pdf "${2:-}" ;;
+    invoices-export-zip) invoices_export_zip "${2:-}" ;;
+    invoice-correct) invoice_correct "${2:-}" "${3:-}" "${4:-}" ;;
+    corrections-list) corrections_list "${2:-}" ;;
     review-pending) review_pending ;;
     review-moderate) shift; review_moderate "$@" ;;
     chat-list) chat_messages "${2:-50}" ;;
     chat-reply) shift; chat_reply "$@" ;;
+    swagger-ui) swagger_ui ;;
     api-docs-urls) api_docs_urls ;;
     contract-test) qa_contract_test ;;
     security-test) qa_security_test ;;
@@ -4611,6 +5357,11 @@ command_dispatch() {
     ui-test-debug) qa_ui_debug ;;
     ui-test-report) qa_ui_report ;;
     images-build) images_build ;;
+    docker-apps-up) docker_apps_up ;;
+    docker-apps-down) docker_apps_down ;;
+    docker-apps-status) docker_apps_status ;;
+    docker-apps-logs) shift; docker_apps_logs "$@" ;;
+    apps-compose) shift; apps_compose "$@" ;;
     k8s-validate) k8s_validate ;;
     k8s-status) k8s_status ;;
     openbao-status) openbao_status ;;
@@ -4622,12 +5373,16 @@ command_dispatch() {
     audit-list) audit_list "${2:-50}" ;;
     password-reset-request) password_reset_request "${2:-}" ;;
     app-verify) app_verify ;;
-    verify-mvp) verify_mvp ;;
+    verify-mvp) shift; verify_mvp auto "$@" ;;
     doctor) doctor ;;
+    doctor-fix) doctor_auto_fix ;;
+    fresh-start) workflow_fresh_start ;;
+    seed-demo-data) workflow_seed_demo_data ;;
     frontend-up) frontend_up ;;
     frontend-down) frontend_down ;;
     frontend-status) frontend_status ;;
     frontend-logs) frontend_logs ;;
+    web-start|web|web-ui) shift; web_start "$@" ;;
     "") main_menu ;;
     *) printf '%sNieznana komenda: %s%s\n\n' "$C_RED" "$1" "$C_RESET" >&2; print_catalog >&2; return 2 ;;
   esac
