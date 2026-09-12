@@ -36,8 +36,10 @@ aby odróżnić widok operatora od sklepu i ograniczyć ilość bieli. Może:
 - obsługiwać JWT, reset hasła, audyt, MFA, promocje, opinie, dostawy i czat,
 - przygotować diagnostykę profilu produkcyjnego bez jego uruchamiania.
 
-Panel webowy zawiera widoki `Pulpit`, `Usługi`, `Operacje`, `Czat klientów`,
-`Testy`, `Zadania i logi` oraz `Terminal WSL`. Operacje są uruchamiane z
+Panel webowy zawiera widoki `Pulpit`, `Usługi` (z metrykami RAM/CPU w czasie rzeczywistym),
+`Operacje`, `Dane i Sklep` (zamówienia, faktury, korekty, magazyn, klienci),
+`Zdarzenia i DLQ` (Redis Streams, Outbox, DLQ, Trace Timeline), `Symulator Awarii` (Chaos Engineering),
+`Czat klientów`, `Asystent AI`, `Testy`, `Zadania i logi` oraz `Terminal WSL`. Operacje są uruchamiane z
 kontrolowanej białej listy; backend nie przyjmuje dowolnych poleceń systemowych.
 Serwer nasłuchuje wyłącznie na `127.0.0.1` i wymaga lokalnego tokenu sesji dla
 żądań zmieniających stan.
@@ -165,14 +167,44 @@ Panel zawsze pozostaje przypięty do interfejsu loopback.
 
 ### Obsługa panelu webowego
 
-- `Pulpit` pokazuje profil, liczbę usług online i najczęstsze operacje.
-- `Usługi` odpytują minimalne endpointy Actuator wszystkich 15 aplikacji.
-- `Operacje` zawierają 112 dozwolonych operacji: infrastrukturę, bazy, backupy,
-  bezpieczeństwo, pocztę, ustawienia języka menu, operacje sklepu i
-  przygotowanie prod. Parametry są przekazywane jako osobne argumenty, bez
-  wykonywania dowolnych poleceń powłoki.
+- `Pulpit` pokazuje profil, liczbę usług online, szybkie skróty do operacji oraz podsumowanie kondycji środowiska.
+- `Usługi` odpytują minimalne endpointy Actuator wszystkich 15 aplikacji. Każdy kafelek usługi prezentuje czas odpowiedzi (latencję) oraz metryki kontenera w czasie rzeczywistym: zużycie pamięci RAM oraz procesora CPU (`🧠 [RAM] / [Limit] • [CPU]%`).
+- `Operacje` zawierają dozwolone operacje podzielone na przejrzyste grupy tematyczne:
+  - **Aplikacje:** zarządzanie cyklem życia 15 mikroserwisów. Wprowadzono jednoznaczny podział na **kontenery Docker** (`docker-apps-up`, `docker-apps-down`, `docker-apps-status`) oraz **lokalne procesy Maven w WSL** (`app-run-all`, `app-stop-all`, `app-status-all`, `app-run`, `app-stop`).
+  - **Budowanie:** operacje kompilacji monorepo i tworzenia obrazów (`app-test`, `app-package`, `images-build`). Z grupy tej usunięto zduplikowane kafelki uruchamiania kontenerów, pozostawiając wyłącznie narzędzia budowania.
+  - **Dokumentacja API:** bezpośredni kafelek do zagregowanego Swagger UI (`swagger-ui`) oraz metryki odporności Resilience4j (`resilience-status`).
+  - **Infrastruktura:** całościowe uruchamianie i zatrzymywanie 14 baz PostgreSQL, brokera Redis i serwera Mailpit (`infra-up`, `infra-down`).
+  - **Bazy danych, Redis i zdarzenia, Mailpit, Backupy, Bezpieczeństwo, Operacje sklepu, Profile i sekrety, Start i diagnostyka, Prod — tylko walidacja, Ustawienia.**
+- `Dane i Sklep` — kompleksowy eksplorator danych biznesowych:
+  - **Zamówienia (Orders):** tabela zamówień na żywo z bazy `order-service`, filtry statusów (`ALL`, `COMPLETED`, `PAID`, `PENDING`, `CANCELLED`), sortowanie oraz szybkie wystawianie faktury przyciskiem `➕ Wystaw`.
+  - **Faktury (Invoices):** pełny rejestr faktur z `billing-service`. Zawiera kafelki KPI (Wystawione faktury, Łącznie netto, Łącznie VAT, Łącznie brutto), wielokolumnowe sortowanie, masowy eksport archiwum ZIP (`📦 Eksportuj ZIP`), podgląd JSON, pobieranie PDF oraz szybki skrót wysyłki mailowej (`✉️`). W przypadku faktur skorygowanych stosuje **Model A (Rozwijany podwiersz / Accordion Sub-row)** — kliknięcie `[📜 X korekt ▼]` rozwija historię korekt ze wskaźnikami delty kwotowej, powodem i osobnym pobieraniem PDF/JSON korekt. Przycisk `📝 Korekta` otwiera interaktywne okno modalne z dynamicznym kalkulatorem kwot brutto/netto/VAT do natychmiastowego wystawienia korekty KOR.
+  - **Wysyłka dokumentów (Document Dispatch):** dedykowane centrum wysyłki dokumentów rozliczeniowych (faktur pierwotnych `FV` i korekt `KOR`) do klientów pocztą elektroniczną (SMTP → Mailpit). Zawiera filtry typu dokumentu (`Wszystkie`, `Faktury FV`, `Korekty KOR`), wyszukiwarkę na żywo oraz formularz modalny umożliwiający edycję adresu docelowego (np. wysyłka do biura rachunkowego klienta), dopisanie **własnej dedykowanej notatki/wiadomości dla klienta** oraz automatyczne załączenie wygenerowanego PDF-a. Statusy wysyłek (`🟢 Wysłano (data)` / `⚪ Gotowy`) są trwale rejestrowane w historii Centrali.
+  - **Magazyn (Inventory):** stany magazynowe produktów, zarezerwowane ilości oraz szybki restock (`+10`, `+50`, `+100`).
+  - **Klienci (Customers):** baza zarejestrowanych klientów, dane kontaktowe, statusy i NIP firm.
+- `Zdarzenia i DLQ` — asynchroniczny monitoring komunikacji między mikroserwisami:
+  - **Redis Stream:** podgląd strumieni zdarzeń w brokerze Redis w czasie rzeczywistym z przełącznikiem między `payment-events` (publikowane przez Payment Service) oraz `invoice-events` (fakturowanie EDA publikowane przez Billing Service). W strumieniu `invoice-events` zdarzenie `INVOICE_CORRECTED` czytelnie prezentuje różnicę kwotową oraz kwotę końcową po korekcie (np. `-289.00 PLN (po: 2821.47 PLN)`) z bursztynowym badge'em statusowym. Zdarzenia techniczne tworzące strukturę strumienia przy starcie są czytelnie oznaczane żółtą etykietą `BOOTSTRAP`.
+  - **Outbox Events:** podgląd tabeli `payment_outbox_events` (Transactional Outbox) gwarantującej dostarczenie zdarzeń *At-Least-Once Delivery*.
+  - **Dead Letter Queue (DLQ):** kolejka odrzuconych powiadomień z bazy `notification_db` wraz z przyciskiem ponowienia dostarczenia (`Replay`).
+  - **Trace Timeline:** narzędzie do graficznej wizualizacji przepływu transakcji rozproszonej wzdłuż mikroserwisów po podaniu `correlationId`.
+- `Symulator Awarii` — moduł Chaos Engineering pozwalający na symulowanie degradacji środowiska (wstrzykiwanie opóźnień sieciowych oraz błędów HTTP 500) do poszczególnych mikroserwisów w celu weryfikacji mechanizmów odpornościowych (Circuit Breaker, Retry, Fallback).
 - `Czat klientów` pokazuje rozmowy i pozwala odpowiedzieć bez wpisywania ID;
   odpowiedź trafia również do Notification Service.
+- `Asystent AI` (Asystent Architektury MiniTech) — interaktywny asystent wspierający operatora w analizie architektury, baz danych, routingu i rozwiązywaniu błędów:
+  - **Domyślny tryb wbudowany (Offline) i przyciski na górze:**
+    - Bez wpięcia do zewnętrznego agenta lub CLI, Asystent działa w **domyślnym trybie wbudowanym (offline)**.
+    - Bazuje on na wbudowanym silniku wiedzy o monorepo oraz **przyciskach szybkiego wyboru (tzw. prompt chips)** umieszczonych na górze ekranu, które zawierają **najczęściej zadawane pytania** (np. *Pokaż zamówienia w bazie*, *Stan serwisów*, *Katalog produktów*, *Faktury VAT*, *Kody rabatowe*, *Czat klientów*, *Docker & Kontenery*, *Porty mikroserwisów*, *Outbox & Redis*, *Sekrety SOPS*, *Testy & Jakość*, *Baza błędów*).
+    - Tryb ten jest w 100% lokalny, bezpieczny, nie wymaga kluczy API, internetu ani zewnętrznych procesów.
+  - **Swobodny czat konwersacyjny (Wymaga podpięcia zewnętrznego agenta):**
+    - Jeżeli użytkownik chce traktować Asystenta AI jak **pełnoprawny czat konwersacyjny** i zadawać dowolne, otwarte pytania językiem naturalnym, **musi podpiąć z zewnątrz model lub agenta** (np. lokalny model z komputera przez Ollama `http://localhost:11434/v1`, Google Gemini API lub OpenAI Codex).
+    - Zapobiega to wprowadzaniu użytkowników w błąd co do możliwości wbudowanego silnika regułowego.
+  - **Wskaźnik trybu (Status Badge):** dynamiczna dioda LED informująca o stanie silnika:
+    - 🟢 `Tryb wbudowany (Offline)` — aktywny domyślny tryb lokalny bazujący na przyciskach i autodiagnostyce.
+    - 🟣 `Własny Agent AI` — informuje o aktywnym połączeniu z zewnętrznym silnikiem (np. `Ollama / qwen2.5-coder`, `OpenAI / gpt-4o` lub `Google Gemini`).
+  - **Przycisk `⚙ Ustawienia AI`:** otwiera okno konfiguracji silnika AI:
+    - **Lokalny model (Ollama / Local LLM):** obsługa prywatnych modeli uruchomionych na komputerze użytkownika przez kompatybilny endpoint (domyślnie `http://localhost:11434/v1`).
+    - **Google Gemini:** obsługa modeli Gemini (`gemini-2.5-flash`) przy użyciu darmowego klucza API z Google AI Studio.
+    - **OpenAI Codex:** obsługa modeli OpenAI (`gpt-4o`) z podaniem klucza API.
+    - **Kontekst bazy wiedzy:** automatyczne wstrzykiwanie pełnej specyfikacji architektury monorepo do promptów zewnętrznego agenta.
 - `Testy` uruchamiają te same skrypty smoke, E2E, ZAP i Playwright co CLI.
 - `Zadania i logi` pokazują wynik procesu. Logi trafiają do
   `gitIgnoreOwn/runtime/control-center-web/jobs/`.
@@ -180,6 +212,41 @@ Panel zawsze pozostaje przypięty do interfejsu loopback.
   `secrets-edit`, `db-shell`, Vim i innych operacji wymagających interaktywnego
   terminala. Pierwszą konfigurację sekretów można wykonać bezpośrednio w panelu
   webowym; terminalowy `secrets-setup` pozostaje dostępny jako alternatywa.
+
+### Dokumentacja API i Zagregowany Swagger UI (:18080)
+
+Centralnym punktem dokumentacji interfejsów REST wszystkich 15 mikroserwisów jest zagregowany **Swagger UI** osadzony w **API Gateway** na porcie `18080`:
+
+- **Adres bezpośredni:** `http://127.0.0.1:18080/swagger-ui.html`
+- **Rozwijana lista serwisów (*Select a definition*):** W prawym górnym rogu Swagger UI znajduje się rozwijane menu umożliwiające natychmiastowe przełączenie dokumentacji OpenAPI na dowolny mikroserwis (`Product Service`, `Order Service`, `Customer Service`, `Billing Service`, `Delivery Service` itd.).
+- **Brak błędów CORS:** Ponieważ zapytania testowe `Try it out` są kierowane przez bramę na porcie `18080`, nie występują ograniczenia Cross-Origin Resource Sharing.
+- **Dostępność w Centrali:**
+  - Przycisk `📖 Swagger UI ↗` w górnym pasku nawigacyjnym (Topbar),
+  - Dedykowany banner oraz kafelek w zakładce `Operacje → Dokumentacja API`,
+  - Odnośnik w zakładce `O aplikacji`,
+  - Skrót w Palecie Poleceń (`Ctrl+K`).
+
+### Pasek boczny nawigacji i sekcja Monitoring
+
+W lewym pasku nawigacyjnym Centrali znajduje się sekcja **MONITORING**, dedykowana wyłącznie narzędziom metryk i telemetrii środowiska:
+- 📊 **Grafana** (`http://127.0.0.1:13000`) — wizualizacja metryk platformy, zużycia zasobów i dashboardów JVM.
+- 🔥 **Prometheus** (`http://127.0.0.1:19090`) — zbieranie metryk Prometheus Actuator i monitorowanie celów scrapingowych (Targets).
+*(Narzędzia dokumentacji API, takie jak Swagger UI, znajdują się w górnym pasku i widokach operacyjnych, co zachowuje czystość sekcji telemetrycznej).*
+
+### Zarządzanie serwerem Centrali w tle (Daemon)
+
+Centralę Web można uruchamiać i kontrolować w tle za pomocą dedykowanych poleceń skryptu:
+
+```bash
+# Uruchomienie serwera Centrali Web w tle
+bash scripts/control-center/control-center.sh web-start
+
+# Sprawdzenie statusu i PID działającego procesu serwera
+bash scripts/control-center/control-center.sh web-status
+
+# Zatrzymanie serwera Centrali Web
+bash scripts/control-center/control-center.sh web-stop
+```
 
 Zmiana języka w widoku `Operacje` dotyczy klasycznego menu terminalowego.
 Graficzny panel operatora jest obecnie dostępny po polsku, natomiast jego pełna
@@ -468,6 +535,31 @@ bash scripts/control-center/control-center.sh health all
 `app-run-all` uruchamia wszystkie piętnaście aplikacji: Gateway, Product,
 Order, Inventory, Payment, Notification, Customer, Delivery, Promotion,
 Wishlist, Review, Recommendation, Chat, Returns i Billing Service.
+
+### Uruchamianie mikroserwisów i frontendu w kontenerach Docker
+
+Alternatywnie do procesów lokalnych Maven, wszystkie 15 mikroserwisów oraz frontend można uruchomić w kontenerach Docker przy użyciu jednego pliku `compose.apps.yaml`:
+
+```bash
+# 1. Zbuduj lokalne obrazy (jeśli nie były wcześniej budowane):
+bash scripts/control-center/control-center.sh images-build
+
+# 2. Uruchom wszystkie serwisy i frontend w kontenerach Docker jednym poleceniem:
+bash scripts/control-center/control-center.sh docker-apps-up
+# lub dedykowanym skryptem:
+bash scripts/start-apps-docker.sh     # (w PowerShell: .\scripts\start-apps-docker.ps1)
+
+# 3. Sprawdź stan i logi kontenerów aplikacji:
+bash scripts/control-center/control-center.sh docker-apps-status
+bash scripts/control-center/control-center.sh docker-apps-logs [nazwa_usługi]
+
+# 4. Zatrzymanie kontenerów aplikacji:
+bash scripts/control-center/control-center.sh docker-apps-down
+# lub:
+bash scripts/stop-apps-docker.sh      # (w PowerShell: .\scripts\stop-apps-docker.ps1)
+```
+
+Wszystkie kontenery aplikacji łączą się z bazami danych i Redisem w ramach wspólnej sieci Docker Compose po wewnętrznych nazwach DNS (`order-db`, `product-db`, `event-broker`, `mailpit`).
 
 ### Jedna usługa i logi w bieżącej konsoli
 
@@ -881,17 +973,25 @@ bash scripts/control-center/control-center.sh chat-reply 1 "Dziękujemy za konta
 bash scripts/control-center/control-center.sh returns-list
 bash scripts/control-center/control-center.sh returns-status 1 UNDER_REVIEW "Weryfikacja zgłoszenia"
 
-# Faktury
+# Faktury i korekty (Billing Service)
 bash scripts/control-center/control-center.sh orders-list 100
 bash scripts/control-center/control-center.sh invoice-show 1
 bash scripts/control-center/control-center.sh invoice-pdf 1
+bash scripts/control-center/control-center.sh invoices-export-zip
+bash scripts/control-center/control-center.sh invoice-correct 1 "Udzielenie rabatu potransakcyjnego" -50.00
+bash scripts/control-center/control-center.sh corrections-list
 ```
 
 `orders-list` pobiera dane przez API Gateway i pokazuje ID, status, kwotę,
 odbiorcę, pozycje z ilościami oraz flagę zamówienia faktury. `invoice-show`
-wyświetla dane faktury, a `invoice-pdf` zapisuje plik w
-`gitIgnoreOwn/runtime/invoices/`. Po nowym opłaconym zamówieniu wiadomość w
-Mailpit powinna zawierać ten sam PDF jako załącznik. Stare zamówienia utworzone
+wyświetla dane faktury, a `invoice-pdf` pobiera i zapisuje plik w
+`gitIgnoreOwn/runtime/invoices/`. Polecenie `invoices-export-zip` pobiera masowe
+archiwum ZIP ze wszystkimi wystawionymi fakturami PDF do
+`gitIgnoreOwn/runtime/invoices_export_<timestamp>.zip`. Polecenie
+`invoice-correct <id> "<powód>" <kwota_zmiany_brutto>` wystawia fakturę korygującą
+(KOR) o zadaną różnicę brutto (wartość ujemna dla zwrotu/rabatu), a `corrections-list`
+wyświetla rejestr wszystkich wystawionych korekt. Po nowym opłaconym zamówieniu wiadomość w
+Mailpit powinna zawierać ten sam PDF jako załącznik. W Centrali Web operator może przejść do dedykowanej zakładki **Wysyłka dokumentów** (lub skorzystać ze skrótu `✉️` w tabeli faktur), aby wysłać lub ponowić wysyłkę faktury bądź korekty na e-mail z opcjonalną indywidualną notatką dla klienta (np. informacją o przyczynie korekty lub terminie zwrotu pieniędzy) i dołączonym plikiem PDF. Wiadomość trafia bezpośrednio do serwera Mailpit (`http://127.0.0.1:18025`). Stare zamówienia utworzone
 przed migracją pola `invoiceRequested` mogą mieć wartość `NIE`, jeśli nie da się
 już odtworzyć historycznej decyzji klienta z danych Order Service.
 

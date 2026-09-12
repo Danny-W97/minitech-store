@@ -2,12 +2,29 @@ name: MiniTech Store CI
 
 on:
   push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       deploy:
         description: Deploy the selected image tag to the configured Kubernetes cluster
-        required: true
+        required: false
+        default: false
+        type: boolean
+      build_all_images:
+        description: Build, scan and publish all 16 Docker container images
+        required: false
         default: false
         type: boolean
 
@@ -82,6 +99,7 @@ jobs:
 
   build-images:
     needs: verify
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.build_all_images == true))
     runs-on: ubuntu-latest
     permissions:
       contents: read

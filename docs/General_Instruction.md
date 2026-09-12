@@ -107,7 +107,7 @@ panel przygotowania, ale lokalnie pozostaje zablokowany.
 
 Uruchom panel z katalogu głównego:
 
-```bash
+```bash 
 bash ./scripts/start.sh
 ```
 
@@ -1028,18 +1028,32 @@ operacja może być śledzona w logach wszystkich usług.
 
 ### OpenAPI i Swagger UI
 
-Każdy serwis ma automatycznie generowany dokument OpenAPI oraz interfejs
-Swagger UI. W profilu `dev` i `test` adresy są dostępne lokalnie:
+Każdy mikroserwis posiada automatycznie generowaną dokumentację OpenAPI oraz interfejs Swagger UI. Wszystkie 15 mikroserwisów zostało zintegrowanych w **jednym zagregowanym Swagger UI** na porcie API Gateway:
 
 ```text
-Gateway      http://127.0.0.1:18080/swagger-ui.html
+Główny zagregowany Swagger UI: http://127.0.0.1:18080/swagger-ui.html
+```
+
+W prawym górnym rogu okna Swagger UI znajduje się rozwijane menu (*Select a definition*), które pozwala przełączać specyfikację na dowolny serwis platformy (`Product Service`, `Order Service`, `Payment Service`, `Customer Service`, `Billing Service`, `Delivery Service`, `Review Service` itd.) oraz testować endpointy bez błędów CORS bezpośrednio przez bramę.
+
+Indywidualne bezpośrednie adresy Swagger UI mikroserwisów:
+
+```text
+Gateway      http://127.0.0.1:18080/swagger-ui.html (Zagregowany dla 15 usług)
 Product      http://127.0.0.1:18081/swagger-ui.html
 Order        http://127.0.0.1:18082/swagger-ui.html
 Inventory    http://127.0.0.1:18083/swagger-ui.html
 Payment      http://127.0.0.1:18084/swagger-ui.html
 Notification http://127.0.0.1:18086/swagger-ui.html
 Customer     http://127.0.0.1:18087/swagger-ui.html
+Delivery     http://127.0.0.1:18088/swagger-ui.html
 Promotion    http://127.0.0.1:18089/swagger-ui.html
+Wishlist     http://127.0.0.1:18090/swagger-ui.html
+Review       http://127.0.0.1:18091/swagger-ui.html
+Recommend    http://127.0.0.1:18092/swagger-ui.html
+Chat         http://127.0.0.1:18093/swagger-ui.html
+Returns      http://127.0.0.1:18094/swagger-ui.html
+Billing      http://127.0.0.1:18095/swagger-ui.html
 ```
 
 Surowy dokument JSON znajduje się pod `/v3/api-docs`. Dokument Gateway opisuje
@@ -1099,18 +1113,52 @@ Wymaga działającego Dockera. Zwykłe `./mvnw test` nie uruchamia testów `*IT`
 
 ## Etap 6: obrazy Docker i Kubernetes
 
-Każdy mikroserwis ma niezależny obraz Docker budowany przez
-`deploy/docker/service.Dockerfile`. Obraz jest wieloetapowy: pierwsza faza
-buduje aplikację przez Maven/JDK 25, a druga uruchamia tylko wynikowy JAR na
-JRE 25 jako użytkownik nieuprzywilejowany. Frontend ma osobny obraz Nginx.
+Architektura kontenerowa platformy opiera się na ściśle wyizolowanych obrazach Docker, zaprojektowanych zgodnie z dobrymi praktykami bezpieczeństwa (kontenery bez uprawnień roota, minimalna waga, brak zbędnych narzędzi deweloperskich w obrazach produkcyjnych).
 
-Lokalne zbudowanie wszystkich obrazów:
+### 1. Mikroserwisy backendowe (`deploy/docker/service.Dockerfile`)
+
+Wszystkie 15 mikroserwisów Spring Boot (API Gateway oraz 14 mikroserwisów domenowych) korzysta z **jednego, uniwersalnego szablonu Dockerfile** opartego na zaawansowanym wzorcu **Multi-Stage Build** (budowanie wieloetapowe):
+
+* **Etap 1 — Builder (`maven:3.9-eclipse-temurin-25 AS build`):**
+  * Korzysta z argumentu `--build-arg SERVICE_MODULE=<nazwa>` (np. `product-service`, `order-service`), co pozwala jednym plikiem budować dowolną usługę z monorepo.
+  * Kopiuje nadrzędny plik `pom.xml`, wrapper `./mvnw` oraz pliki `pom.xml` wszystkich podmodułów, dzięki czemu Maven prawidłowo buduje drzewo zależności reaktora (Maven Reactor).
+  * Kopiuje kod źródłowy wyłącznie wskazanego mikroserwisu (`${SERVICE_MODULE}/src`).
+  * Wykorzystuje pamięć podręczną kompilatora Docker BuildKit (`--mount=type=cache,target=/root/.m2/repository`), zapobiegając ponownemu pobieraniu bibliotek przy kolejnych budowaniach.
+  * Kompiluje produkcyjny plik JAR (`./mvnw package -DskipTests`) i umieszcza go w `/tmp/app.jar`.
+* **Etap 2 — Runtime (`eclipse-temurin:25-jre`):**
+  * Zaczyna się od czystego, odchudzonego środowiska uruchomieniowego Java 25 JRE — **bez kompilatora `javac`, bez kodu źródłowego i bez Mavena**. Zmniejsza to rozmiar obrazu z ~900 MB do poniżej 200 MB oraz drastycznie ogranicza potencjalne podatności CVE.
+  * Instaluje pakiet fontów `fonts-dejavu-core`, niezbędny m.in. dla Billing Service do generowania dokumentów PDF (faktur).
+  * Kopiuje z etapu budowania wyłącznie wynikowy plik `app.jar`.
+  * **Zasada najniższych uprawnień (Non-Root):** proces aplikacji uruchamiany jest na dedykowanym użytkowniku bez uprawnień roota (`USER 10001:10001`).
+  * **Ochrona pamięci kontenera:** predefiniowane flagi `JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"` zapobiegają nagłemu zabijaniu procesu przez OOM-killer jądra Linuksa bez pozostawienia śladu w logach.
+
+### 2. Frontend sklepu (`deploy/docker/frontend.Dockerfile`)
+
+Obraz kontenera frontendu jest **całkowicie odmienny** od backendu:
+* **Obraz bazowy:** `nginx:1.29-alpine` — ultralekka dystrybucja Alpine Linux ze zoptymalizowanym serwerem HTTP Nginx (waga ~30-40 MB).
+* **Brak Javy i środowiska Node.js:** Ponieważ interfejs sklepu został zrealizowany w architekturze Vanilla JS (czysty HTML5, CSS3 i JavaScript bez ciężkich bundlerów), kontener nie wymaga środowisk uruchomieniowych takich jak Node.js czy JDK.
+* **Zawartość obrazu:** Kopiuje statyczny katalog `frontend/` bezpośrednio do `/usr/share/nginx/html/` oraz wstrzykuje plik konfiguracyjny [deploy/docker/nginx.frontend.conf](file:///c:/Dysk%20D/stuff/Mini%20Order%20Platform/deploy/docker/nginx.frontend.conf) odpowiedzialny za routing SPA, kompresję gzip i nagłówki bezpieczeństwa.
+
+### 3. Zestawienie kontenerów w platformie
+
+| Kategoria | Obraz bazowy | Rola i zawartość | Uprawnienia | Port wewnętrzny | Port na hoście |
+|---|---|---|:---:|:---:|:---:|
+| **15 Mikroserwisów Backend** | `eclipse-temurin:25-jre` | Skompilowany Spring Boot JAR (`app.jar`) + DejaVu fonts | `10001:10001` (non-root) | `8080` | `18080`–`18095` |
+| **Frontend Sklepu** | `nginx:1.29-alpine` | Serwer Nginx + statyczne pliki HTML/CSS/JS | `nginx` | `8080` | `18070` |
+| **14 Baz PostgreSQL** | `postgres:16-alpine` | Silnik bazy danych PostgreSQL per mikroserwis | `postgres` | `5432` | `15432`–`15446` |
+| **Broker Redis** | `redis:7-alpine` | Redis Streams (`payment-events`, `invoice-events`) + cache | `redis` | `6379` | `16379` |
+| **Poczta Mailpit** | `axllent/mailpit` | Serwer przechwytywania wiadomości SMTP i Web UI | `mailpit` | `1025` / `8025` | `18025` |
+| **Telemetria (Prometheus / Grafana)** | `prom/prometheus` / `grafana/grafana` | Scraping metryk JVM i dashboardy analityczne | `nobody` / `grafana` | `9090` / `3000` | `19090` / `13000` |
+
+### 4. Budowanie i sieć kontenerów
+
+Lokalne zbudowanie wszystkich obrazów aplikacji:
 
 ```bash
 bash scripts/control-center/control-center.sh images-build
 ```
 
-Można wskazać własny prefix i tag:
+Można wskazać własny prefix rejestru i tag:
 
 ```bash
 IMAGE_PREFIX=ghcr.io/<organizacja>/mini-order-platform \
@@ -1118,9 +1166,7 @@ IMAGE_TAG=dev \
 bash scripts/deploy/build-images.sh
 ```
 
-Wewnątrz obrazu usługi Spring Boot słuchają na porcie `8080`. Mapowanie na
-lokalne porty `18080`–`18093` pozostają elementem uruchamiania dev/test, a nie
-konfiguracji obrazu.
+Wewnątrz mostka sieciowego Docker Compose (`compose.apps.yaml`) wszystkie mikroserwisy nasłuchują na standardowym porcie `8080` i komunikują się wzajemnie po wewnętrznych nazwach domenowych DNS (np. `http://product-service:8080`, `http://order-service:8080`). Mapowanie na zewnętrzne porty deweloperskie (`18070` dla frontendu, `18080` dla API Gateway oraz `18081`–`18095` dla serwisów) pozwala operatorowi na bezpośrednie testy i diagnostykę z poziomu systemu operacyjnego hosta.
 
 ### Kubernetes i deployment bez przestoju
 
@@ -1236,12 +1282,38 @@ konsumentów; nie kasuje rekordów streamu. Opcja `Zatrzymaj wszystkie bazy` w
 menu baz wykonuje `docker compose down` dla infrastruktury głównego Compose,
 więc zatrzymuje również kontener Redisa i Mailpit, ale pozostawia wolumeny.
 
+### Zdarzenia inicjalizujące BOOTSTRAP w Redis Streams
+
+W podglądzie strumieni zdarzeń (np. `payment-events`) obok standardowych zdarzeń biznesowych (`PAYMENT_SUCCEEDED`, `INVOICE_ISSUED`) pojawia się techniczne zdarzenie oznaczone etykietą **`BOOTSTRAP`**.
+
+![Podgląd zdarzenia BOOTSTRAP w Centrali Web](screenshots/control-center-redis-bootstrap.png)
+
+#### Dlaczego występuje zdarzenie BOOTSTRAP?
+W silniku Redis Streams polecenie tworzenia grupy konsumenckiej:
+```redis
+XGROUP CREATE payment-events billing-service 0-0
+```
+zwraca błąd `ERR no such key`, jeżeli wskazany strumień fizycznie jeszcze nie istnieje w pamięci Redisa (np. przy pierwszym starcie nowego środowiska, zanim zostanie zrealizowana jakakolwiek płatność).
+
+#### Mechanizm działania w kodzie mikroserwisów
+Aby rozwiązać problem braku strumienia, mikroserwisy konsumujące (`Notification Service` oraz `Billing Service`) w metodzie inicjalizacyjnej `ensureConsumerGroup()`:
+1. **Wysyłają rekord techniczny:** Serwis dodaje do strumienia minimalistyczny wpis z polem `{"_bootstrap": "true"}`. Sprawia to, że Redis alokuje strukturę strumienia w pamięci i na dysku AOF.
+2. **Rejestrują grupę konsumentów:** Po utworzeniu klucza strumienia bezpiecznie wywołują `XGROUP CREATE` bez ryzyka błędu `ERR no such key`.
+3. **Idempotentne potwierdzenie (ACK):** W procesorze zdarzeń rekord z flagą `_bootstrap=true` jest natychmiast potwierdzany (`XACK`) i pomijany w logice domenowej (brak wysyłki e-maila czy faktury, stąd pola *ORDER ID* i *KWOTA* posiadają wartości `—`).
+
+W graficznym panelu Centrali (widok *Zdarzenia i DLQ*) zdarzenie to jest automatycznie wykrywane i prezentowane z żółtą etykietą **`BOOTSTRAP`**, co jednoznacznie odróżnia je od rzeczywistych transakcji płatniczych.
+
 ## Szczegóły obsługi Control Center
 
 Pełny podręcznik uruchamiania i obsługi Centrali został wydzielony do pliku
 [Microservices Central Instruction](Microservices_Central_Instruction.md).
 Poniższa sekcja pozostaje krótkim skrótem przydatnym podczas czytania instrukcji
 projektu; w razie rozbieżności pierwszeństwo ma wydzielony podręcznik Centrali.
+
+W trybie graficznym (Centrala Web na porcie `18100`) panel integruje m.in.: zarządzanie kontenerami, podgląd metryk zasobów (RAM/CPU), eksplorator danych biznesowych (zamówienia, faktury z ciągłą numeracją i korektami KOR, magazyn, klienci), diagnostykę zdarzeń Redis Streams i DLQ, symulator awarii (Chaos Engineering) oraz wbudowanego **Asystenta AI**.
+
+> [!NOTE]
+> Asystent AI bez wpięcia do zewnętrznego agenta działa w domyślnym trybie wbudowanym (offline) w oparciu o przyciski z najczęściej zadawanymi pytaniami umieszczone na górze widoku. Aby korzystać z asystenta jak ze swobodnego czatu konwersacyjnego LLM, należy w Ustawieniach AI podpiąć zewnętrznego agenta lub lokalny model (np. Ollama z komputera lub zewnętrzny klucz API).
 
 Na Windows preferowany sposób pracy to WSL. Na Linuxie i macOS uruchom Control
 Center z natywnego Terminala, w katalogu głównym projektu:
@@ -3228,33 +3300,60 @@ Na fakturze zapisuje niezmienne migawki zakupionych produktów: nazwę, ilość,
 cenę jednostkową i wartość pozycji. Dokument pokazuje również koszt dostawy i
 rabat, gdy występują. Ponowienie tego samego żądania dla `orderId` nie tworzy
 drugiej faktury. Dla gościa `customerId` może być puste, ale adres e-mail i dane
-nabywcy są wymagane. Numer faktury ma lokalny format `FV/RRRR/nnnnnn`.
+nabywcy są wymagane. Numeracja faktur i korekt jest ciągła i bezluzowa — opiera się
+na tabeli `invoice_sequences` z blokadą pesymistyczną (`SELECT ... FOR UPDATE`),
+gwarantując formaty `FV/RRRR/nnnnnn` oraz `KOR/RRRR/nnnnnn`.
+
+Architektura zdarzeniowa (EDA):
+Billing Service nasłuchuje strumienia Redis `payment-events` w grupie konsumenckiej
+`billing-service`. Po odebraniu zdarzenia `PAYMENT_SUCCEEDED` automatycznie i
+idempotentnie wystawia fakturę oraz publikuje zdarzenia `INVOICE_ISSUED` i
+`INVOICE_CORRECTED` do strumienia `invoice-events`. W podglądzie zdarzeń w Centrali
+Web zdarzenie `INVOICE_CORRECTED` wyświetla precyzyjną różnicę kwotową brutto oraz
+kwotę końcową po korekcie (np. `-289.00 PLN (po: 2821.47 PLN)`).
 
 Endpointy przez Gateway:
 
-- `POST /api/invoices` — wystawienie faktury po płatności,
+- `POST /api/invoices` — synchroniczne wystawienie faktury po płatności,
+- `GET /api/invoices` — paginowana lista faktur z filtrami wyszukiwania,
+- `GET /api/invoices/export/zip` — masowy eksport faktur PDF do archiwum ZIP,
 - `GET /api/invoices/order/{orderId}` — faktura zamówienia,
 - `GET /api/invoices/customer/{customerId}` — faktury klienta,
 - `GET /api/invoices/{id}` — szczegóły faktury,
 - `GET /api/invoices/order/{orderId}/pdf` — PDF faktury zamówienia,
-- `GET /api/invoices/{id}/pdf` — PDF po identyfikatorze faktury.
+- `GET /api/invoices/{id}/pdf` — PDF po identyfikatorze faktury,
+- `POST /api/invoices/{id}/corrections` — wystawienie faktury korygującej (KOR),
+- `GET /api/invoices/{id}/corrections` — lista korekt danej faktury,
+- `GET /api/invoices/corrections` — rejestr wszystkich korekt w systemie,
+- `GET /api/invoices/corrections/{correctionId}/pdf` — pobranie pliku PDF faktury korygującej.
 
 Szczegóły zamówienia pokazują numer faktury, netto, VAT i brutto, gdy faktura
 została wystawiona. Po opłaceniu zamówienia Notification Service pobiera PDF z
-Billing Service i dołącza go do wiadomości potwierdzającej wysyłanej do Mailpit.
-W Centrali można wyświetlić fakturę, pobrać jej PDF oraz zobaczyć listę zamówień:
+Billing Service (w Dockerze poprzez `BILLING_SERVICE_URL: http://billing-service:8080`)
+i dołącza go do wiadomości potwierdzającej wysyłanej do Mailpit.
+W Centrali (zarówno Web, jak i CLI) można wyświetlić fakturę, pobrać jej PDF,
+pobrać archiwum ZIP, wystawiać korekty z dynamicznym kalkulatorem kwot oraz przeglądać rejestr korekt.
+Ponadto w Centrali Web wdrożono dedykowaną podstronę **Wysyłka dokumentów** (`✉️ Wysyłka dokumentów`),
+która pozwala na filtrowanie dokumentów (`Wszystkie`, `Faktury FV`, `Korekty KOR`), edycję adresu docelowego e-mail,
+wpisanie **własnej dedykowanej wiadomości / notatki dla klienta** oraz wysyłkę z odpowiednim załącznikiem PDF
+bezpośrednio przez SMTP do Mailpit (`127.0.0.1:11025`) z pełnym rejestrowaniem statusów doręczenia:
 
 ```bash
 bash scripts/control-center/control-center.sh orders-list 100
 bash scripts/control-center/control-center.sh invoice-show <orderId>
 bash scripts/control-center/control-center.sh invoice-pdf <orderId>
+bash scripts/control-center/control-center.sh invoices-export-zip
+bash scripts/control-center/control-center.sh invoice-correct <invoiceId> "<powód>" <kwota_zmiany_brutto>
+bash scripts/control-center/control-center.sh corrections-list
 ```
 
 `orders-list` pokazuje ID, status, kwotę, e-mail, informację o żądaniu faktury
-oraz pozycje z ilościami. `invoice-pdf` zapisuje dokument w
-`gitIgnoreOwn/runtime/invoices/`; katalog jest lokalny i nie powinien być
-publikowany w repozytorium. Wiadomość można sprawdzić w Mailpit pod adresem
-`http://127.0.0.1:18025`, wyszukując odbiorcę i temat `Payment confirmed`.
+oraz pozycje z ilościami. `invoice-pdf` pobiera dokument do
+`gitIgnoreOwn/runtime/invoices/`. Polecenie `invoices-export-zip` pobiera archiwum ZIP
+do `gitIgnoreOwn/runtime/invoices_export_<timestamp>.zip`. Polecenie `invoice-correct`
+wystawia fakturę korygującą KOR (wartość ujemna oznacza zwrot lub obniżkę kwoty).
+Wiadomości można sprawdzić w Mailpit pod adresem
+`http://127.0.0.1:18025`, wyszukując odbiorcę lub temat wiadomości.
 
 Checkout tworzy jedno zamówienie dla całego koszyka. Pozycje są zapisane w
 tabeli `order_items`, a Order Service przekazuje do Inventory jedną listę

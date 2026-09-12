@@ -1,0 +1,421 @@
+services:
+  product-service:
+    image: mini-order-platform/product-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: product-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://product-db:5432/product_db
+      DB_USERNAME: product_app
+      DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?PRODUCT_DB_PASSWORD is required}
+      PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?PRODUCT_DB_PASSWORD is required}
+      REDIS_URL: redis://event-broker:6379
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18081:8080"
+    depends_on:
+      product-db:
+        condition: service_healthy
+
+  order-service:
+    image: mini-order-platform/order-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: order-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://order-db:5432/order_db
+      DB_USERNAME: order_app
+      DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      INVENTORY_SERVICE_URL: http://inventory-service:8080
+      PAYMENT_SERVICE_URL: http://payment-service:8080
+      DELIVERY_SERVICE_URL: http://delivery-service:8080
+      PROMOTION_SERVICE_URL: http://promotion-service:8080
+      REDIS_URL: redis://event-broker:6379
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18082:8080"
+    depends_on:
+      order-db:
+        condition: service_healthy
+      event-broker:
+        condition: service_healthy
+
+  inventory-service:
+    image: mini-order-platform/inventory-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: inventory-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://inventory-db:5432/inventory_db
+      DB_USERNAME: inventory_app
+      DB_PASSWORD: ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}
+      REDIS_URL: redis://event-broker:6379
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18083:8080"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
+  payment-service:
+    image: mini-order-platform/payment-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: payment-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://payment-db:5432/payment_db
+      DB_USERNAME: payment_app
+      DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+      ORDER_SERVICE_URL: http://order-service:8080
+      INVENTORY_SERVICE_URL: http://inventory-service:8080
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      PROMOTION_SERVICE_URL: http://promotion-service:8080
+      DELIVERY_SERVICE_URL: http://delivery-service:8080
+      BILLING_SERVICE_URL: http://billing-service:8080
+      REDIS_URL: redis://event-broker:6379
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18084:8080"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      event-broker:
+        condition: service_healthy
+
+  notification-service:
+    image: mini-order-platform/notification-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: notification-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://notification-db:5432/notification_db
+      DB_USERNAME: notification_app
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+      REDIS_URL: redis://event-broker:6379
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
+      ORDER_SERVICE_URL: http://order-service:8080
+      BILLING_SERVICE_URL: http://billing-service:8080
+      SERVICES_BILLING_BASE_URL: http://billing-service:8080
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18086:8080"
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      event-broker:
+        condition: service_healthy
+
+  customer-service:
+    image: mini-order-platform/customer-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: customer-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://customer-db:5432/customer_db
+      DB_USERNAME: customer_app
+      DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?CUSTOMER_DB_PASSWORD is required}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?CUSTOMER_DB_PASSWORD is required}
+      CUSTOMER_JWT_SECRET: ${CUSTOMER_JWT_SECRET:-}
+      CUSTOMER_JWT_ACTIVE_KID: ${CUSTOMER_JWT_ACTIVE_KID:-}
+      CUSTOMER_JWT_PRIVATE_KEY_BASE64: ${CUSTOMER_JWT_PRIVATE_KEY_BASE64:-}
+      CUSTOMER_JWT_PUBLIC_KEYS_JSON: ${CUSTOMER_JWT_PUBLIC_KEYS_JSON:-}
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      REDIS_URL: redis://event-broker:6379
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18087:8080"
+    depends_on:
+      customer-db:
+        condition: service_healthy
+
+  delivery-service:
+    image: mini-order-platform/delivery-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: delivery-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://delivery-db:5432/delivery_db
+      DB_USERNAME: delivery_app
+      DB_PASSWORD: ${DELIVERY_DB_PASSWORD:?DELIVERY_DB_PASSWORD is required}
+      DELIVERY_DB_PASSWORD: ${DELIVERY_DB_PASSWORD:?DELIVERY_DB_PASSWORD is required}
+      ORDER_SERVICE_URL: http://order-service:8080
+      REDIS_URL: redis://event-broker:6379
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18088:8080"
+    depends_on:
+      delivery-db:
+        condition: service_healthy
+
+  promotion-service:
+    image: mini-order-platform/promotion-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: promotion-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://promotion-db:5432/promotion_db
+      DB_USERNAME: promotion_app
+      DB_PASSWORD: ${PROMOTION_DB_PASSWORD:?PROMOTION_DB_PASSWORD is required}
+      PROMOTION_DB_PASSWORD: ${PROMOTION_DB_PASSWORD:?PROMOTION_DB_PASSWORD is required}
+      REDIS_URL: redis://event-broker:6379
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18089:8080"
+    depends_on:
+      promotion-db:
+        condition: service_healthy
+
+  wishlist-service:
+    image: mini-order-platform/wishlist-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: wishlist-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://wishlist-db:5432/wishlist_db
+      DB_USERNAME: wishlist_app
+      DB_PASSWORD: ${WISHLIST_DB_PASSWORD:?WISHLIST_DB_PASSWORD is required}
+      WISHLIST_DB_PASSWORD: ${WISHLIST_DB_PASSWORD:?WISHLIST_DB_PASSWORD is required}
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18090:8080"
+    depends_on:
+      wishlist-db:
+        condition: service_healthy
+
+  review-service:
+    image: mini-order-platform/review-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: review-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://review-db:5432/review_db
+      DB_USERNAME: review_app
+      DB_PASSWORD: ${REVIEW_DB_PASSWORD:?REVIEW_DB_PASSWORD is required}
+      REVIEW_DB_PASSWORD: ${REVIEW_DB_PASSWORD:?REVIEW_DB_PASSWORD is required}
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
+      ORDER_SERVICE_URL: http://order-service:8080
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18091:8080"
+    depends_on:
+      review-db:
+        condition: service_healthy
+
+  recommendation-service:
+    image: mini-order-platform/recommendation-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: recommendation-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://recommendation-db:5432/recommendation_db
+      DB_USERNAME: recommendation_app
+      DB_PASSWORD: ${RECOMMENDATION_DB_PASSWORD:?RECOMMENDATION_DB_PASSWORD is required}
+      RECOMMENDATION_DB_PASSWORD: ${RECOMMENDATION_DB_PASSWORD:?RECOMMENDATION_DB_PASSWORD is required}
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      ORDER_SERVICE_URL: http://order-service:8080
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18092:8080"
+    depends_on:
+      recommendation-db:
+        condition: service_healthy
+
+  chat-service:
+    image: mini-order-platform/chat-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: chat-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://chat-db:5432/chat_db
+      DB_USERNAME: chat_app
+      DB_PASSWORD: ${CHAT_DB_PASSWORD:?CHAT_DB_PASSWORD is required}
+      CHAT_DB_PASSWORD: ${CHAT_DB_PASSWORD:?CHAT_DB_PASSWORD is required}
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18093:8080"
+    depends_on:
+      chat-db:
+        condition: service_healthy
+
+  returns-service:
+    image: mini-order-platform/returns-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: returns-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://returns-db:5432/returns_db
+      DB_USERNAME: returns_app
+      DB_PASSWORD: ${RETURNS_DB_PASSWORD:?RETURNS_DB_PASSWORD is required}
+      RETURNS_DB_PASSWORD: ${RETURNS_DB_PASSWORD:?RETURNS_DB_PASSWORD is required}
+      ORDER_SERVICE_URL: http://order-service:8080
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18094:8080"
+    depends_on:
+      returns-db:
+        condition: service_healthy
+
+  billing-service:
+    image: mini-order-platform/billing-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: billing-service
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://billing-db:5432/billing_db
+      DB_USERNAME: billing_app
+      DB_PASSWORD: ${BILLING_DB_PASSWORD:?BILLING_DB_PASSWORD is required}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD:?BILLING_DB_PASSWORD is required}
+      REDIS_URL: redis://event-broker:6379
+      ORDER_SERVICE_URL: http://order-service:8080
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18095:8080"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      event-broker:
+        condition: service_healthy
+
+  api-gateway:
+    image: mini-order-platform/api-gateway:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/service.Dockerfile
+      args:
+        SERVICE_MODULE: api-gateway
+    pull_policy: build
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: "8080"
+      REDIS_URL: redis://event-broker:6379
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      ORDER_SERVICE_URL: http://order-service:8080
+      INVENTORY_SERVICE_URL: http://inventory-service:8080
+      PAYMENT_SERVICE_URL: http://payment-service:8080
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
+      DELIVERY_SERVICE_URL: http://delivery-service:8080
+      PROMOTION_SERVICE_URL: http://promotion-service:8080
+      WISHLIST_SERVICE_URL: http://wishlist-service:8080
+      REVIEW_SERVICE_URL: http://review-service:8080
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8080
+      CHAT_SERVICE_URL: http://chat-service:8080
+      RETURNS_SERVICE_URL: http://returns-service:8080
+      BILLING_SERVICE_URL: http://billing-service:8080
+      FRONTEND_ALLOWED_ORIGINS: http://127.0.0.1:18070,http://localhost:18070
+      MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      - product-service
+      - order-service
+      - inventory-service
+      - payment-service
+      - notification-service
+      - customer-service
+      - delivery-service
+      - promotion-service
+      - wishlist-service
+      - review-service
+      - recommendation-service
+      - chat-service
+      - returns-service
+      - billing-service
+
+  frontend:
+    image: mini-order-platform/frontend:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/docker/frontend.Dockerfile
+    pull_policy: build
+    ports:
+      - "127.0.0.1:18070:8080"
+    depends_on:
+      - api-gateway

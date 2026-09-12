@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>MiniTech Control</title>
-  <link rel="stylesheet" href="styles.css?v=20260820-secret-editor">
+  <link rel="stylesheet" href="styles.css?v=20260909-v2">
 </head>
 <body>
   <div class="app-shell">
@@ -16,12 +16,21 @@
       </a>
       <nav id="navigation" class="nav-list">
         <button class="nav-item active" data-view="dashboard"><span>◫</span>Pulpit</button>
-        <button class="nav-item" data-view="services"><span>●</span>Usługi</button>
-        <button class="nav-item" data-view="operations"><span>⌘</span>Operacje</button>
-        <button class="nav-item" data-view="chat"><span>◌</span>Czat klientów <b id="chat-badge" hidden>0</b></button>
-        <button class="nav-item" data-view="tests"><span>✓</span>Testy</button>
-        <button class="nav-item" data-view="jobs"><span>≡</span>Zadania i logi</button>
-        <button class="nav-item" data-view="terminal"><span>&gt;_</span>Terminal WSL</button>
+        <button class="nav-item" data-view="services"><span>●</span><span id="nav-services-label">Usługi</span></button>
+        <button class="nav-item" data-view="operations"><span>⌘</span><span id="nav-operations-label">Operacje</span></button>
+        <button class="nav-item" data-view="data"><span>📊</span><span id="nav-data-label">Dane i Sklep</span></button>
+        <button class="nav-item" data-view="events"><span>⚡</span><span id="nav-events-label">Zdarzenia i DLQ</span></button>
+        <button class="nav-item" data-view="chaos"><span>💥</span><span id="nav-chaos-label">Symulator Awarii</span></button>
+        <button class="nav-item" data-view="chat"><span>◌</span><span id="nav-chat-label">Czat klientów</span> <b id="chat-badge" hidden>0</b></button>
+        <button class="nav-item" data-view="assistant"><span>✦</span><span id="nav-assistant-label">Asystent AI</span></button>
+        <button class="nav-item" data-view="tests"><span>✓</span><span id="nav-tests-label">Testy</span></button>
+        <button class="nav-item" data-view="jobs"><span>≡</span><span id="nav-jobs-label">Zadania i logi</span></button>
+        <button class="nav-item" data-view="terminal"><span>&gt;_</span><span id="nav-terminal-label">Terminal WSL</span></button>
+        <button class="nav-item" data-view="about"><span>ℹ</span><span id="nav-about-label">O aplikacji</span></button>
+        <div class="sidebar-section-divider"></div>
+        <div class="sidebar-section-header"><span id="nav-monitoring-label">MONITORING</span></div>
+        <button type="button" class="nav-item nav-item-external" data-external-app="grafana" title="Otwórz panel Grafana (:13000)"><span>📊</span>Grafana <small class="external-pill">↗</small></button>
+        <button type="button" class="nav-item nav-item-external" data-external-app="prometheus" title="Otwórz panel Prometheus (:19090)"><span>🔥</span>Prometheus <small class="external-pill">↗</small></button>
       </nav>
       <div class="sidebar-footer">
         <span class="local-dot"></span>
@@ -36,7 +45,11 @@
           <h1 id="view-title">Centrum operacyjne</h1>
         </div>
         <div class="top-actions">
+          <button id="cmd-palette-btn" class="ghost-button cmd-palette-trigger" title="Otwórz paletę poleceń (Ctrl+K)"><span>⌘K</span> <span id="cmd-palette-btn-text">Szukaj poleceń...</span></button>
+          <a id="swagger-link" class="ghost-button" href="http://127.0.0.1:18080/swagger-ui.html" target="_blank" rel="noreferrer">📖 Swagger UI ↗</a>
           <a id="store-link" class="ghost-button" href="http://127.0.0.1:18070" target="_blank" rel="noreferrer">Otwórz sklep ↗</a>
+          <a id="mailpit-link" class="ghost-button" href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">✉ Otwórz Mailpit ↗</a>
+          <button id="copy-report-btn" class="ghost-button" title="Raport diagnostyczny stanu platformy">📋 Raport</button>
           <button id="refresh-button" class="icon-button" title="Odśwież dane" aria-label="Odśwież dane">↻</button>
           <span class="profile-pill">Profil <strong id="profile-value">…</strong></span>
           <button id="lang-switch-button" class="ghost-button lang-pill" title="Zmień język / Switch language" aria-label="Zmień język / Switch language">🌐 <strong id="lang-value">PL</strong></button>
@@ -50,8 +63,9 @@
             <h2>Wszystko pod kontrolą.<br><span>Bez wychodzenia z WSL.</span></h2>
             <p>Uruchamiaj mikroserwisy, odpowiadaj klientom, sprawdzaj testy i analizuj logi w jednym, lokalnym panelu.</p>
             <div class="hero-actions">
-              <button class="primary-button quick-action" data-action="environment-check">Sprawdź środowisko</button>
-              <button class="secondary-button" data-view-target="operations">Pokaż operacje</button>
+              <button class="primary-button quick-action" data-action="fresh-start">🚀 Pełny start (1-Click)</button>
+              <button class="secondary-button quick-action" data-action="doctor-fix">🚑 Skanuj i napraw</button>
+              <button class="ghost-button" data-view-target="operations">Wszystkie operacje →</button>
             </div>
           </div>
           <div class="hero-orbit" aria-hidden="true">
@@ -73,14 +87,17 @@
             <div id="service-preview" class="service-preview"><div class="skeleton"></div></div>
           </section>
           <section class="panel attention-panel">
-            <div class="panel-heading"><div><p class="eyebrow">SZYBKI START</p><h3>Najczęstsze działania</h3></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">SZYBKI START & AUTOMATYZACJA</p><h3>Najczęstsze działania</h3></div></div>
             <div class="quick-grid">
-              <button class="quick-tile quick-action" data-action="infra-up"><span>◫</span><strong>Infrastruktura</strong><small>Docker Compose</small></button>
-              <button class="quick-tile quick-action" data-action="app-run-all"><span>▶</span><strong>Uruchom usługi</strong><small>Wszystkie aplikacje</small></button>
+              <button class="quick-tile quick-action" data-action="fresh-start" style="border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.08);"><span>🚀</span><strong>Pełny start</strong><small>1-Click Fresh Start</small></button>
+              <button class="quick-tile quick-action" data-action="seed-demo-data" style="border-color: rgba(168,85,247,0.4); background: rgba(168,85,247,0.08);"><span>📦</span><strong>Zasil danymi demo</strong><small>Klienci, czat, recenzje</small></button>
+              <button class="quick-tile quick-action" data-action="doctor-fix" style="border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.08);"><span>🚑</span><strong>Doktor & Naprawa</strong><small>Auto-Healing</small></button>
+              <button class="quick-tile quick-action" data-action="infra-up"><span>◫</span><strong>Infrastruktura</strong><small>Bazy Docker Compose</small></button>
+              <button class="quick-tile quick-action" data-action="docker-apps-up"><span>▶</span><strong>Uruchom serwisy</strong><small>Kontenery Docker</small></button>
+              <button class="quick-tile quick-action" data-action="docker-apps-down"><span>⏹</span><strong>Zatrzymaj serwisy</strong><small>Zatrzymaj kontenery</small></button>
               <button class="quick-tile quick-action" data-action="frontend-up"><span>⌁</span><strong>Frontend</strong><small>Sklep :18070</small></button>
               <button class="quick-tile quick-action" data-action="app-verify"><span>✓</span><strong>App Verify</strong><small>Scenariusz zakupowy</small></button>
               <button class="quick-tile quick-action secret-quick-tile" data-action="secrets-edit-dev"><span>⌁</span><strong>Sekrety DEV</strong><small>Bezpieczna edycja SOPS</small></button>
-              <button class="quick-tile quick-action secret-quick-tile" data-action="secrets-edit-test"><span>⌁</span><strong>Sekrety TEST</strong><small>Bezpieczna edycja SOPS</small></button>
             </div>
           </section>
         </div>
@@ -92,7 +109,36 @@
       </section>
 
       <section id="view-services" class="view">
-        <div class="section-intro"><div><p class="eyebrow">RUNTIME</p><h2>Usługi i endpointy</h2><p>Health check ogranicza się do statusu UP/OFFLINE; szczegóły Actuator nie są ujawniane.</p></div><button class="primary-button" id="health-refresh">Sprawdź ponownie</button></div>
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow">RUNTIME</p>
+            <h2>Usługi i endpointy</h2>
+            <p>Zarządzaj działaniem mikroserwisów i sprawdzaj status endpointów.</p>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <span class="live-pulse-badge" id="live-pulse-badge" title="Status jest odświeżany automatycznie w czasie rzeczywistym">
+              <span class="pulse-dot"></span> <span id="live-pulse-text">Na żywo (4s)</span>
+            </span>
+            <button class="primary-button" id="health-refresh">↻ Sprawdź ponownie</button>
+          </div>
+        </div>
+
+        <div class="services-control-panel panel">
+          <div class="control-header">
+            <div>
+              <p class="eyebrow accent">KONTENERY DOCKER / STOS</p>
+              <h3>Zarządzanie wszystkimi serwisami</h3>
+              <p class="muted">Uruchamiaj lub zatrzymuj cały stos 15 mikroserwisów i frontend jednym kliknięciem.</p>
+            </div>
+            <div class="control-actions">
+              <button class="primary-button quick-action" data-action="docker-apps-up"><span>▶</span> Uruchom serwisy (Docker)</button>
+              <button class="danger-button quick-action" data-action="docker-apps-down"><span>⏹</span> Zatrzymaj serwisy</button>
+              <button class="secondary-button quick-action" data-action="infra-up"><span>◫</span> Bazy danych</button>
+              <button class="ghost-button quick-action" data-action="infra-down"><span>⏹</span> Zatrzymaj bazy</button>
+            </div>
+          </div>
+        </div>
+
         <div id="service-grid" class="service-grid"><div class="skeleton"></div></div>
       </section>
 
@@ -101,6 +147,23 @@
         <div class="filter-row">
           <label class="search-box"><span>⌕</span><input id="operation-search" type="search" placeholder="Szukaj operacji, np. backup, JWT, faktura…"></label>
           <select id="operation-group" aria-label="Grupa operacji"><option value="">Wszystkie grupy</option></select>
+        </div>
+        <div class="operations-quick-banner" id="operations-swagger-banner">
+          <div class="quick-banner-left">
+            <span class="quick-banner-icon">📖</span>
+            <div>
+              <div class="quick-banner-title">
+                <span id="swagger-banner-title">Swagger UI — Wszystkie 15 mikroserwisów</span>
+                <span class="badge-port">Port :18080</span>
+              </div>
+              <p id="swagger-banner-desc" class="quick-banner-desc">
+                Zintegrowana dokumentacja OpenAPI z rozwijaną listą serwisów. Wywołuj endpointy bezpośrednio przez API Gateway bez błędów CORS.
+              </p>
+            </div>
+          </div>
+          <a href="http://127.0.0.1:18080/swagger-ui.html" target="_blank" rel="noopener noreferrer" class="quick-banner-btn" id="swagger-banner-link">
+            <span>Otwórz Swagger UI</span> <span class="external-pill">↗</span>
+          </a>
         </div>
         <div id="operation-groups"></div>
       </section>
@@ -113,6 +176,58 @@
         </div>
       </section>
 
+      <section id="view-assistant" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow accent">AI & WSPARCIE PROJEKTU</p>
+            <h2 id="ai-view-h2">Asystent Architektury MiniTech</h2>
+            <p id="ai-view-desc">Zadawaj pytania o architekturę 15 mikroserwisów, routing, bazy danych, przepływ zdarzeń i komendy.</p>
+          </div>
+          <div class="intro-buttons" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div id="ai-mode-pill" class="ai-mode-pill built-in" title="Aktualny tryb: Wbudowana baza wiedzy MiniTech (Offline, bez kluczy API)">
+              <span class="ai-status-dot" id="ai-status-dot"></span>
+              <span id="ai-mode-label">Tryb wbudowany (Offline)</span>
+            </div>
+            <button id="ai-settings-button" class="secondary-button" type="button">⚙ Ustawienia AI</button>
+          </div>
+        </div>
+
+        <div class="ai-prompt-chips">
+          <button class="ai-chip" data-prompt="Pokaż zamówienia w bazie danych">📦 Zamówienia w bazie</button>
+          <button class="ai-chip" data-prompt="Pokaż zarejestrowane konta">👥 Konta klientów</button>
+          <button class="ai-chip" data-prompt="Jakie produkty są dostępne w sklepie?">🛒 Katalog produktów</button>
+          <button class="ai-chip" data-prompt="Czy wszystkie serwisy działają?">📊 Stan serwisów</button>
+          <button class="ai-chip" data-prompt="Pokaż aktywne kody rabatowe">🏷️ Kody rabatowe</button>
+          <button class="ai-chip" data-prompt="Pokaż wiadomości od klientów na czacie">💬 Czat klientów</button>
+          <button class="ai-chip" data-prompt="Jak działa generowanie faktur VAT i Billing Service?">🧾 Faktury VAT</button>
+          <button class="ai-chip" data-prompt="Jakie metody dostawy są obsługiwane?">🚚 Dostawy & Kurierzy</button>
+          <button class="ai-chip" data-prompt="Wymień wszystkie 15 mikroserwisów i ich porty">🌐 Porty mikroserwisów</button>
+          <button class="ai-chip" data-prompt="Jak działa komunikacja przez Redis Streams i wzorzec Outbox?">⚡ Outbox & Redis</button>
+          <button class="ai-chip" data-prompt="Jak uruchomić i zatrzymać serwisy w Dockerze?">🐳 Docker & Kontenery</button>
+          <button class="ai-chip" data-prompt="Jak działa szyfrowanie sekretów SOPS i klucze Age?">🔐 Sekrety i SOPS</button>
+          <button class="ai-chip" data-prompt="Jakie testy są dostępne w projekcie i jak je uruchomić?">🧪 Testy & Jakość</button>
+          <button class="ai-chip" data-prompt="Jakie są najczęstsze błędy i jak je naprawić?">🚨 Baza błędów</button>
+        </div>
+
+        <div class="assistant-layout">
+          <div id="ai-messages" class="assistant-messages">
+            <div class="assistant-bubble bot-msg">
+              <span class="bubble-avatar">✦</span>
+              <div class="bubble-content">
+                <strong>Cześć! Jestem asystentem architektury MiniTech.</strong>
+                <p>Domyślnie pracuję w <strong>trybie wbudowanym (offline)</strong> w oparciu o przyciski z najczęściej zadawanymi pytaniami umieszczone na górze ekranu oraz autodiagnostykę logów.</p>
+                <p>Kliknij jeden z powyższych przycisków, aby natychmiast uzyskać odpowiedź. Jeśli chcesz rozmawiać ze mną jak na swobodnym czacie konwersacyjnym, podepnij zewnętrznego agenta lub lokalny model (np. z komputera) w <strong>⚙ Ustawieniach AI</strong>.</p>
+              </div>
+            </div>
+          </div>
+          <form id="ai-chat-form" class="ai-input-bar">
+            <textarea id="ai-input" placeholder="Zadaj pytanie o projekt Mini Order Platform…" rows="1" required></textarea>
+            <button type="submit" id="ai-send-btn" class="primary-button"><span>Wyślij</span> ↵</button>
+            <button type="button" id="ai-clear-btn" class="ghost-button" title="Wyczyść rozmowę">✕</button>
+          </form>
+        </div>
+      </section>
+
       <section id="view-tests" class="view">
         <div class="section-intro"><div><p class="eyebrow">QUALITY GATE</p><h2>Testy i jakość</h2><p>Od szybkiego smoke do pełnego E2E i regresji Playwright w wielu przeglądarkach.</p></div></div>
         <div id="test-cards" class="test-grid"></div>
@@ -120,7 +235,13 @@
 
       <section id="view-jobs" class="view">
         <div class="section-intro"><div><p class="eyebrow">HISTORIA LOKALNA</p><h2>Zadania i logi</h2><p>Logi są zapisywane w prywatnym katalogu gitIgnoreOwn i nie trafią do GitHuba.</p></div><button id="jobs-refresh" class="secondary-button">Odśwież</button></div>
-        <div class="jobs-layout"><div id="job-history" class="job-history empty-state">Brak zadań.</div><pre id="job-output" class="log-output">Wybierz zadanie, aby zobaczyć log.</pre></div>
+        <div class="jobs-layout">
+          <div id="job-history" class="job-history empty-state">Brak zadań.</div>
+          <div style="display:flex; flex-direction:column; height:100%; min-width:0; background:#080d14; overflow:hidden;">
+            <div id="job-diagnostic-slot"></div>
+            <pre id="job-output" class="log-output" style="flex:1;">Wybierz zadanie, aby zobaczyć log.</pre>
+          </div>
+        </div>
       </section>
 
       <section id="view-terminal" class="view">
@@ -130,6 +251,677 @@
           <pre id="terminal-output" class="terminal-output">Sesja nie została uruchomiona.</pre>
           <form id="terminal-form" class="terminal-input-row"><span>$</span><input id="terminal-input" autocomplete="off" placeholder="Wpisz opcję lub tekst i naciśnij Enter" disabled><button disabled>Wyślij</button></form>
         </div>
+      </section>
+
+      <section id="view-data" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow" id="data-intro-eyebrow">BAZY DANYCH & ENCJE BIZNESOWE</p>
+            <h2 id="data-intro-title">Eksplorator Danych Biznesowych</h2>
+            <p id="data-intro-desc">Podgląd na żywo zamówień, stanów magazynowych oraz kont klientów w bazach mikroserwisów.</p>
+          </div>
+          <div class="filter-row sub-tabs">
+            <button class="ghost-button sub-tab-btn active" data-subtab="orders" id="data-tab-orders-btn">📦 Zamówienia (Orders)</button>
+            <button class="ghost-button sub-tab-btn" data-subtab="invoices" id="data-tab-invoices-btn">📄 Faktury (Invoices)</button>
+            <button class="ghost-button sub-tab-btn" data-subtab="dispatch" id="data-tab-dispatch-btn">✉️ Wysyłka dokumentów</button>
+            <button class="ghost-button sub-tab-btn" data-subtab="inventory" id="data-tab-inventory-btn">🏬 Magazyn (Inventory)</button>
+            <button class="ghost-button sub-tab-btn" data-subtab="customers" id="data-tab-customers-btn">👥 Klienci (Customers)</button>
+            <button id="data-refresh-btn" class="icon-button" title="Odśwież dane" aria-label="Odśwież dane">↻</button>
+          </div>
+        </div>
+
+        <!-- Subpane Orders -->
+        <div id="data-pane-orders" class="subpane active">
+          <div class="data-toolbar">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <div class="status-filter-group">
+                <span class="toolbar-label" id="orders-filter-label">Filtruj status:</span>
+                <button class="filter-pill active" data-status-filter="ALL">Wszystkie</button>
+                <button class="filter-pill" data-status-filter="PENDING">PENDING</button>
+                <button class="filter-pill" data-status-filter="PAID">PAID</button>
+                <button class="filter-pill" data-status-filter="COMPLETED">COMPLETED</button>
+                <button class="filter-pill" data-status-filter="CANCELLED">CANCELLED</button>
+              </div>
+              <div class="sort-filter-group">
+                <span class="toolbar-label" id="orders-sort-label">Sortuj:</span>
+                <select id="orders-sort-select" class="toolbar-select">
+                  <option value="date_desc">📅 Data (najnowsze)</option>
+                  <option value="date_asc">📅 Data (najstarsze)</option>
+                  <option value="id_desc">🔢 ID (malejąco)</option>
+                  <option value="id_asc">🔢 ID (rosnąco)</option>
+                  <option value="amount_desc">💰 Wartość (najwyższa)</option>
+                  <option value="amount_asc">💰 Wartość (najniższa)</option>
+                  <option value="client_asc">👤 Klient (A → Z)</option>
+                  <option value="client_desc">👤 Klient (Z → A)</option>
+                  <option value="status_asc">🏷️ Status (A → Z)</option>
+                  <option value="status_desc">🏷️ Status (Z → A)</option>
+                  <option value="invoice_desc">📄 Faktura (z fakturą)</option>
+                </select>
+              </div>
+            </div>
+            <input type="search" id="orders-search-input" class="search-input" placeholder="Szukaj po ID zamówienia lub klienta...">
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="orders-table">
+              <thead>
+                <tr>
+                  <th class="th-sortable" data-sort="id" title="Kliknij, aby posortować po ID">ID <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="client" title="Kliknij, aby posortować po kliencie">Klient <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="amount" title="Kliknij, aby posortować po wartości">Wartość <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="status" title="Kliknij, aby posortować po statusie">Status <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable sorted-desc" data-sort="date" title="Kliknij, aby posortować po dacie">Data utworzenia <span class="sort-indicator">▼</span></th>
+                  <th class="th-sortable" data-sort="invoice" title="Kliknij, aby posortować po fakturze">Faktura <span class="sort-indicator">⇅</span></th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody">
+                <tr><td colspan="6" class="table-empty">Ładowanie zamówień...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane Invoices -->
+        <div id="data-pane-invoices" class="subpane">
+          <!-- Financial metrics summary bar -->
+          <div class="metric-grid" style="margin-bottom: 20px;">
+            <article><span class="metric-icon blue">📄</span><div><strong id="invoices-kpi-count">0</strong><small>Wystawionych faktur</small></div></article>
+            <article><span class="metric-icon purple">💰</span><div><strong id="invoices-kpi-net">0,00 PLN</strong><small>Łącznie netto</small></div></article>
+            <article><span class="metric-icon orange">🏛️</span><div><strong id="invoices-kpi-vat">0,00 PLN</strong><small>Łącznie VAT</small></div></article>
+            <article><span class="metric-icon green">💵</span><div><strong id="invoices-kpi-gross">0,00 PLN</strong><small>Łącznie brutto</small></div></article>
+          </div>
+
+          <div class="data-toolbar">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <input type="search" id="invoices-search-input" class="search-input" placeholder="Szukaj po nr faktury, kliencie, firmie, NIP, ID zamówienia...">
+              <div class="sort-filter-group">
+                <span class="toolbar-label" id="invoices-sort-label">Sortuj:</span>
+                <select id="invoices-sort-select" class="toolbar-select">
+                  <option value="date_desc">📅 Data (najnowsze)</option>
+                  <option value="date_asc">📅 Data (najstarsze)</option>
+                  <option value="id_desc">🔢 ID (malejąco)</option>
+                  <option value="id_asc">🔢 ID (rosnąco)</option>
+                  <option value="amount_desc">💰 Kwota brutto (najwyższa)</option>
+                  <option value="amount_asc">💰 Kwota brutto (najniższa)</option>
+                  <option value="buyer_asc">👤 Nabywca (A → Z)</option>
+                  <option value="buyer_desc">👤 Nabywca (Z → A)</option>
+                  <option value="number_asc">📄 Numer faktury (A → Z)</option>
+                  <option value="number_desc">📄 Numer faktury (Z → A)</option>
+                </select>
+              </div>
+              <button id="invoices-export-zip-btn" class="secondary-button" style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer;" title="Pobierz wszystkie faktury PDF spakowane w archiwum ZIP">📦 Eksportuj ZIP</button>
+            </div>
+            <span class="toolbar-badge" id="invoices-count-badge">Ładowanie...</span>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="invoices-table">
+              <thead>
+                <tr>
+                  <th class="th-sortable" data-sort="number" title="Kliknij, aby posortować po numerze faktury">Nr faktury <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="order" title="Kliknij, aby posortować po ID zamówienia">Zamówienie <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="buyer" title="Kliknij, aby posortować po nabywcy">Nabywca / Firma <span class="sort-indicator">⇅</span></th>
+                  <th>NIP</th>
+                  <th>E-mail</th>
+                  <th>Kwota netto</th>
+                  <th>Kwota VAT</th>
+                  <th class="th-sortable" data-sort="amount" title="Kliknij, aby posortować po kwocie brutto">Kwota brutto <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable sorted-desc" data-sort="date" title="Kliknij, aby posortować po dacie">Data wystawienia <span class="sort-indicator">▼</span></th>
+                  <th style="text-align: right;">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="invoices-tbody">
+                <tr><td colspan="10" class="table-empty">Ładowanie faktur...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane Dispatch -->
+        <div id="data-pane-dispatch" class="subpane">
+          <div class="dispatch-summary-box">
+            <div class="dispatch-stats">
+              <div class="dispatch-stat-item">
+                <span class="dispatch-stat-val" id="dispatch-count-all">0</span>
+                <span class="dispatch-stat-lbl">Dokumentów łącznie</span>
+              </div>
+              <div class="dispatch-stat-item">
+                <span class="dispatch-stat-val" id="dispatch-count-fv" style="color:#4ade80;">0</span>
+                <span class="dispatch-stat-lbl">Faktury (FV)</span>
+              </div>
+              <div class="dispatch-stat-item">
+                <span class="dispatch-stat-val" id="dispatch-count-kor" style="color:#fbbf24;">0</span>
+                <span class="dispatch-stat-lbl">Korekty (KOR)</span>
+              </div>
+              <div class="dispatch-stat-item">
+                <span class="dispatch-stat-val" id="dispatch-count-sent" style="color:#38bdf8;">0</span>
+                <span class="dispatch-stat-lbl">Wysłanych e-maili</span>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <a href="http://127.0.0.1:18025" target="_blank" class="secondary-button" style="display:inline-flex; align-items:center; gap:6px; padding:7px 14px; font-size:13px; font-weight:600; text-decoration:none;" title="Otwórz skrzynkę Mailpit w nowej karcie">
+                📬 Otwórz Mailpit ↗
+              </a>
+            </div>
+          </div>
+
+          <div class="data-toolbar">
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <div class="status-filter-group">
+                <span class="toolbar-label">Filtruj typ:</span>
+                <button class="filter-pill active" data-dispatch-filter="ALL">Wszystkie</button>
+                <button class="filter-pill" data-dispatch-filter="FV">📄 Faktury (FV)</button>
+                <button class="filter-pill" data-dispatch-filter="KOR">📜 Korekty (KOR)</button>
+              </div>
+              <input type="search" id="dispatch-search-input" class="search-input" placeholder="Szukaj po nr dokumentu, ID zamówienia, nabywcy, adresie e-mail...">
+            </div>
+            <span class="toolbar-badge" id="dispatch-count-badge">Ładowanie...</span>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="dispatch-table">
+              <thead>
+                <tr>
+                  <th>Typ</th>
+                  <th>Nr dokumentu</th>
+                  <th>Zamówienie</th>
+                  <th>Nabywca / Firma</th>
+                  <th>E-mail odbiorcy</th>
+                  <th style="text-align: right;">Kwota brutto / Zmiana</th>
+                  <th>Data wystawienia</th>
+                  <th>Status wysyłki</th>
+                  <th style="text-align: right;">Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="dispatch-tbody">
+                <tr><td colspan="9" class="table-empty">Ładowanie dokumentów do wysyłki...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane Inventory -->
+        <div id="data-pane-inventory" class="subpane">
+          <div class="data-toolbar">
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <input type="search" id="inventory-search-input" class="search-input" placeholder="Filtruj produkty po nazwie, SKU lub kategorii...">
+              <div class="sort-filter-group">
+                <span class="toolbar-label" id="inventory-sort-label">Sortuj:</span>
+                <select id="inventory-sort-select" class="toolbar-select">
+                  <option value="id_asc">🔢 ID (rosnąco)</option>
+                  <option value="id_desc">🔢 ID (malejąco)</option>
+                  <option value="name_asc">🔤 Nazwa (A → Z)</option>
+                  <option value="name_desc">🔤 Nazwa (Z → A)</option>
+                  <option value="available_desc">📦 Dostępne (najwięcej)</option>
+                  <option value="available_asc">📦 Dostępne (najmniej)</option>
+                  <option value="price_desc">💰 Cena (najwyższa)</option>
+                  <option value="price_asc">💰 Cena (najniższa)</option>
+                  <option value="category_asc">🏷️ Kategoria (A → Z)</option>
+                </select>
+              </div>
+            </div>
+            <span class="toolbar-badge" id="inventory-count-badge">Ładowanie...</span>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="inventory-table">
+              <thead>
+                <tr>
+                  <th class="th-sortable sorted-asc" data-sort="id" title="Kliknij, aby posortować po ID">ID <span class="sort-indicator">▲</span></th>
+                  <th class="th-sortable" data-sort="name" title="Kliknij, aby posortować po nazwie">Nazwa produktu <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="sku" title="Kliknij, aby posortować po SKU">SKU <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="category" title="Kliknij, aby posortować po kategorii">Kategoria <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="available" title="Kliknij, aby posortować po dostępności">Dostępne <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="reserved" title="Kliknij, aby posortować po rezerwacji">Zarezerwowane <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="price" title="Kliknij, aby posortować po cenie">Cena <span class="sort-indicator">⇅</span></th>
+                  <th>Szybkie doładowanie</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-tbody">
+                <tr><td colspan="8" class="table-empty">Ładowanie magazynu...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane Customers -->
+        <div id="data-pane-customers" class="subpane">
+          <div class="data-toolbar">
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <input type="search" id="customers-search-input" class="search-input" placeholder="Szukaj po nazwie użytkownika lub adresie e-mail...">
+              <div class="sort-filter-group">
+                <span class="toolbar-label" id="customers-sort-label">Sortuj:</span>
+                <select id="customers-sort-select" class="toolbar-select">
+                  <option value="id_asc">🔢 ID (rosnąco)</option>
+                  <option value="id_desc">🔢 ID (malejąco)</option>
+                  <option value="username_asc">👤 Użytkownik (A → Z)</option>
+                  <option value="username_desc">👤 Użytkownik (Z → A)</option>
+                  <option value="email_asc">✉ Email (A → Z)</option>
+                  <option value="name_asc">🔤 Imię i nazwisko (A → Z)</option>
+                  <option value="balance_desc">💰 Saldo (najwyższe)</option>
+                  <option value="date_desc">📅 Rejestracja (najnowsze)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="customers-table">
+              <thead>
+                <tr>
+                  <th class="th-sortable sorted-asc" data-sort="id" title="Kliknij, aby posortować po ID">ID <span class="sort-indicator">▲</span></th>
+                  <th class="th-sortable" data-sort="username" title="Kliknij, aby posortować po użytkowniku">Użytkownik <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="email" title="Kliknij, aby posortować po e-mailu">Email <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="name" title="Kliknij, aby posortować po imieniu i nazwisku">Imię i nazwisko <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="balance" title="Kliknij, aby posortować po saldzie">Saldo <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="date" title="Kliknij, aby posortować po dacie rejestracji">Data rejestracji <span class="sort-indicator">⇅</span></th>
+                </tr>
+              </thead>
+              <tbody id="customers-tbody">
+                <tr><td colspan="6" class="table-empty">Ładowanie kont klientów...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-events" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow" id="events-intro-eyebrow">ASYNC MESSAGING & RESILIENCE</p>
+            <h2 id="events-intro-title">Zdarzenia, Kolejki i Śledzenie Transakcji</h2>
+            <p id="events-intro-desc">Monitoruj strumień Redis, tabelę Transactional Outbox, powiadomienia w Dead Letter Queue oraz wizualizuj flow po Correlation ID.</p>
+          </div>
+          <div class="filter-row sub-tabs">
+            <button class="ghost-button sub-tab-btn active" data-eventtab="stream" id="events-tab-stream-btn">⚡ Redis Stream</button>
+            <button class="ghost-button sub-tab-btn" data-eventtab="outbox" id="events-tab-outbox-btn">📬 Outbox Events</button>
+            <button class="ghost-button sub-tab-btn" data-eventtab="dlq" id="events-tab-dlq-btn">💀 Dead Letter Queue (DLQ)</button>
+            <button class="ghost-button sub-tab-btn" data-eventtab="trace" id="events-tab-trace-btn">🔍 Trace Timeline</button>
+            <button id="events-refresh-btn" class="icon-button" title="Odśwież zdarzenia" aria-label="Odśwież zdarzenia">↻</button>
+          </div>
+        </div>
+
+        <!-- Subpane Redis Stream -->
+        <div id="events-pane-stream" class="subpane active">
+          <div class="event-pane-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <p class="sub-info" id="stream-info-text">Strumień <code id="active-stream-badge">payment-events</code> w brokerze Redis.</p>
+            <div class="filter-row" style="margin: 0; gap: 8px;">
+              <button class="filter-pill stream-pill active" id="stream-pill-payment" data-stream="payment-events">⚡ payment-events</button>
+              <button class="filter-pill stream-pill" id="stream-pill-invoice" data-stream="invoice-events">🧾 invoice-events</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="stream-table">
+              <thead>
+                <tr>
+                  <th>Entry ID</th>
+                  <th>Czas</th>
+                  <th>Typ zdarzenia</th>
+                  <th>Order ID</th>
+                  <th>Kwota</th>
+                  <th>Payload / Pola</th>
+                </tr>
+              </thead>
+              <tbody id="stream-tbody">
+                <tr><td colspan="6" class="table-empty">Ładowanie zdarzeń Redis...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane Outbox -->
+        <div id="events-pane-outbox" class="subpane">
+          <div class="event-pane-header">
+            <p class="sub-info">Tabela <code>payment_outbox_events</code> (baza <code>payment_db</code>) — gwarancja At-Least-Once Delivery z automatycznym ponawianiem.</p>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="outbox-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Typ</th>
+                  <th>Order ID</th>
+                  <th>Kwota</th>
+                  <th>Status</th>
+                  <th>Próby</th>
+                  <th>Correlation ID</th>
+                  <th>Błąd / Uwagi</th>
+                  <th>Data</th>
+                </tr>
+              </thead>
+              <tbody id="outbox-tbody">
+                <tr><td colspan="9" class="table-empty">Ładowanie tabeli Outbox...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane DLQ -->
+        <div id="events-pane-dlq" class="subpane">
+          <div class="event-pane-header">
+            <p class="sub-info">Tabela <code>notification_dead_letters</code> (baza <code>notification_db</code>) — nieudane powiadomienia po wyczerpaniu limitu prób.</p>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="dlq-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Zdarzenie</th>
+                  <th>Odbiorca</th>
+                  <th>Kanał</th>
+                  <th>Temat</th>
+                  <th>Powód błędu</th>
+                  <th>Status</th>
+                  <th>Próby</th>
+                  <th>Akcja</th>
+                </tr>
+              </thead>
+              <tbody id="dlq-tbody">
+                <tr><td colspan="9" class="table-empty">Ładowanie wpisów DLQ...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subpane Trace -->
+        <div id="events-pane-trace" class="subpane">
+          <div class="trace-search-bar">
+            <input type="text" id="trace-cid-input" class="trace-input" placeholder="Wklej X-Correlation-Id (np. skopiuj z tabeli Outbox lub nagłówka odpowiedzi)...">
+            <button id="trace-search-btn" class="primary-button">Szukaj śladu 🔍</button>
+          </div>
+          <div id="trace-timeline-container" class="trace-timeline-container">
+            <div class="timeline-empty-state">
+              <span class="timeline-empty-icon">🧭</span>
+              <h3>Wprowadź identyfikator korelacji</h3>
+              <p>System przeszuka logi API Gateway, Order, Inventory, Payment, Notification i innych mikroserwisów, składając pełną chronologiczną oś czasu.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-chaos" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow" id="chaos-intro-eyebrow">CHAOS ENGINEERING & SYMULACJA AWARII</p>
+            <h2 id="chaos-intro-title">Symulator Awarii Mikroserwisów</h2>
+            <p id="chaos-intro-desc">Sprawdź odporność systemu na żywo. Odłącz bazę lub serwis i obserwuj reakcję Sagi, Outboxa oraz Dead Letter Queue.</p>
+          </div>
+          <button id="chaos-restore-all-btn" class="primary-button" style="background:#22c55e;">✅ Przywróć wszystko (Restore All)</button>
+        </div>
+
+        <div class="chaos-grid" id="chaos-grid">
+          <div class="chaos-card" id="chaos-card-inventory">
+            <div class="chaos-card-header">
+              <div class="chaos-card-top">
+                <div class="chaos-icon">📦</div>
+                <span class="chaos-status-badge stopped" id="chaos-badge-inventory">Sprawdzanie...</span>
+              </div>
+              <div class="chaos-title-group">
+                <h3>Inventory Service</h3>
+                <small class="chaos-container-name" title="miniorderplatform-inventory-service-1">miniorderplatform-inventory-service-1</small>
+              </div>
+            </div>
+            <p class="chaos-desc">Symuluje awarię lub zawieszenie magazynu. Podczas składania zamówienia krok rezerwacji zakończy się błędem/timeoutem, co wyzwala <strong>Saga Compensating Transaction</strong> w Order Service (zamówienie zostaje automatycznie anulowane).</p>
+            <div class="chaos-actions">
+              <button class="secondary-button chaos-toggle-btn" data-target="inventory" data-action="pause">⏸ Pauzuj serwis</button>
+              <button class="ghost-button chaos-toggle-btn" data-target="inventory" data-action="unpause">▶ Wznów</button>
+            </div>
+          </div>
+
+          <div class="chaos-card" id="chaos-card-mailpit">
+            <div class="chaos-card-header">
+              <div class="chaos-card-top">
+                <div class="chaos-icon">✉️</div>
+                <span class="chaos-status-badge stopped" id="chaos-badge-mailpit">Sprawdzanie...</span>
+              </div>
+              <div class="chaos-title-group">
+                <h3>Mailpit SMTP Server</h3>
+                <small class="chaos-container-name" title="miniorderplatform-mailpit-1">miniorderplatform-mailpit-1</small>
+              </div>
+            </div>
+            <p class="chaos-desc">Symuluje awarię serwera pocztowego. Po opłaceniu zamówienia wysyłka e-maila w Notification Service zakończy się błędem SMTP, powodując automatyczne przeniesienie wiadomości do <strong>Notification Dead Letter Queue (DLQ)</strong>.</p>
+            <div class="chaos-actions">
+              <button class="secondary-button chaos-toggle-btn" data-target="mailpit" data-action="pause">⏸ Pauzuj SMTP</button>
+              <button class="ghost-button chaos-toggle-btn" data-target="mailpit" data-action="unpause">▶ Wznów</button>
+            </div>
+          </div>
+
+          <div class="chaos-card" id="chaos-card-payment">
+            <div class="chaos-card-header">
+              <div class="chaos-card-top">
+                <div class="chaos-icon">💳</div>
+                <span class="chaos-status-badge stopped" id="chaos-badge-payment">Sprawdzanie...</span>
+              </div>
+              <div class="chaos-title-group">
+                <h3>Payment Service</h3>
+                <small class="chaos-container-name" title="miniorderplatform-payment-service-1">miniorderplatform-payment-service-1</small>
+              </div>
+            </div>
+            <p class="chaos-desc">Symuluje awarię bramki płatności. Testuje zabezpieczenia <strong>Circuit Breaker</strong> w API Gateway oraz zatrzymanie przetwarzania zamówień przed etapem fakturowania.</p>
+            <div class="chaos-actions">
+              <button class="secondary-button chaos-toggle-btn" data-target="payment" data-action="pause">⏸ Pauzuj serwis</button>
+              <button class="ghost-button chaos-toggle-btn" data-target="payment" data-action="unpause">▶ Wznów</button>
+            </div>
+          </div>
+
+          <div class="chaos-card" id="chaos-card-broker">
+            <div class="chaos-card-header">
+              <div class="chaos-card-top">
+                <div class="chaos-icon">⚡</div>
+                <span class="chaos-status-badge stopped" id="chaos-badge-broker">Sprawdzanie...</span>
+              </div>
+              <div class="chaos-title-group">
+                <h3>Redis Event Broker</h3>
+                <small class="chaos-container-name" title="miniorderplatform-event-broker-1">miniorderplatform-event-broker-1</small>
+              </div>
+            </div>
+            <p class="chaos-desc">Symuluje awarię brokera komunikatów. Zdarzenia transakcyjne nie przepadają — zostają bezpiecznie zachowane w bazie <code>payment_outbox_events</code> ze statusem <strong>PENDING</strong> i zostaną opublikowane po wznowieniu brokera.</p>
+            <div class="chaos-actions">
+              <button class="secondary-button chaos-toggle-btn" data-target="broker" data-action="pause">⏸ Pauzuj Redis</button>
+              <button class="ghost-button chaos-toggle-btn" data-target="broker" data-action="unpause">▶ Wznów</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+            <section id="view-about" class="view">
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow" id="about-intro-eyebrow">ARCHITEKTURA &amp; PRZEWODNIK</p>
+            <h2 id="about-intro-title">O platformie MiniTech</h2>
+            <p id="about-intro-desc">Kompleksowy przewodnik po architekturze 15 mikroserwisów, 14 bazach danych PostgreSQL, 35 kontenerach Docker, komunikacji zdarzeniowej i mechanizmach odporności.</p>
+          </div>
+        </div>
+
+        <div class="about-hero-stats">
+          <div class="about-stat-card">
+            <div class="about-stat-icon">☕</div>
+            <div>
+              <strong id="about-stat-1-title">15 mikroserwisów</strong>
+              <small id="about-stat-1-sub">Java 25 · Spring Boot 3.4 · REST</small>
+            </div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-icon">🐘</div>
+            <div>
+              <strong id="about-stat-2-title">14 osobnych baz</strong>
+              <small id="about-stat-2-sub">PostgreSQL 16 · Flyway Migrations</small>
+            </div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-icon">🐳</div>
+            <div>
+              <strong id="about-stat-3-title">35 kontenerów Docker</strong>
+              <small id="about-stat-3-sub">Pełny start 1-click · Cross-platform</small>
+            </div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-icon">⚡</div>
+            <div>
+              <strong id="about-stat-4-title">Redis Streams &amp; Outbox</strong>
+              <small id="about-stat-4-sub">Asynchroniczne zdarzenia &amp; DLQ</small>
+            </div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-icon">🔒</div>
+            <div>
+              <strong id="about-stat-5-title">Skarbiec SOPS + Age</strong>
+              <small id="about-stat-5-sub">Szyfrowane sekrety DEV / TEST</small>
+            </div>
+          </div>
+          <div class="about-stat-card">
+            <div class="about-stat-icon">🧪</div>
+            <div>
+              <strong id="about-stat-6-title">Quality Gate &amp; AI</strong>
+              <small id="about-stat-6-sub">31 testów Playwright · Asystent AI</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-grid">
+          <section class="panel about-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow accent" id="about-purpose-eyebrow">CEL I PRZEZNACZENIE</p>
+                <h3 id="about-purpose-title">Czym jest Mini Order Platform?</h3>
+              </div>
+            </div>
+            <div class="about-content" id="about-purpose-content">
+              <p>Mini Order Platform to zaawansowana platforma e-commerce zbudowana w architekturze <strong>prawdziwych mikroserwisów</strong> (monorepo). Każda usługa domenowa posiada niezależny proces, własny dedykowany port sieciowy oraz ściśle odizolowaną bazę danych PostgreSQL.</p>
+              <p>Platforma realizuje pełny cykl zakupowy — od przeglądania katalogu produktów z rabatami dnia, przez koszyk, wycenę dostawy, rezerwację magazynową (Saga), płatność, fakturowanie VAT, aż po asynchroniczne powiadomienia e-mail (Mailpit), tracking przesyłek, reklamacje i czat wsparcia na żywo.</p>
+              <p>Centrala Kontrolna (port <code>:18100</code>) integruje zarządzanie kontenerami, autodiagnostykę logów, bazę wiedzy o błędach (1-Click Auto-Fix), symulator awarii (Chaos Engineering) oraz wbudowanego Asystenta AI. Asystent AI bez wpięcia do zewnętrznego agenta działa w domyślnym trybie wbudowanym (offline) w oparciu o przyciski z najczęściej zadawanymi pytaniami umieszczone na górze widoku. Aby korzystać z asystenta jak ze swobodnego czatu konwersacyjnego, należy w Ustawieniach AI podpiąć zewnętrznego agenta lub lokalny model LLM (np. z komputera).</p>
+            </div>
+          </section>
+
+          <section class="panel about-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow accent" id="about-patterns-eyebrow">WZORCE PROJEKTOWE</p>
+                <h3 id="about-patterns-title">Kluczowe filary architektoniczne</h3>
+              </div>
+            </div>
+            <div class="about-features-list" id="about-features-list">
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-1-badge">🛡️ Database per Service</span>
+                <p id="about-feat-1-desc">Brak współdzielonych tabel SQL. Product Service nie czyta <code>inventory_db</code>, a Order Service komunikuje się z magazynem wyłącznie przez kontrakty HTTP API.</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-2-badge">📦 Transactional Outbox Pattern</span>
+                <p id="about-feat-2-desc">Płatność i rekord zdarzenia są zapisywane atomowo w transakcji PostgreSQL (<code>payment_outbox</code>). Dedykowany publisher wysyła je do Redis Streams, gwarantując niezawodność.</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-3-badge">🔄 Wzorzec Saga i Kompensacja</span>
+                <p id="about-feat-3-desc">Brak globalnej blokującej transakcji SQL. Jeśli rezerwacja magazynowa zawiedzie, saga wykonuje kompensację: zwalnia towar i oznacza zamówienie jako anulowane.</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-4-badge">🔑 Idempotencja operacji</span>
+                <p id="about-feat-4-desc">Ponowienie żądania z nagłówkiem <code>Idempotency-Key</code> nie tworzy duplikatów zamówień ani podwójnych obciążeń konta.</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-5-badge">⚡ Chaos Engineering &amp; Resilience</span>
+                <p id="about-feat-5-desc">Dedykowany Symulator Awarii w Centrali, Circuit Breaker (Resilience4j), Bulkhead, Retry z wykładniczym backoffem oraz kolejka Dead Letter Queue (DLQ).</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-6-badge">🤖 Asystent AI &amp; Autodiagnostyka</span>
+                <p id="about-feat-6-desc">Zintegrowany Asystent Architektury AI działający domyślnie w trybie offline (przyciski z najczęstszymi pytaniami i diagnostyka logów) z opcją podpięcia zewnętrznego agenta LLM (czat), baza wiedzy o błędach i samonaprawa 1-Click Fix.</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-7-badge">🔐 Bezpieczeństwo i Auth</span>
+                <p id="about-feat-7-desc">Krótkotrwały Access JWT RS256, rotowany Refresh Token w ciasteczku <code>HttpOnly</code>, uwierzytelnianie 2FA TOTP (Google Authenticator) i WebAuthn / Passkey.</p>
+              </div>
+              <div class="about-feature-item">
+                <span class="about-feat-badge" id="about-feat-8-badge">🧪 Quality Gates &amp; Testy</span>
+                <p id="about-feat-8-desc">Pełna piramida testów: 31 scenariuszy Playwright UI E2E, kontrakty OpenAPI v1, testy bezpieczeństwa, testy obciążeniowe oraz 17 modułów Maven.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel about-services-section">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow" id="about-modules-eyebrow">STRUKTURA MODUŁÓW</p>
+              <h3 id="about-modules-title">Mapa 15 mikroserwisów platformy</h3>
+            </div>
+          </div>
+          <div class="about-service-groups">
+            <div class="about-group-card">
+              <header><span class="grp-icon">🌐</span> <span id="about-grp-1-title">Warstwa Brzegowa &amp; Frontend</span></header>
+              <ul>
+                <li><strong>API Gateway</strong> <code>:18080</code> — Routing, rate limiting, wersjonowanie API v1, korelacja logów.</li>
+                <li><strong>Frontend Sklepu</strong> <code>:18070</code> — Sklep SPA HTML5 / Modern CSS / Vanilla JS.</li>
+                <li><strong>Centrala Kontrolna</strong> <code>:18100</code> — Panel zarządzania, diagnostyka, asystent AI, testy jakości.</li>
+              </ul>
+            </div>
+            <div class="about-group-card">
+              <header><span class="grp-icon">🛍️</span> <span id="about-grp-2-title">Katalog, Oferty &amp; Opinie</span></header>
+              <ul>
+                <li><strong>Product Service</strong> <code>:18081</code> — Katalog sprzętu, parametry techniczne, zdjęcia.</li>
+                <li><strong>Promotion Service</strong> <code>:18089</code> — Oferta dnia, kody rabatowe, historia najniższej ceny (Omnibus).</li>
+                <li><strong>Review Service</strong> <code>:18091</code> — Opinie i oceny klientów, moderacja w Centrali.</li>
+                <li><strong>Recommendation Service</strong> <code>:18092</code> — Rekomendacje produktów powiązanych i bestsellery.</li>
+              </ul>
+            </div>
+            <div class="about-group-card">
+              <header><span class="grp-icon">📦</span> <span id="about-grp-3-title">Sprzedaż, Magazyn &amp; Zwroty</span></header>
+              <ul>
+                <li><strong>Order Service</strong> <code>:18082</code> — Agregat zamówień, snapshot pozycji i cen, koordynacja sagi.</li>
+                <li><strong>Inventory Service</strong> <code>:18083</code> — Stany magazynowe, blokowanie rezerwacji, potwierdzenia.</li>
+                <li><strong>Returns Service</strong> <code>:18094</code> — Zgłoszenia zwrotów i reklamacji, ręczny workflow operatora.</li>
+              </ul>
+            </div>
+            <div class="about-group-card">
+              <header><span class="grp-icon">💳</span> <span id="about-grp-4-title">Płatności, Finanse &amp; Dostawa</span></header>
+              <ul>
+                <li><strong>Payment Service</strong> <code>:18084</code> — Autoryzacja metod (BLIK, Karta), Outbox, idempotencja.</li>
+                <li><strong>Billing Service</strong> <code>:18095</code> — Wystawianie faktur VAT, generowanie PDF dokumentów.</li>
+                <li><strong>Delivery Service</strong> <code>:18088</code> — Metody dostawy (Kurier, Paczkomat), wycena i tracking.</li>
+              </ul>
+            </div>
+            <div class="about-group-card">
+              <header><span class="grp-icon">👥</span> <span id="about-grp-5-title">Klienci, Poczta &amp; Czat</span></header>
+              <ul>
+                <li><strong>Customer Service</strong> <code>:18087</code> — Konta, BCrypt, JWT, MFA TOTP, WebAuthn Passkey, audyt.</li>
+                <li><strong>Notification Service</strong> <code>:18086</code> — E-maile aktywacyjne i transakcyjne, konsument Redis, DLQ.</li>
+                <li><strong>Chat Service</strong> <code>:18093</code> — Wiadomości wsparcia ze sklepu, powiadomienia e-mail.</li>
+                <li><strong>Wishlist Service</strong> <code>:18090</code> — Lista ulubionych produktów zalogowanego klienta.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel about-flow-section">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow accent" id="about-flow-eyebrow">PRZEPŁYW DANYCH</p>
+              <h3 id="about-flow-title">Cykl zamówienia krok po kroku</h3>
+            </div>
+          </div>
+          <div class="about-flow-steps">
+            <div class="about-step">
+              <span class="about-step-num">1</span>
+              <h4 id="about-step-1-title">Katalog i Koszyk</h4>
+              <p id="about-step-1-desc">Klient przegląda produkty w <code>:18070</code>. Koszyk trzymany jest lokalnie w przeglądarce (nie blokuje magazynu).</p>
+            </div>
+            <div class="about-step">
+              <span class="about-step-num">2</span>
+              <h4 id="about-step-2-title">Wycena i Dostawa</h4>
+              <p id="about-step-2-desc">Delivery Service wylicza koszt dostawy, a Promotion Service sprawdza kody rabatowe. Klient decyduje o fakturze VAT.</p>
+            </div>
+            <div class="about-step">
+              <span class="about-step-num">3</span>
+              <h4 id="about-step-3-title">Zamówienie (Saga)</h4>
+              <p id="about-step-3-desc">Order Service tworzy snapshot cen i wywołuje Inventory Service w celu zablokowania sztuk towaru (status <code>CONFIRMED</code>).</p>
+            </div>
+            <div class="about-step">
+              <span class="about-step-num">4</span>
+              <h4 id="about-step-4-title">Płatność i Outbox</h4>
+              <p id="about-step-4-desc">Payment Service autoryzuje płatność, potwierdza rezerwację w magazynie, tworzy fakturę VAT i zapisuje zdarzenie w <code>payment_outbox</code>.</p>
+            </div>
+            <div class="about-step">
+              <span class="about-step-num">5</span>
+              <h4 id="about-step-5-title">Redis, E-mail &amp; PDF</h4>
+              <p id="about-step-5-desc">Zdarzenie trafia do Redis Stream. Notification Service odbiera je i wysyła e-mail z załącznikiem faktury PDF do Mailpit (<code>:18025</code>).</p>
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   </div>
@@ -159,11 +951,201 @@
     </form>
   </dialog>
 
+  <dialog id="ai-settings-dialog" class="modal">
+    <form id="ai-settings-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <p class="eyebrow accent">KONFIGURACJA AI</p>
+      <h2 id="ai-modal-title">Ustawienia silnika AI</h2>
+      <p class="muted" id="ai-modal-desc">Wybierz dostawcę modelu i wprowadź parametry połączenia.</p>
+      <div class="form-fields">
+        <label class="field-label">
+          <span id="ai-label-provider">Silnik / Provider AI</span>
+          <select id="ai-provider-select" name="provider">
+            <option value="antigravity">Antigravity (Google / Wbudowany model wiedzy)</option>
+            <option value="codex">Codex / OpenAI (GPT-4o, o3, Codex)</option>
+            <option value="cursor">Cursor / Własny endpoint LLM (Ollama / Local)</option>
+          </select>
+        </label>
+        <label class="field-label" id="ai-model-field">
+          <span id="ai-label-model">Model</span>
+          <input type="text" id="ai-model-input" name="model" placeholder="np. antigravity-expert, gpt-4o, gemini-2.5-flash">
+        </label>
+        <label class="field-label" id="ai-endpoint-field">
+          <span id="ai-label-endpoint">Adres endpointu (Base URL dla Cursor / Ollama)</span>
+          <input type="url" id="ai-endpoint-input" name="customEndpoint" placeholder="http://localhost:11434/v1">
+        </label>
+        <label class="field-label" id="ai-key-field">
+          <span id="ai-label-key">Klucz API (opcjonalny dla wbudowanego Antigravity / lokalnego Ollama)</span>
+          <input type="password" id="ai-key-input" name="apiKey" placeholder="Wklej klucz API lub pozostaw puste">
+        </label>
+        <label class="danger-confirm" style="color:var(--text); background:var(--surface-2); border-color:var(--line);">
+          <input type="checkbox" id="ai-context-checkbox" name="includeContext" checked>
+          <span id="ai-label-ctx">Dołączaj bazę wiedzy o architekturze 15 mikroserwisów MiniTech do promptu</span>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-button modal-cancel">Anuluj</button>
+        <button type="submit" class="primary-button" id="ai-save-btn">Zapisz ustawienia</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="external-link-dialog" class="modal external-modal">
+    <form id="external-link-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <div class="external-modal-icon" id="external-modal-icon">📊</div>
+      <p class="eyebrow accent" id="external-modal-eyebrow">MONITORING I NARZĘDZIA</p>
+      <h2 id="external-modal-title">Przejście do panelu Grafana</h2>
+      <p class="external-modal-desc" id="external-modal-desc">
+        Za chwilę przejdziesz na zewnętrzną stronę narzędzia <strong>Grafana</strong>. Czy chcesz otworzyć ją w nowej karcie?
+      </p>
+      <div class="external-modal-url-box" id="external-modal-url">http://127.0.0.1:13000</div>
+      <div class="external-modal-actions">
+        <button type="button" class="secondary-button modal-cancel" id="external-modal-cancel">Zostań</button>
+        <button type="submit" class="primary-button" id="external-modal-confirm">Otwórz stronę ↗</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="correction-dialog" class="modal">
+    <form id="correction-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <p class="eyebrow accent">FAKTURA KORYGUJĄCA (KOR)</p>
+      <h2 id="correction-dialog-title">Wystawienie korekty faktury</h2>
+      <p id="correction-dialog-subtitle" class="muted" style="margin-bottom: 12px;"></p>
+      
+      <input type="hidden" id="correction-invoice-id">
+      <input type="hidden" id="correction-orig-gross">
+      
+      <div class="form-fields">
+        <label class="field-label">
+          <span>Przyczyna korekty *</span>
+          <input type="text" id="correction-reason" required placeholder="np. Zwrot uszkodzonego towaru, rabat potransakcyjny, reklamacja">
+        </label>
+        <label class="field-label">
+          <span>Kwota zmiany brutto (PLN) *</span>
+          <input type="number" step="0.01" id="correction-delta" required placeholder="np. -129.99">
+          <small class="field-hint" style="color:var(--text-muted, #94a3b8); font-size:12px; margin-top:4px;">Dla zwrotu/rabatu podaj wartość ujemną (np. -50.00 PLN). Podatek VAT i kwota netto zostaną wyliczone automatycznie.</small>
+        </label>
+        
+        <div id="correction-calc-box" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; font-size:13px; margin-top:10px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Kwota pierwotna:</span> <strong id="calc-orig-text">0.00 PLN</strong></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Wartość korekty (brutto):</span> <strong id="calc-delta-text" style="color:#f87171;">0.00 PLN</strong></div>
+          <div style="border-top:1px solid rgba(255,255,255,0.08); margin:6px 0;"></div>
+          <div style="display:flex; justify-content:space-between;"><span style="font-weight:600;">Kwota końcowa po korekcie:</span> <strong id="calc-final-text" style="color:#4ade80;">0.00 PLN</strong></div>
+        </div>
+        <p id="correction-error" style="color:#f87171; font-size:13px; margin-top:8px;" hidden></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-button modal-cancel">Anuluj</button>
+        <button type="submit" id="correction-submit-btn" class="primary-button">Wystaw korektę</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dispatch-dialog" class="modal">
+    <form id="dispatch-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <p class="eyebrow accent" id="dispatch-dialog-eyebrow">WYSYŁKA DOKUMENTU (EMAIL / SMTP)</p>
+      <h2 id="dispatch-dialog-title">Wyślij dokument do klienta</h2>
+      <p id="dispatch-dialog-subtitle" class="muted" style="margin-bottom: 14px; font-size: 13px;"></p>
+
+      <input type="hidden" id="dispatch-doc-type">
+      <input type="hidden" id="dispatch-doc-id">
+      <input type="hidden" id="dispatch-order-id">
+      <input type="hidden" id="dispatch-doc-number">
+      <input type="hidden" id="dispatch-buyer-name">
+
+      <div class="form-fields">
+        <div id="dispatch-doc-info-box" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; font-size:13px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Dokument:</span> <strong id="dispatch-info-doc" style="color:var(--primary); font-family:monospace;">—</strong></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Zamówienie:</span> <strong id="dispatch-info-order">—</strong></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Nabywca:</span> <strong id="dispatch-info-buyer">—</strong></div>
+          <div style="display:flex; justify-content:space-between;"><span class="muted">Wartość dokumentu:</span> <strong id="dispatch-info-amount" style="color:#4ade80;">—</strong></div>
+        </div>
+
+        <label class="field-label">
+          <span>Adres e-mail odbiorcy *</span>
+          <input type="email" id="dispatch-recipient" required placeholder="np. klient@example.com lub ksiegowosc@firma.pl">
+          <small class="field-hint" style="color:var(--muted); font-size:12px; margin-top:4px;">Domyślnie podany adres z zamówienia. Możesz go zmienić, np. wysyłając do księgowości.</small>
+        </label>
+
+        <label class="field-label" style="margin-top:10px;">
+          <span>Temat wiadomości *</span>
+          <input type="text" id="dispatch-subject" required placeholder="Temat wiadomości e-mail">
+        </label>
+
+        <label class="field-label" style="margin-top:10px;">
+          <span>Dedykowana wiadomość / Notatka dla klienta (opcjonalnie)</span>
+          <textarea id="dispatch-custom-message" rows="3" style="resize:vertical; width:100%; border-radius:8px; padding:8px 12px; background:var(--surface-2); border:1px solid var(--line); color:var(--text); font-family:inherit; font-size:13px;" placeholder="Wpisz opcjonalną wiadomość, np. informację o przyczynie korekty, terminie zwrotu pieniędzy lub podziękowanie..."></textarea>
+          <small class="field-hint" style="color:var(--muted); font-size:12px; margin-top:4px;">Ta wiadomość zostanie elegancko wyróżniona w treści maila wysyłanego do klienta.</small>
+        </label>
+
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2); border-radius:8px; margin-top:12px; font-size:12px; color:#4ade80;">
+          <span>📎</span>
+          <span id="dispatch-attachment-hint">Do wiadomości zostanie dołączony plik PDF pobrany z Billing Service.</span>
+        </div>
+
+        <p id="dispatch-error" style="color:#f87171; font-size:13px; margin-top:8px;" hidden></p>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary-button modal-cancel">Anuluj</button>
+        <button type="submit" id="dispatch-submit-btn" class="primary-button">📤 Wyślij e-mail</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="report-dialog" class="modal report-modal">
+    <form id="report-form" method="dialog">
+      <button type="button" class="modal-close" aria-label="Zamknij">×</button>
+      <div class="report-header">
+        <p class="eyebrow accent" id="report-eyebrow">RAPORT DIAGNOSTYCZNY ŚRODOWISKA</p>
+        <h2 id="report-title">📋 Stan Platformy MiniTech</h2>
+        <div class="report-meta-chips" id="report-meta-chips">
+          <span class="report-chip" id="report-chip-profile">Profil: DEV</span>
+          <span class="report-chip online" id="report-chip-health">15/15 ONLINE 🟢</span>
+          <span class="report-chip muted" id="report-chip-time">—</span>
+        </div>
+      </div>
+      
+      <div class="report-body" id="report-body">
+        <div class="skeleton" style="height: 220px;"></div>
+      </div>
+
+      <div class="modal-actions report-modal-actions">
+        <button type="button" class="ghost-button" id="report-copy-md" title="Kopiuj tekst raportu Markdown">📋 Kopiuj do schowka</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button type="button" class="secondary-button modal-cancel" id="report-cancel-btn">Anuluj</button>
+          <button type="submit" class="primary-button" id="report-ok-btn">OK</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="command-palette-dialog" class="modal cmd-palette-modal">
+    <div class="cmd-palette-shell">
+      <div class="cmd-palette-input-wrap">
+        <span class="cmd-palette-icon">🔍</span>
+        <input type="text" id="cmd-palette-input" placeholder="Wpisz polecenie lub wyszukaj widok... (np. 'start', 'magazyn', 'sekrety', 'dlq', 'testy')" autocomplete="off">
+        <kbd class="cmd-palette-esc">ESC</kbd>
+      </div>
+      <div class="cmd-palette-list" id="cmd-palette-list">
+        <!-- populated dynamically -->
+      </div>
+      <div class="cmd-palette-footer">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Nawiguj</span>
+        <span><kbd>↵</kbd> Wybierz</span>
+        <span><kbd>ESC</kbd> Zamknij</span>
+      </div>
+    </div>
+  </dialog>
+
   <aside id="job-drawer" class="job-drawer" aria-live="polite">
     <div><span id="drawer-status" class="status-dot running"></span><strong id="drawer-title">Zadanie</strong></div>
     <button id="drawer-open">Pokaż log</button>
   </aside>
   <div id="toast" class="toast" role="status"></div>
-  <script src="app.js?v=20260820-secret-editor" defer></script>
+  <script src="app.js?v=20260909-v2" defer></script>
 </body>
 </html>

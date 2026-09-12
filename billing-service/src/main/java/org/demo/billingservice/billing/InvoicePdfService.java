@@ -47,6 +47,8 @@ public class InvoicePdfService {
 
     private final String configuredRegularFont;
     private final String configuredBoldFont;
+    private volatile byte[] cachedRegularFont;
+    private volatile byte[] cachedBoldFont;
 
     public InvoicePdfService(
             @Value("${billing.pdf.font.regular:}") String configuredRegularFont,
@@ -58,8 +60,8 @@ public class InvoicePdfService {
 
     public byte[] generate(Invoice invoice) {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            PDType0Font regular = loadFont(document, configuredRegularFont, regularFontCandidates(), "regular");
-            PDType0Font bold = loadFont(document, configuredBoldFont, boldFontCandidates(), "bold");
+            PDType0Font regular = loadRegularFont(document);
+            PDType0Font bold = loadBoldFont(document);
 
             PDDocumentInformation information = new PDDocumentInformation();
             information.setTitle("Faktura " + invoice.getInvoiceNumber());
@@ -114,8 +116,117 @@ public class InvoicePdfService {
             document.save(output);
             return output.toByteArray();
         } catch (IOException exception) {
-            throw new IllegalStateException("Nie udało się wygenerować faktury PDF", exception);
+            throw new IllegalStateException("Nie udało się wygenerować PDF dla faktury " + invoice.getInvoiceNumber(), exception);
         }
+    }
+
+    public byte[] generateCorrection(InvoiceCorrection correction, Invoice invoice) {
+        try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDType0Font regular = loadRegularFont(document);
+            PDType0Font bold = loadBoldFont(document);
+
+            PDDocumentInformation information = new PDDocumentInformation();
+            information.setTitle("Korekta " + correction.getCorrectionNumber());
+            information.setAuthor("MiniTech Store");
+            information.setSubject("Faktura VAT korygująca dla zamówienia #" + correction.getOrderId());
+            information.setCreator("MiniTech Store Billing Service");
+            document.setDocumentInformation(information);
+
+            PDPage page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+            try (PDPageContentStream canvas = new PDPageContentStream(document, page)) {
+                drawCorrectionHeader(canvas, regular, bold, correction, invoice);
+                drawParties(canvas, regular, bold, invoice);
+                drawCorrectionDetails(canvas, regular, bold, correction, invoice);
+                drawFooter(canvas, regular, invoice, 1, 1);
+            }
+
+            document.save(output);
+            return output.toByteArray();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Nie udało się wygenerować PDF faktury korygującej " + correction.getCorrectionNumber(), exception);
+        }
+    }
+
+    private void drawCorrectionHeader(PDPageContentStream canvas, PDFont regular, PDFont bold,
+                                      InvoiceCorrection correction, Invoice invoice) throws IOException {
+        fillRect(canvas, 0, 716, PDRectangle.A4.getWidth(), 126, NAVY_R, NAVY_G, NAVY_B);
+        fillRect(canvas, 48, 754, 48, 48, ORANGE_R, ORANGE_G, ORANGE_B);
+        text(canvas, bold, 13, 56, 771, 255, 255, 255, "KOR");
+        text(canvas, bold, 18, 110, 782, 255, 255, 255, "MiniTech Store");
+        text(canvas, regular, 8.5f, 110, 763, 196, 205, 217, "Faktura VAT korygująca");
+
+        text(canvas, bold, 19, 310, 783, 255, 255, 255, "FAKTURA KORYGUJĄCA");
+        rightText(canvas, regular, 10, 547, 761, 211, 218, 228, correction.getCorrectionNumber());
+
+        fillRect(canvas, 48, 653, 499, 45, 247, 249, 252);
+        strokeRect(canvas, 48, 653, 499, 45, BORDER_R, BORDER_G, BORDER_B);
+
+        smallLabel(canvas, bold, 62, 679, "DATA WYSTAWIENIA KOREKTY");
+        text(canvas, bold, 10, 62, 663, NAVY_R, NAVY_G, NAVY_B, DATE.format(correction.getCreatedAt()));
+        smallLabel(canvas, bold, 230, 679, "DO FAKTURY PIERWOTNEJ");
+        text(canvas, bold, 10, 230, 663, NAVY_R, NAVY_G, NAVY_B, invoice.getInvoiceNumber());
+        smallLabel(canvas, bold, 395, 679, "ZAMÓWIENIE");
+        text(canvas, bold, 10, 395, 663, NAVY_R, NAVY_G, NAVY_B, "#" + correction.getOrderId());
+
+        fillRect(canvas, 48, 616, 499, 23, 255, 242, 237);
+        text(canvas, bold, 8.5f, 60, 624, ORANGE_R, ORANGE_G, ORANGE_B,
+                "PRZYCZYNA KOREKTY: " + correction.getReason().toUpperCase());
+    }
+
+    private void drawCorrectionDetails(PDPageContentStream canvas, PDFont regular, PDFont bold,
+                                       InvoiceCorrection c, Invoice invoice) throws IOException {
+        float titleY = 414;
+        sectionTitle(canvas, bold, 48, titleY, "ROZLICZENIE KWOT KOREKTY");
+
+        float headerY = 378;
+        fillRect(canvas, 48, headerY, 499, 24, NAVY_R, NAVY_G, NAVY_B);
+        text(canvas, bold, 7.2f, 60, headerY + 8, 255, 255, 255, "POZYCJA ROZLICZENIA");
+        rightText(canvas, bold, 7.2f, 260, headerY + 8, 255, 255, 255, "WARTOŚĆ NETTO");
+        rightText(canvas, bold, 7.2f, 340, headerY + 8, 255, 255, 255, "STAWKA");
+        rightText(canvas, bold, 7.2f, 430, headerY + 8, 255, 255, 255, "KWOTA VAT");
+        rightText(canvas, bold, 7.2f, 533, headerY + 8, 255, 255, 255, "WARTOŚĆ BRUTTO");
+
+        String curr = invoice.getCurrency();
+
+        // Row 1: Przed korektą
+        float row1Y = 355;
+        text(canvas, regular, 8.5f, 60, row1Y, NAVY_R, NAVY_G, NAVY_B, "Przed korektą");
+        rightText(canvas, regular, 8.5f, 260, row1Y, NAVY_R, NAVY_G, NAVY_B, money(c.getOriginalNet()) + " " + curr);
+        rightText(canvas, regular, 8.5f, 340, row1Y, NAVY_R, NAVY_G, NAVY_B, "23%");
+        rightText(canvas, regular, 8.5f, 430, row1Y, NAVY_R, NAVY_G, NAVY_B, money(c.getOriginalVat()) + " " + curr);
+        rightText(canvas, regular, 8.5f, 533, row1Y, NAVY_R, NAVY_G, NAVY_B, money(c.getOriginalGross()) + " " + curr);
+
+        // Row 2: Różnica / Korekta
+        float row2Y = 330;
+        fillRect(canvas, 48, row2Y - 7, 499, 22, 255, 242, 237);
+        text(canvas, bold, 8.5f, 60, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, "Korekta (różnica)");
+        rightText(canvas, bold, 8.5f, 260, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, money(c.getCorrectionNet()) + " " + curr);
+        rightText(canvas, bold, 8.5f, 340, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, "23%");
+        rightText(canvas, bold, 8.5f, 430, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, money(c.getCorrectionVat()) + " " + curr);
+        rightText(canvas, bold, 8.5f, 533, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, money(c.getCorrectionGross()) + " " + curr);
+
+        // Row 3: Po korekcie
+        float row3Y = 305;
+        text(canvas, bold, 8.5f, 60, row3Y, NAVY_R, NAVY_G, NAVY_B, "Po korekcie (stan obecny)");
+        rightText(canvas, bold, 8.5f, 260, row3Y, NAVY_R, NAVY_G, NAVY_B, money(c.getFinalNet()) + " " + curr);
+        rightText(canvas, bold, 8.5f, 340, row3Y, NAVY_R, NAVY_G, NAVY_B, "23%");
+        rightText(canvas, bold, 8.5f, 430, row3Y, NAVY_R, NAVY_G, NAVY_B, money(c.getFinalVat()) + " " + curr);
+        rightText(canvas, bold, 8.5f, 533, row3Y, NAVY_R, NAVY_G, NAVY_B, money(c.getFinalGross()) + " " + curr);
+
+        // Totals settlement box
+        float boxY = 220;
+        card(canvas, 48, boxY, 499, 65);
+        boolean isRefund = c.getCorrectionGross().compareTo(BigDecimal.ZERO) < 0;
+        String settlementLabel = isRefund ? "DO ZWROTU DLA NABYWCY" : "DO ZAPŁATY PRZEZ NABYWCĘ";
+        BigDecimal settlementAmount = c.getCorrectionGross().abs();
+
+        smallLabel(canvas, bold, 62, boxY + 45, settlementLabel);
+        text(canvas, bold, 18, 62, boxY + 18, isRefund ? 0 : NAVY_R, isRefund ? 133 : NAVY_G, isRefund ? 112 : NAVY_B,
+                money(settlementAmount) + " " + curr);
+
+        rightText(canvas, regular, 8.5f, 533, boxY + 45, MUTED_R, MUTED_G, MUTED_B, "Forma rozliczenia: Przelew bankowy");
+        rightText(canvas, regular, 8.5f, 533, boxY + 28, MUTED_R, MUTED_G, MUTED_B, "Termin rozliczenia: 14 dni");
     }
 
     private void drawHeader(PDPageContentStream canvas, PDFont regular, PDFont bold, Invoice invoice) throws IOException {
@@ -393,8 +504,33 @@ public class InvoicePdfService {
         return value == null ? "" : value.replace('\n', ' ').replace('\r', ' ').trim();
     }
 
-    private PDType0Font loadFont(PDDocument document, String configuredPath, List<Path> candidates, String variant)
-            throws IOException {
+    private PDType0Font loadRegularFont(PDDocument document) throws IOException {
+        if (cachedRegularFont == null) {
+            synchronized (this) {
+                if (cachedRegularFont == null) {
+                    cachedRegularFont = getFontBytes(configuredRegularFont, regularFontCandidates(), "regular");
+                }
+            }
+        }
+        try (InputStream input = new java.io.ByteArrayInputStream(cachedRegularFont)) {
+            return PDType0Font.load(document, input, true);
+        }
+    }
+
+    private PDType0Font loadBoldFont(PDDocument document) throws IOException {
+        if (cachedBoldFont == null) {
+            synchronized (this) {
+                if (cachedBoldFont == null) {
+                    cachedBoldFont = getFontBytes(configuredBoldFont, boldFontCandidates(), "bold");
+                }
+            }
+        }
+        try (InputStream input = new java.io.ByteArrayInputStream(cachedBoldFont)) {
+            return PDType0Font.load(document, input, true);
+        }
+    }
+
+    private byte[] getFontBytes(String configuredPath, List<Path> candidates, String variant) {
         List<Path> paths = new ArrayList<>();
         if (configuredPath != null && !configuredPath.isBlank()) {
             paths.add(Path.of(configuredPath.trim()));
@@ -402,8 +538,9 @@ public class InvoicePdfService {
         paths.addAll(candidates);
         for (Path path : paths) {
             if (Files.isRegularFile(path) && Files.isReadable(path)) {
-                try (InputStream input = Files.newInputStream(path)) {
-                    return PDType0Font.load(document, input, true);
+                try {
+                    return Files.readAllBytes(path);
+                } catch (IOException ignored) {
                 }
             }
         }

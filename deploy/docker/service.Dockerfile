@@ -30,7 +30,8 @@ COPY qa-tests/pom.xml qa-tests/pom.xml
 
 COPY ${SERVICE_MODULE}/src ${SERVICE_MODULE}/src
 
-RUN chmod +x mvnw \
+RUN --mount=type=cache,target=/root/.m2/repository \
+    chmod +x mvnw \
     && ./mvnw --batch-mode -pl "${SERVICE_MODULE}" -am \
        -DskipTests -DskipITs -Dmaven.test.skip=true package \
     && find "/workspace/${SERVICE_MODULE}/target" -maxdepth 1 -type f \

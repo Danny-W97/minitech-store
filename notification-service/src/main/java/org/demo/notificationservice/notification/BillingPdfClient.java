@@ -9,7 +9,7 @@ public class BillingPdfClient {
     private final RestClient restClient;
 
     public BillingPdfClient(
-            @Value("${services.billing.base-url:http://localhost:18095}") String baseUrl
+            @Value("${services.billing.base-url:${BILLING_SERVICE_URL:http://localhost:18095}}") String baseUrl
     ) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
