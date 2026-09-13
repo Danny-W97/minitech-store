@@ -16,6 +16,8 @@
     <description>Wishlist Service for the Mini Order Platform</description>
     <properties>
         <java.version>25</java.version>
+        <tomcat.version>11.0.25</tomcat.version>
+        <netty.version>4.2.18.Final</netty.version>
         <springdoc.version>3.0.3</springdoc.version>
         <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
