@@ -196,6 +196,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH
+          timeout: '10m'
 
       - name: Push verified image to GHCR
         if: github.event_name != 'pull_request'

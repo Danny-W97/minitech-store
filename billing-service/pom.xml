@@ -5,7 +5,9 @@
     <parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>4.1.0</version><relativePath/></parent>
     <groupId>org.demo</groupId><artifactId>billing-service</artifactId><version>0.0.1-SNAPSHOT</version>
     <name>Billing Service</name><description>Invoices and billing data for MiniTech Store</description>
-    <properties><java.version>25</java.version><springdoc.version>3.0.3</springdoc.version><pdfbox.version>3.0.6</pdfbox.version></properties>
+    <properties><java.version>25</java.version>
+        <tomcat.version>11.0.25</tomcat.version>
+        <netty.version>4.2.18.Final</netty.version><springdoc.version>3.0.3</springdoc.version><pdfbox.version>3.0.6</pdfbox.version></properties>
     <dependencies>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
         <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
