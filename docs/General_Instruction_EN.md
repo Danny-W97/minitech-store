@@ -6,14 +6,10 @@
 > future production deployment.
 
 > Polish version: [General_Instruction.md](General_Instruction.md)
->
-> Complete Control Center manual:
-> [Microservices_Central_Instruction_EN.md](Microservices_Central_Instruction_EN.md)
 
 This manual describes the project architecture, application flow, business
 features, local setup, tests, security, and troubleshooting. Control Center
-commands are included where they help explain a workflow; its complete menu
-and command reference is kept in the separate Central manual.
+commands are included where they help explain a workflow.
 
 Local secrets, private keys, certificates, kubeconfig files, backups, test
 artifacts, and logs must be stored outside tracked source files. Runtime
@@ -1414,6 +1410,3 @@ bash scripts/control-center/control-center.sh frontend-down
 bash scripts/control-center/control-center.sh monitoring-down
 bash scripts/control-center/control-center.sh infra-down
 ```
-
-For a complete command-by-command operator reference, continue with
-[Microservices_Central_Instruction_EN.md](Microservices_Central_Instruction_EN.md).

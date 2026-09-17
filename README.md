@@ -78,10 +78,9 @@ directories to GitHub.
 
 The rules are defined in [`.gitignore`](<.gitignore>). The ignored directory
 layout and privacy rules are described in
-[`gitIgnoreOwn/README.md`](<gitIgnoreOwn/README.md>). A complete Polish guide
-to the first commit, branches, pushes, Pull Requests, conflicts, and safe undo
-operations is available in
-[`docs/Git_Instruction.md`](<docs/Git_Instruction.md>).
+[`gitIgnoreOwn/README.md`](<gitIgnoreOwn/README.md>). Comprehensive project instructions
+are available in [`docs/General_Instruction.md`](<docs/General_Instruction.md>) (Polish)
+and [`docs/General_Instruction_EN.md`](<docs/General_Instruction_EN.md>) (English).
 
 The SOPS + age vault is stored outside the project by default. On Windows it is
 stored in WSL, on Linux in `~/.config/mini-order-platform`, and on macOS in
@@ -364,17 +363,11 @@ Infrastructure ports are bound only to `127.0.0.1`, so PostgreSQL, Redis and
 Mailpit are available locally and are not exposed on network interfaces.
 
 Profiles, Mailpit and further instructions are described in
-[docs/General_Instruction_EN.md](<docs/General_Instruction_EN.md>), the
-[Control Center manual](<docs/Microservices_Central_Instruction_EN.md>), and
-the local-only `docs/TODOList.md` file. `TODOList.md` is deliberately ignored
-by Git and is not published to GitHub.
-
-Profile secrets are described in [docs/Secrets.md](<docs/Secrets.md>). WSL uses
-local SOPS + age, while production Vault preparation is documented in
-[infra/vault/README.md](<infra/vault/README.md>).
-
-Services can be started from IntelliJ using the wrapper described in
-[docs/IntelliJ.md](<docs/IntelliJ.md>).
+[docs/General_Instruction_EN.md](<docs/General_Instruction_EN.md>) and
+[docs/General_Instruction.md](<docs/General_Instruction.md>).
+WSL uses local SOPS + age, while production Vault preparation is documented in
+[infra/vault/README.md](<infra/vault/README.md>). The local-only `docs/TODOList.md` file
+is deliberately ignored by Git and is not published to GitHub.
 
 ## Docker and Kubernetes deployments
 
