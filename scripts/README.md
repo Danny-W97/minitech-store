@@ -25,6 +25,6 @@ bash scripts/control-center/control-center.sh health all
 Dokumentacja skryptów i Control Center znajduje się w głównych podręcznikach projektu:
 
 - [General_Instruction.md — Control Center](../docs/General_Instruction.md#zacznij-tutaj-control-center)
-- [Microservices_Central_Instruction.md](../docs/Microservices_Central_Instruction.md)
+- [General_Instruction_EN.md — Control Center (EN)](../docs/General_Instruction_EN.md#start-here-control-center)
 
 Ten plik pozostaje jako wskaźnik dla osób szukających README w katalogu skryptów.

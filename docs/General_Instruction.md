@@ -6,18 +6,12 @@
 > Profil `prod` jest obecnie niedostępny do uruchamiania z Control Center.
 > Pozostawiono jego szablony Kubernetes/OpenBao/TLS do późniejszego wdrożenia.
 
-> Pełna instrukcja obsługi Centrali znajduje się w dokumencie
-> [Microservices Central Instruction](Microservices_Central_Instruction.md).
-> Ten podręcznik opisuje przede wszystkim projekt, architekturę, przepływy i
-> funkcje biznesowe; informacje operacyjne Centrali są tam tylko skrótem.
-
 Lokalne pliki, sekrety, klucze, certyfikaty, kubeconfig, backupy i logi należy
 umieszczać w katalogu `gitIgnoreOwn/`. Katalog jest ignorowany przez Git.
 
 ## Spis treści
 
 - [Zacznij tutaj: Control Center](#zacznij-tutaj-control-center)
-- [Microservices Central Instruction](Microservices_Central_Instruction.md)
 - [Wymagane serwisy i uruchamianie z Centrali](#wymagane-serwisy-i-uruchamianie-z-centrali)
 - [Wymagania przed pierwszym startem](#wymagania-przed-pierwszym-startem)
   - [WSL, Linux i macOS — lista zależności](#wsl-linux-i-macos--lista-zależności)
@@ -396,9 +390,7 @@ konfiguracji uprawnień systemowych. Te elementy trzeba uruchomić lub ustawić
 
 ## Przygotowanie repozytorium do GitHub
 
-Pełna instrukcja krok po kroku — od pustego repozytorium GitHub i pierwszego
-commita po gałęzie, Pull Requesty, konflikty i cofanie zmian — znajduje się w
-[Git_Instruction.md](Git_Instruction.md).
+Przed publikacją kodu na GitHubie należy upewnić się, że repozytorium jest czyste i pozbawione prywatnych danych.
 
 Do GitHub mogą trafić kod źródłowy, konfiguracje przykładowe, migracje,
 manifesty, testy, dokumentacja i skrypty. Nie mogą trafić:
@@ -492,8 +484,7 @@ Projekt ma kilka poziomów testów. Testy można uruchamiać bezpośrednio z kat
 repozytorium przez Maven i skrypty `scripts/qa`, a także z terminalowego
 Control Center. Centrala nie zastępuje testów — jest bezpiecznym punktem ich
 uruchamiania, sprawdza wymagania, dobiera profil i pokazuje wynik bez ujawniania
-sekretów. Szczegółową instrukcję operacyjną Centrali znajdziesz w
-[`Microservices Central Instruction`](Microservices_Central_Instruction.md).
+sekretów.
 
 ### Co należy przygotować
 
@@ -1305,11 +1296,6 @@ W graficznym panelu Centrali (widok *Zdarzenia i DLQ*) zdarzenie to jest automat
 
 ## Szczegóły obsługi Control Center
 
-Pełny podręcznik uruchamiania i obsługi Centrali został wydzielony do pliku
-[Microservices Central Instruction](Microservices_Central_Instruction.md).
-Poniższa sekcja pozostaje krótkim skrótem przydatnym podczas czytania instrukcji
-projektu; w razie rozbieżności pierwszeństwo ma wydzielony podręcznik Centrali.
-
 W trybie graficznym (Centrala Web na porcie `18100`) panel integruje m.in.: zarządzanie kontenerami, podgląd metryk zasobów (RAM/CPU), eksplorator danych biznesowych (zamówienia, faktury z ciągłą numeracją i korektami KOR, magazyn, klienci), diagnostykę zdarzeń Redis Streams i DLQ, symulator awarii (Chaos Engineering) oraz wbudowanego **Asystenta AI**.
 
 > [!NOTE]
@@ -1386,11 +1372,9 @@ Control Center ładuje je automatycznie przy `app-run`, `infra-up` i uruchamiani
 monitoringu.
 
 Pełna lista wymaganych wartości znajduje się w sekcji
-[Wymagane sekrety dev/test](#wymagane-sekrety-devtest), a istniejąca instrukcja
-ich tworzenia i edycji w sekcji
-[Przygotowanie sekretów](#przygotowanie-sekretów). Szczegóły obsługi kreatora
-z poziomu Centrali opisuje
-[`Microservices Central Instruction`](Microservices_Central_Instruction.md#sekrety-sops--age).
+[Wymagane sekrety dev/test](#wymagane-sekrety-devtest), a instrukcja
+ich tworzenia i edycji w sekcji [Przygotowanie sekretów](#przygotowanie-sekretów).
+Szczegóły obsługi kreatora i komend SOPS z poziomu Centrali:
 
 ```bash
 bash scripts/control-center/control-center.sh secrets-init
