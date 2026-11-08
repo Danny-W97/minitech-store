@@ -5,3 +5,8 @@ spring:
   docker:
     compose:
       enabled: false
+payment:
+  provider: ${PAYMENT_PROVIDER:simulation}
+
+# The PostgreSQL retention worker is exercised explicitly by integration fixtures.
+outbox.retention.mode: "off"

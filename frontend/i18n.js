@@ -1,7 +1,8 @@
-(() => {
-  const STORAGE_KEY = 'minitech-language';
+import { CATEGORY_NAMES, PARAMETER_LABELS, ORDER_STATUSES, DICTIONARY } from './store-messages.js?v=20261028-a43-32';
 
-  function getSavedLanguage() {
+const STORAGE_KEY = 'minitech-language';
+
+function getSavedLanguage() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved === 'en' || saved === 'pl') return saved;
@@ -9,415 +10,15 @@
     return 'pl';
   }
 
-  const state = {
+const state = {
     lang: getSavedLanguage()
   };
 
-  const CATEGORY_NAMES = {
-    all: { pl: 'Wszystkie produkty', en: 'All products' },
-    CPU: { pl: 'Procesory', en: 'Processors' },
-    GPU: { pl: 'Karty graficzne', en: 'Graphics cards' },
-    RAM: { pl: 'Pamięć RAM', en: 'RAM' },
-    SSD: { pl: 'Dyski SSD', en: 'SSD Drives' },
-    'Płyta główna': { pl: 'Płyty główne', en: 'Motherboards' },
-    Monitor: { pl: 'Monitory', en: 'Monitors' },
-    Laptop: { pl: 'Laptopy', en: 'Laptops' },
-    Klawiatura: { pl: 'Peryferia', en: 'Peripherals' },
-    Słuchawki: { pl: 'Audio', en: 'Audio' }
-  };
-
-  const PARAMETER_LABELS = {
-    cores: { pl: 'Rdzenie', en: 'Cores' },
-    threads: { pl: 'Wątki', en: 'Threads' },
-    socket: { pl: 'Gniazdo procesora', en: 'CPU Socket' },
-    boostGHz: { pl: 'Taktowanie boost (GHz)', en: 'Boost clock (GHz)' },
-    memory: { pl: 'Pamięć', en: 'Memory' },
-    interface: { pl: 'Interfejs', en: 'Interface' },
-    rayTracing: { pl: 'Ray tracing', en: 'Ray tracing' },
-    capacity: { pl: 'Pojemność', en: 'Capacity' },
-    type: { pl: 'Typ', en: 'Type' },
-    speedMHz: { pl: 'Taktowanie (MHz)', en: 'Clock speed (MHz)' },
-    readSpeedMBps: { pl: 'Odczyt (MB/s)', en: 'Read speed (MB/s)' },
-    chipset: { pl: 'Chipset', en: 'Chipset' },
-    formFactor: { pl: 'Format płyty', en: 'Form factor' },
-    wifi: { pl: 'Wi-Fi', en: 'Wi-Fi' },
-    size: { pl: 'Rozmiar', en: 'Size' },
-    resolution: { pl: 'Rozdzielczość', en: 'Resolution' },
-    refreshHz: { pl: 'Odświeżanie (Hz)', en: 'Refresh rate (Hz)' },
-    panel: { pl: 'Panel', en: 'Panel' },
-    screen: { pl: 'Ekran', en: 'Screen' },
-    storage: { pl: 'Dysk', en: 'Storage' },
-    gpu: { pl: 'Karta graficzna', en: 'GPU' },
-    layout: { pl: 'Układ klawiszy', en: 'Key layout' },
-    switches: { pl: 'Przełączniki', en: 'Switches' },
-    connection: { pl: 'Łączność', en: 'Connectivity' },
-    wireless: { pl: 'Bezprzewodowa', en: 'Wireless' },
-    backlight: { pl: 'Podświetlenie', en: 'Backlight' },
-    noiseCancelling: { pl: 'Redukcja hałasu', en: 'Noise cancelling' },
-    batteryHours: { pl: 'Czas pracy (h)', en: 'Battery life (h)' }
-  };
-
-  const ORDER_STATUSES = {
-    PENDING: { pl: 'Oczekuje na płatność', en: 'Pending payment' },
-    PAID: { pl: 'Opłacone', en: 'Paid' },
-    SHIPPED: { pl: 'Wysłane', en: 'Shipped' },
-    COMPLETED: { pl: 'Zrealizowane', en: 'Completed' },
-    CANCELLED: { pl: 'Anulowane', en: 'Cancelled' },
-    RETURNED: { pl: 'Zwrócone', en: 'Returned' }
-  };
-
-  const DICTIONARY = {
-    pl: {
-      langCode: 'PL',
-      langTitle: 'Zmień język na angielski',
-      searchPlaceholder: 'Czego szukasz?',
-      navCatalog: 'Katalog',
-      navPromotions: 'Promocje',
-      navNew: 'Nowości',
-      navDelivery: 'Dostawy',
-      navAbout: 'O platformie',
-      navBackToCatalog: 'Wróć do katalogu',
-      navBackToStore: 'Wróć do sklepu',
-      authLogin: 'Zaloguj się',
-      authProfile: 'Profil',
-      authOrders: 'Moje zamówienia',
-      authWishlist: 'Moje ulubione',
-      authSecurity: 'Bezpieczeństwo konta',
-      authLogout: 'Wyloguj się',
-      cartTitle: 'Koszyk',
-      cartCount: 'Koszyk',
-      cartTotal: 'Razem',
-      cartCheckout: 'Przejdź do koszyka',
-      cartClose: 'Zamknij podgląd koszyka',
-      cartEmpty: 'Twój koszyk jest pusty.',
-      heroEyebrowNew: 'CODZIENNA PREMIERA / MINITECH STORE',
-      heroTitleNew: 'Nowy sprzęt. <span>Gotowy na dziś.</span>',
-      heroLeadNew: 'Odkrywaj nowe produkty w codziennej rotacji i wybieraj sprzęt z aktualnym stanem magazynowym.',
-      heroBtnNew: 'Zobacz nowości <span>→</span>',
-      heroBadgeNew: 'NOWOŚĆ',
-      heroEyebrowPromo: 'OFERTA DNIA / MINITECH STORE',
-      heroTitlePromo: 'Technologia w <span>lepszej cenie.</span>',
-      heroLeadPromo: 'Promocje zmieniają się co 24 godziny. Rabaty od 5% do 50% obowiązują także podczas składania zamówienia.',
-      heroBtnPromo: 'Sprawdź promocje <span>→</span>',
-      heroBadgePromo: 'DO -50%',
-      heroEyebrowBuild: 'MINI ORDER PLATFORM / DEV',
-      heroTitleBuild: 'Zbuduj swój <span>zestaw.</span>',
-      heroLeadBuild: 'Procesory, pamięć RAM, dyski SSD i płyty główne w jednym katalogu. Porównuj parametry i dodawaj produkty do koszyka.',
-      heroBtnBuild: 'Przeglądaj katalog <span>→</span>',
-      heroBadgeBuild: 'ZESTAW DNIA',
-      heroTopicNew: 'Nowe produkty',
-      heroTopicPromo: 'Promocje dnia',
-      heroTopicBuild: 'Zbuduj zestaw',
-      statsMicroservices: 'mikroserwisów',
-      statsDatabases: 'baz danych i Redis',
-      statsBroker: 'zdarzenia i outbox',
-      statsDev: 'Mailpit · SOPS · Multi-OS',
-      promoHeadingEyebrow: 'OFERTA DNIA',
-      promoHeadingTitle: 'Promocje i Gorący Strzał',
-      promoRotationNote: 'Promocje zmieniają się co 24 godziny.',
-      hotShotEyebrow: 'GORĄCY STRZAŁ',
-      hotShotTitle: 'Okazja limitowana',
-      hotShotLeft: 'Pozostało',
-      hotShotDiscount: 'Rabat',
-      hotShotLowestPrice: 'Najniższa cena z 30 dni przed obniżką:',
-      hotShotAdd: 'Dodaj do koszyka',
-      newProductsEyebrow: 'PREMIERY DNIA',
-      newProductsTitle: 'Nowe produkty',
-      newProductsNote: 'Codziennie losujemy zestaw świeżych ofert.',
-      catalogEyebrow: 'OFERTA SKLEPU',
-      catalogTitle: 'Wszystkie produkty',
-      catalogSortLabel: 'Sortuj według',
-      catalogSortFeatured: 'Polecane',
-      catalogSortPriceAsc: 'Cena: od najniższej',
-      catalogSortPriceDesc: 'Cena: od najwyższej',
-      catalogSortNameAsc: 'Nazwa: A-Z',
-      catalogSortNameDesc: 'Nazwa: Z-A',
-      catalogSortStockDesc: 'Dostępność: malejąco',
-      catalogFilterPrice: 'Cena (zł)',
-      catalogFilterManufacturer: 'Producent',
-      catalogFilterInStock: 'Tylko dostępne w magazynie',
-      catalogRefresh: 'Odśwież katalog',
-      catalogCompareBarText: 'Wybrano do porównania:',
-      catalogCompareButton: 'Porównaj produkty',
-      catalogCompareClear: 'Wyczyść',
-      badgeNew: 'NOWOŚĆ',
-      badgeHotShot: 'GORĄCY STRZAŁ',
-      badgeDiscount: 'RABAT',
-      badgeLowStock: 'OSTATNIE SZTUKI',
-      stockAvailable: 'Dostępne',
-      stockAvailableQty: 'W magazynie:',
-      stockOutOfStock: 'Brak w magazynie',
-      productAddToCart: 'Dodaj do koszyka',
-      productAdded: 'Dodano do koszyka',
-      productCompare: 'Porównaj',
-      productSpecsTitle: 'Specyfikacja techniczna',
-      productReviewsTitle: 'Opinie klientów',
-      productRecommendationsTitle: 'Może Ci się spodobać',
-      productRecommendationsNote: 'Podobne produkty z katalogu.',
-      productLowestPricePrefix: 'Najniższa cena z 30 dni przed obniżką:',
-      productRegularPriceLabel: 'Cena regularna:',
-      aboutEyebrow: 'ARCHITEKTURA SYSTEMU',
-      aboutTitle: 'Jak działa MiniTech Store?',
-      aboutP1: 'Ten sklep to frontend demonstracyjny oparty o architekturę mikroserwisów Java i Spring Boot.',
-      aboutP2: 'Platforma wykorzystuje API Gateway, Service Discovery, autoryzację JWT z MFA/Passkey, koszyk gościa i klienta oraz asynchroniczny broker zdarzeń.',
-      footerTitle: 'MiniTech Store',
-      footerSubtitle: 'Lokalny demonstracyjny sklep e-commerce zintegrowany z architekturą mikroserwisów.',
-      footerLinksTitle: 'Szybkie linki',
-      footerTechTitle: 'Technologia',
-      footerCopy: '© 2026 MiniTech Store · Mini Order Platform. Wszelkie prawa zastrzeżone.',
-      chatLauncher: 'Czat',
-      chatHeaderTitle: 'Cześć!',
-      chatHeaderSubtitle: 'Jak możemy Ci pomóc?',
-      chatIntro: 'Masz pytanie o produkt, zamówienie albo dostawę? Napisz do nas — odpowiedź pojawi się tutaj i zostanie wysłana na podany adres e-mail.',
-      chatLabelName: 'Imię',
-      chatLabelEmail: 'E-mail',
-      chatLabelSubject: 'Temat',
-      chatLabelMessage: 'Wiadomość',
-      chatPlaceholderSubject: 'np. Pytanie o zamówienie',
-      chatPlaceholderMessage: 'W czym możemy pomóc?',
-      chatSubmit: 'Wyślij wiadomość',
-      chatSending: 'Wysyłanie wiadomości…',
-      chatSent: 'Wiadomość wysłana! Oczekuj na odpowiedź w tym oknie.',
-      chatThreadHeader: 'Rozmowa',
-      chatThreadStateNew: 'Nowa',
-      chatThreadStateAnswered: 'Odpowiedziano',
-      chatLiveStatus: 'Centrala odpowie tutaj.',
-      chatFallback: 'Czekasz długo na odpowiedź? Wyślij e-mail.',
-      successEyebrow: 'ZAMÓWIENIE ZAKOŃCZONE',
-      successTitle: 'Dziękujemy za zakup!',
-      successMessage: 'Płatność została potwierdzona, a potwierdzenie wysłano e-mailem.',
-      successMailpitHint: 'W środowisku dev wiadomość możesz sprawdzić w Mailpit.',
-      successMailpitBtn: 'Otwórz Mailpit',
-      compareTitle: 'Porównanie produktów',
-      compareSubtitle: 'Parametry techniczne pochodzą z katalogu Product Service.',
-      compareParam: 'Parametr',
-      comparePrice: 'Cena',
-      compareManufacturer: 'Producent',
-      compareCategory: 'Kategoria',
-      deliveryHeroEyebrow: 'MINITECH STORE / DOSTAWY',
-      deliveryPageTitle: 'Dostawa i płatność',
-      deliveryPageLead: 'Sprawdź dostępne sposoby dostawy, zasady płatności oraz najważniejsze informacje dotyczące realizacji zamówienia.',
-      deliverySec1Eye: '01 / DOSTAWA',
-      deliverySec1Title: 'Wybierz wygodny sposób odbioru',
-      deliverySec1Lead: 'W docelowej wersji sklepu metoda dostawy będzie wybierana podczas finalizacji zamówienia.',
-      deliveryCard1Title: 'Kurier',
-      deliveryCard1Desc: 'Przesyłka zostanie dostarczona na adres podany przy składaniu zamówienia. Zapisany adres możesz zmienić w zakładce „Profil”.',
-      deliveryCard1Tag: 'Standardowa dostawa',
-      deliveryCard2Title: 'Automat paczkowy',
-      deliveryCard2Desc: 'Odbiór przesyłki w wybranym automacie będzie dostępny po dodaniu integracji z przewoźnikiem.',
-      deliveryCard2Tag: 'Planowane',
-      deliveryCard3Title: 'Punkt odbioru',
-      deliveryCard3Desc: 'W przyszłości zamówienie będzie można skierować do wybranego punktu odbioru.',
-      deliveryCard3Tag: 'Planowane',
-      deliverySec2Eye: '02 / PŁATNOŚĆ',
-      deliverySec2Title: 'Bezpieczne opłacenie zamówienia',
-      deliveryPay1Title: 'Karta',
-      deliveryPay1Desc: 'W profilu `dev/test` płatność kartą jest symulowana przez Payment Service.',
-      deliveryPay2Title: 'BLIK lub przelew',
-      deliveryPay2Desc: 'Metody są dostępne na liście finalizacji jako scenariusze demonstracyjne.',
-      deliveryPay3Title: 'Potwierdzenie',
-      deliveryPay3Desc: 'Po pomyślnym zakupie potwierdzenie jest wysyłane na podany adres e-mail i można je sprawdzić w Mailpit.',
-      deliveryNoticeEye: '03 / PROFILE DEV I TEST',
-      deliveryNoticeTitle: 'Informacja o wersji demonstracyjnej',
-      deliveryNoticeDesc: 'Obecna aplikacja nie wywołuje jeszcze zewnętrznego przewoźnika ani nie pobiera opłaty za realną dostawę. Zamówienie, rezerwacja produktu, symulowana płatność i powiadomienie e-mail służą do testowania przepływu mikroserwisów.',
-      deliveryFaqEye: '04 / FAQ',
-      deliveryFaqTitle: 'Najczęstsze pytania',
-      deliveryFaq1Q: 'Gdzie wpisuję adres dostawy?',
-      deliveryFaq1A: 'Gość wpisuje adres podczas finalizacji zamówienia. Zalogowany klient może korzystać z danych zapisanych w profilu i edytować je przed zakupem.',
-      deliveryFaq2Q: 'Gdzie znajdę potwierdzenie zakupu?',
-      deliveryFaq2A: 'W profilu `dev/test` wiadomość trafia do lokalnego Mailpit. Otwórz go pod adresem <a href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">127.0.0.1:18025</a>.',
-      deliveryFaq3Q: 'Czy mogę kupić bez zakładania konta?',
-      deliveryFaq3A: 'Tak. W sklepie możesz wybrać zakup jako gość i podać dane dostawy oraz adres e-mail ręcznie.',
-      orderDetailTitle: 'Szczegóły zamówienia',
-      orderDetailUserData: 'DANE UŻYTKOWNIKA',
-      orderDetailDeliveryAddress: 'ADRES DOSTAWY',
-      orderDetailPickupPoint: 'PUNKT ODBIORU',
-      orderDetailTracking: 'ŚLEDZENIE DOSTAWY',
-      orderDetailItems: 'POZYCJE ZAMÓWIENIA',
-      orderDetailInvoice: 'FAKTURA VAT',
-      orderDetailReturns: 'ZWROT PRODUKTU',
-      orderDetailInvoiceBtn: 'Pobierz fakturę (PDF)',
-      orderDetailReturnBtn: 'Zgłoś zwrot'
-    },
-    en: {
-      langCode: 'EN',
-      langTitle: 'Switch language to Polish',
-      searchPlaceholder: 'What are you looking for?',
-      navCatalog: 'Catalog',
-      navPromotions: 'Promotions',
-      navNew: 'New Arrivals',
-      navDelivery: 'Delivery',
-      navAbout: 'About Platform',
-      navBackToCatalog: 'Back to catalog',
-      navBackToStore: 'Back to store',
-      authLogin: 'Sign in',
-      authProfile: 'Profile',
-      authOrders: 'My Orders',
-      authWishlist: 'My Wishlist',
-      authSecurity: 'Account Security',
-      authLogout: 'Log out',
-      cartTitle: 'Shopping Cart',
-      cartCount: 'Cart',
-      cartTotal: 'Total',
-      cartCheckout: 'Go to cart',
-      cartClose: 'Close cart preview',
-      cartEmpty: 'Your shopping cart is empty.',
-      heroEyebrowNew: 'DAILY RELEASE / MINITECH STORE',
-      heroTitleNew: 'New gear. <span>Ready for today.</span>',
-      heroLeadNew: 'Discover new products in daily rotation and select hardware with real-time stock levels.',
-      heroBtnNew: 'View new arrivals <span>→</span>',
-      heroBadgeNew: 'NEW',
-      heroEyebrowPromo: 'DEAL OF THE DAY / MINITECH STORE',
-      heroTitlePromo: 'Technology at a <span>better price.</span>',
-      heroLeadPromo: 'Promotions rotate every 24 hours. Discounts from 5% to 50% also apply during checkout.',
-      heroBtnPromo: 'Check promotions <span>→</span>',
-      heroBadgePromo: 'UP TO -50%',
-      heroEyebrowBuild: 'MINI ORDER PLATFORM / DEV',
-      heroTitleBuild: 'Build your <span>setup.</span>',
-      heroLeadBuild: 'CPUs, RAM, SSD drives, and motherboards in one catalog. Compare specs and add products to cart.',
-      heroBtnBuild: 'Browse catalog <span>→</span>',
-      heroBadgeBuild: 'BUILD OF THE DAY',
-      heroTopicNew: 'New products',
-      heroTopicPromo: 'Daily deals',
-      heroTopicBuild: 'Build setup',
-      statsMicroservices: 'microservices',
-      statsDatabases: 'databases & Redis',
-      statsBroker: 'events & outbox',
-      statsDev: 'Mailpit · SOPS · Multi-OS',
-      promoHeadingEyebrow: 'DEAL OF THE DAY',
-      promoHeadingTitle: 'Promotions & Hot Shot',
-      promoRotationNote: 'Promotions change every 24 hours.',
-      hotShotEyebrow: 'HOT SHOT',
-      hotShotTitle: 'Limited offer',
-      hotShotLeft: 'Remaining',
-      hotShotDiscount: 'Discount',
-      hotShotLowestPrice: 'Lowest price in 30 days before discount:',
-      hotShotAdd: 'Add to cart',
-      newProductsEyebrow: 'DAILY ARRIVALS',
-      newProductsTitle: 'New Products',
-      newProductsNote: 'A fresh selection of offers every day.',
-      catalogEyebrow: 'STORE CATALOG',
-      catalogTitle: 'All Products',
-      catalogSortLabel: 'Sort by',
-      catalogSortFeatured: 'Featured',
-      catalogSortPriceAsc: 'Price: low to high',
-      catalogSortPriceDesc: 'Price: high to low',
-      catalogSortNameAsc: 'Name: A-Z',
-      catalogSortNameDesc: 'Name: Z-A',
-      catalogSortStockDesc: 'Availability: high to low',
-      catalogFilterPrice: 'Price (PLN)',
-      catalogFilterManufacturer: 'Manufacturer',
-      catalogFilterInStock: 'In stock only',
-      catalogRefresh: 'Refresh catalog',
-      catalogCompareBarText: 'Selected to compare:',
-      catalogCompareButton: 'Compare products',
-      catalogCompareClear: 'Clear',
-      badgeNew: 'NEW',
-      badgeHotShot: 'HOT SHOT',
-      badgeDiscount: 'SALE',
-      badgeLowStock: 'LOW STOCK',
-      stockAvailable: 'Available',
-      stockAvailableQty: 'In stock:',
-      stockOutOfStock: 'Out of stock',
-      productAddToCart: 'Add to cart',
-      productAdded: 'Added to cart',
-      productCompare: 'Compare',
-      productSpecsTitle: 'Technical Specifications',
-      productReviewsTitle: 'Customer Reviews',
-      productRecommendationsTitle: 'You May Also Like',
-      productRecommendationsNote: 'Similar products from catalog.',
-      productLowestPricePrefix: 'Lowest price in 30 days before discount:',
-      productRegularPriceLabel: 'Regular price:',
-      aboutEyebrow: 'SYSTEM ARCHITECTURE',
-      aboutTitle: 'How does MiniTech Store work?',
-      aboutP1: 'This store is a demonstration e-commerce frontend powered by Java and Spring Boot microservices architecture.',
-      aboutP2: 'The platform features API Gateway, Service Discovery, JWT authentication with MFA/Passkey, guest and customer carts, and asynchronous event brokering.',
-      footerTitle: 'MiniTech Store',
-      footerSubtitle: 'Local demonstration e-commerce store integrated with microservices architecture.',
-      footerLinksTitle: 'Quick links',
-      footerTechTitle: 'Technology',
-      footerCopy: '© 2026 MiniTech Store · Mini Order Platform. All rights reserved.',
-      chatLauncher: 'Chat',
-      chatHeaderTitle: 'Hello!',
-      chatHeaderSubtitle: 'How can we help you?',
-      chatIntro: 'Have a question about a product, order, or delivery? Write to us — responses appear here and will be emailed to your address.',
-      chatLabelName: 'Name',
-      chatLabelEmail: 'Email',
-      chatLabelSubject: 'Subject',
-      chatLabelMessage: 'Message',
-      chatPlaceholderSubject: 'e.g. Question about order',
-      chatPlaceholderMessage: 'How can we help you?',
-      chatSubmit: 'Send message',
-      chatSending: 'Sending message…',
-      chatSent: 'Message sent! Expect a reply in this window.',
-      chatThreadHeader: 'Conversation',
-      chatThreadStateNew: 'New',
-      chatThreadStateAnswered: 'Answered',
-      chatLiveStatus: 'Support will reply here.',
-      chatFallback: 'Waiting for a response? Send an email.',
-      successEyebrow: 'ORDER COMPLETED',
-      successTitle: 'Thank you for your purchase!',
-      successMessage: 'Payment has been confirmed, and receipt has been sent via email.',
-      successMailpitHint: 'In dev environment, you can check emails in Mailpit.',
-      successMailpitBtn: 'Open Mailpit',
-      compareTitle: 'Product Comparison',
-      compareSubtitle: 'Technical specifications from Product Service catalog.',
-      compareParam: 'Parameter',
-      comparePrice: 'Price',
-      compareManufacturer: 'Manufacturer',
-      compareCategory: 'Category',
-      deliveryHeroEyebrow: 'MINITECH STORE / DELIVERY',
-      deliveryPageTitle: 'Delivery & Payment',
-      deliveryPageLead: 'Explore available delivery methods, payment terms, and key order fulfillment details.',
-      deliverySec1Eye: '01 / DELIVERY',
-      deliverySec1Title: 'Choose a convenient pickup method',
-      deliverySec1Lead: 'In the final store version, the delivery method will be selected during checkout.',
-      deliveryCard1Title: 'Courier',
-      deliveryCard1Desc: 'The parcel will be delivered to the address provided during checkout. You can change your saved address in the "Profile" tab.',
-      deliveryCard1Tag: 'Standard delivery',
-      deliveryCard2Title: 'Parcel locker',
-      deliveryCard2Desc: 'Pickup at selected parcel lockers will be available upon carrier integration.',
-      deliveryCard2Tag: 'Planned',
-      deliveryCard3Title: 'Pickup point',
-      deliveryCard3Desc: 'In the future, orders can be dispatched to selected pickup points.',
-      deliveryCard3Tag: 'Planned',
-      deliverySec2Eye: '02 / PAYMENT',
-      deliverySec2Title: 'Secure order payment',
-      deliveryPay1Title: 'Card',
-      deliveryPay1Desc: 'In `dev/test` profile, card payments are simulated by Payment Service.',
-      deliveryPay2Title: 'BLIK or bank transfer',
-      deliveryPay2Desc: 'Methods are available during checkout as demonstration scenarios.',
-      deliveryPay3Title: 'Confirmation',
-      deliveryPay3Desc: 'Upon successful purchase, confirmation is sent via email and can be checked in Mailpit.',
-      deliveryNoticeEye: '03 / DEV & TEST PROFILES',
-      deliveryNoticeTitle: 'Demonstration version note',
-      deliveryNoticeDesc: 'The current application does not yet contact external couriers or charge for real delivery. Orders, stock reservation, simulated payment, and email notifications serve to test the microservices flow.',
-      deliveryFaqEye: '04 / FAQ',
-      deliveryFaqTitle: 'Frequently Asked Questions',
-      deliveryFaq1Q: 'Where do I enter the delivery address?',
-      deliveryFaq1A: 'A guest enters the address during checkout. A logged-in customer can use saved profile data and edit it before purchase.',
-      deliveryFaq2Q: 'Where do I find my purchase confirmation?',
-      deliveryFaq2A: 'In `dev/test` profile, emails arrive in local Mailpit. Open it at <a href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">127.0.0.1:18025</a>.',
-      deliveryFaq3Q: 'Can I buy without creating an account?',
-      deliveryFaq3A: 'Yes. You can purchase as a guest and enter your delivery details and email address manually.',
-      orderDetailTitle: 'Order Details',
-      orderDetailUserData: 'USER DATA',
-      orderDetailDeliveryAddress: 'DELIVERY ADDRESS',
-      orderDetailPickupPoint: 'PICKUP POINT',
-      orderDetailTracking: 'DELIVERY TRACKING',
-      orderDetailItems: 'ORDER ITEMS',
-      orderDetailInvoice: 'VAT INVOICE',
-      orderDetailReturns: 'PRODUCT RETURN',
-      orderDetailInvoiceBtn: 'Download invoice (PDF)',
-      orderDetailReturnBtn: 'Request return'
-    }
-  };
-
-  function getLanguage() {
+function getLanguage() {
     return state.lang;
   }
 
-  function setLanguage(lang) {
+function setLanguage(lang) {
     const nextLang = lang === 'en' ? 'en' : 'pl';
     state.lang = nextLang;
     try {
@@ -427,35 +28,35 @@
     window.dispatchEvent(new CustomEvent('minitech:language-changed', { detail: { language: nextLang } }));
   }
 
-  function toggleLanguage() {
+function toggleLanguage() {
     setLanguage(state.lang === 'en' ? 'pl' : 'en');
   }
 
-  function t(key, fallback = '') {
+function t(key, fallback = '') {
     const dict = DICTIONARY[state.lang] || DICTIONARY.pl;
     return dict[key] !== undefined ? dict[key] : (DICTIONARY.pl[key] || fallback || key);
   }
 
-  function translateCategory(category) {
+function translateCategory(category) {
     const entry = CATEGORY_NAMES[category];
     if (entry) return entry[state.lang] || entry.pl;
     return category || (state.lang === 'en' ? 'General' : 'Ogólne');
   }
 
-  function translateParamKey(key) {
+function translateParamKey(key) {
     const entry = PARAMETER_LABELS[key];
     if (entry) return entry[state.lang] || entry.pl;
     return key;
   }
 
-  function translateOrderStatus(status) {
+function translateOrderStatus(status) {
     const key = String(status || '').toUpperCase();
     const entry = ORDER_STATUSES[key];
     if (entry) return entry[state.lang] || entry.pl;
     return status || '—';
   }
 
-  function formatMoney(amount) {
+function formatMoney(amount) {
     const num = Number(amount || 0);
     if (!Number.isFinite(num)) return state.lang === 'en' ? '0.00 PLN' : '0,00 zł';
     if (state.lang === 'en') {
@@ -464,7 +65,7 @@
     return `${num.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`;
   }
 
-  function updateLabelText(inputSelector, text) {
+function updateLabelText(inputSelector, text) {
     const input = document.querySelector(inputSelector);
     if (!input) return;
     const label = input.closest('label');
@@ -473,7 +74,7 @@
     }
   }
 
-  function applyPageTranslations() {
+function applyPageTranslations() {
     const lang = state.lang;
     const isEn = lang === 'en';
     const dict = DICTIONARY[lang] || DICTIONARY.pl;
@@ -654,6 +255,8 @@
       payMethodSelect.options[1].textContent = isEn ? 'BLIK (simulation)' : 'BLIK (symulacja)';
       payMethodSelect.options[2].textContent = isEn ? 'Pay on delivery' : 'Gotówka przy odbiorze';
       payMethodSelect.options[3].textContent = isEn ? 'Online bank transfer (simulation)' : 'Przelew (symulacja)';
+      const cashPickup = payMethodSelect.querySelector('option[value="CASH_AT_PICKUP"]');
+      if (cashPickup) cashPickup.textContent = isEn ? 'Cash at store pickup' : 'Gotówka w punkcie odbioru';
     }
 
     const chkToSummaryBtn = document.querySelector('#checkout-to-summary');
@@ -970,7 +573,7 @@
     if (compHint) compHint.textContent = dict.compareSubtitle;
   }
 
-  function initHeaderLanguageToggle() {
+function initHeaderLanguageToggle() {
     const existing = document.querySelector('#lang-switch-toggle');
     if (existing) {
       existing.removeEventListener('click', toggleLanguage);
@@ -997,7 +600,7 @@
     }
   }
 
-  window.MiniTechI18n = {
+export const i18n = {
     getLanguage,
     setLanguage,
     toggleLanguage,
@@ -1013,9 +616,9 @@
     ORDER_STATUSES,
     DICTIONARY
   };
+window.MiniTechI18n = i18n;
 
-  document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     initHeaderLanguageToggle();
     applyPageTranslations();
   });
-})();

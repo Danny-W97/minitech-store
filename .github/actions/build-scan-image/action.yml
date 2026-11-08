@@ -1,0 +1,106 @@
+name: Build and scan one local image
+description: Shared PR/release build and scan; never logs in, publishes or signs
+inputs:
+  service:
+    description: Canonical component name
+    required: true
+  image:
+    description: Local image tag
+    required: true
+  export-cache:
+    description: Export per-image cache only from the trusted publication job
+    required: true
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Start build timing
+      shell: bash
+      env:
+        A44_SERVICE: ${{ inputs.service }}
+      run: python3 scripts/deploy/image-evidence.py build --directory "$RUNNER_TEMP/a44-$A44_SERVICE"
+
+    - name: Build JVM image locally
+      id: jvm
+      if: inputs.service != 'frontend'
+      uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      env:
+        DOCKER_BUILD_RECORD_UPLOAD: 'false'
+      with:
+        context: .
+        file: deploy/docker/service.Dockerfile
+        build-args: SERVICE_MODULE=${{ inputs.service }}
+        platforms: linux/amd64
+        push: false
+        load: true
+        tags: ${{ inputs.image }}
+        cache-from: type=gha,scope=a44-${{ inputs.service }}-linux-amd64
+        cache-to: ${{ inputs.export-cache == 'true' && format('type=gha,mode=max,scope=a44-{0}-linux-amd64', inputs.service) || '' }}
+
+    - name: Build frontend image locally
+      id: frontend
+      if: inputs.service == 'frontend'
+      uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      env:
+        DOCKER_BUILD_RECORD_UPLOAD: 'false'
+      with:
+        context: .
+        file: deploy/docker/frontend.Dockerfile
+        platforms: linux/amd64
+        push: false
+        load: true
+        tags: ${{ inputs.image }}
+        cache-from: type=gha,scope=a44-${{ inputs.service }}-linux-amd64
+        cache-to: ${{ inputs.export-cache == 'true' && format('type=gha,mode=max,scope=a44-{0}-linux-amd64', inputs.service) || '' }}
+
+    - name: Start scan timing
+      shell: bash
+      env:
+        A44_SERVICE: ${{ inputs.service }}
+      run: python3 scripts/deploy/image-evidence.py scan --directory "$RUNNER_TEMP/a44-$A44_SERVICE"
+
+    - name: Install SHA256-verified Trivy
+      shell: bash
+      run: python3 scripts/deploy/install-supply-chain-tools.py trivy
+
+    - name: Scan local image ID and generate bound CycloneDX SBOM
+      id: scan
+      shell: bash
+      env:
+        A44_IMAGE: ${{ inputs.image }}
+        A44_SERVICE: ${{ inputs.service }}
+        A44_COMMIT: ${{ github.sha }}
+        A44_IMAGE_ID: ${{ inputs.service == 'frontend' && steps.frontend.outputs.imageid || steps.jvm.outputs.imageid }}
+      run: |
+        python3 scripts/deploy/image-supply-chain.py scan \
+          --image "$A44_IMAGE" --image-id "$A44_IMAGE_ID" \
+          --directory "$RUNNER_TEMP/a44-$A44_SERVICE" --commit "$A44_COMMIT"
+
+    - name: Record bounded build and scan evidence
+      if: always()
+      shell: bash
+      env:
+        A44_SERVICE: ${{ inputs.service }}
+        A44_EVENT: ${{ github.event_name }}
+        A44_COMMIT: ${{ github.sha }}
+        A44_BUILD: ${{ inputs.service == 'frontend' && steps.frontend.outcome || steps.jvm.outcome }}
+        A44_SCAN: ${{ steps.scan.outcome }}
+        A44_IMAGE_ID: ${{ inputs.service == 'frontend' && steps.frontend.outputs.imageid || steps.jvm.outputs.imageid }}
+      run: |
+        python3 scripts/deploy/image-evidence.py finish \
+          --directory "$RUNNER_TEMP/a44-$A44_SERVICE" \
+          --service "$A44_SERVICE" --commit "$A44_COMMIT" --event "$A44_EVENT" \
+          --build "$A44_BUILD" --scan "$A44_SCAN" --image-id "$A44_IMAGE_ID"
+
+    - name: Upload minimal image evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: a44-image-${{ inputs.service }}-${{ github.run_attempt }}
+        path: |
+          ${{ runner.temp }}/a44-${{ inputs.service }}/result.json
+          ${{ runner.temp }}/a44-${{ inputs.service }}/scan.json
+          ${{ runner.temp }}/a44-${{ inputs.service }}/sbom.cdx.json
+          ${{ runner.temp }}/a44-${{ inputs.service }}/supply-chain.json
+        if-no-files-found: warn
+        retention-days: 1

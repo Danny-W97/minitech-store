@@ -177,8 +177,12 @@ verbose "Downloading to: $TMP_DOWNLOAD_DIR/$distributionUrlName"
 
 # select .zip or .tar.gz
 if ! command -v unzip >/dev/null; then
-  distributionUrl="${distributionUrl%.zip}.tar.gz"
-  distributionUrlName="${distributionUrl##*/}"
+  if command -v jar >/dev/null; then
+    :
+  elif [ -z "${distributionSha256Sum-}" ]; then
+    distributionUrl="${distributionUrl%.zip}.tar.gz"
+    distributionUrlName="${distributionUrl##*/}"
+  fi
 fi
 
 # verbose opt
@@ -252,6 +256,8 @@ fi
 # unzip and move
 if command -v unzip >/dev/null; then
   unzip ${__MVNW_QUIET_UNZIP:+"$__MVNW_QUIET_UNZIP"} "$TMP_DOWNLOAD_DIR/$distributionUrlName" -d "$TMP_DOWNLOAD_DIR" || die "failed to unzip"
+elif command -v jar >/dev/null && [ "${distributionUrlName##*.}" = "zip" ]; then
+  (cd "$TMP_DOWNLOAD_DIR" && jar xf "$distributionUrlName") || die "failed to unzip with jar"
 else
   tar xzf${__MVNW_QUIET_TAR:+"$__MVNW_QUIET_TAR"} "$TMP_DOWNLOAD_DIR/$distributionUrlName" -C "$TMP_DOWNLOAD_DIR" || die "failed to untar"
 fi

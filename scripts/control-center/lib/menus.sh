@@ -21,8 +21,13 @@ Bazy per serwis:
   db-down-all                      Zatrzymaj wszystkie bazy
   db-backup [service|all]           Wykonaj szyfrowany backup PostgreSQL
   db-backup-list [service|all]      Pokaz backupy aktywnego profilu
-  db-backup-prune [days]            Usun backupy starsze niz podana retencja
+  db-backup-prune [days]            Podglad wygasania kopii (domyslnie observe; polityka A43.40)
   db-restore-test [service|plik]    Odtworz najnowszy lub wskazany backup testowo
+  privacy-journal-sync            Zapisz i potwierdz minimalne wnioski w niezaleznym rejestrze
+  privacy-restore-drill [set|latest] [current-head]  Odtworz z aktualnym rejestrem, pozostaw kwarantanne
+  platform-backup                 Szyfruj zestaw 14 baz i Redis z manifestem
+  platform-restore-drill [set|latest] [order-id]  Odtworz zestaw w nowych kontenerach bez sieci
+  platform-backup-prune [days]     Podglad wygasania calych zestawow (domyslnie observe)
   backup-key-init [dev|test|all]    Utworz osobny klucz age do szyfrowania backupow
   backup-schedule-install [hour]    Ustaw codzienny backup przez adapter platformy
   backup-schedule-remove            Usun harmonogram backupu z crontab
@@ -70,6 +75,7 @@ Projekty / aplikacje:
   tls-status                       Sprawdz certyfikat TLS wskazanego hosta
   jwt-status                       Pokaz status konfiguracji JWT bez sekretu
   jwt-rotate <dev|test>            Wygeneruj nowy klucz RSA JWT, zachowaj stare klucze publiczne
+  mfa-rotate <dev|test>            Rotuj niezalezny klucz MFA, zachowaj klucze do migracji
   jwt-smoke [email]                Przetestuj login, /me, refresh i logout JWT
   audit-list [limit]               Pokaz trwały dziennik audytowy Customer Service
   password-reset-request [email]   Wyślij żądanie resetu hasła przez API do Mailpit
@@ -77,23 +83,35 @@ Projekty / aplikacje:
   verify-mvp                       Sprawdz pelny scenariusz zamowienie -> platnosc -> e-mail
   delivery-smoke                  Sprawdz metody dostawy i wycene koszyka
   delivery-tracking [orderId]     Pokaz numer przesylki i status przewoznika
+  delivery-sync <orderId>         Pokaz stan synchronizacji dostawy z zamowieniem
+  delivery-reconcile <orderId>    Ponow synchronizacje biezacego statusu dostawy
   delivery-tracking-status [orderId] [status]  Zmien symulowany status przesylki
   promotion-smoke                 Sprawdz aktywna kampanie i wycene promocji
   promotion-codes [kod]           Pokaz lub zweryfikuj kody rabatowe
+  coupon-capacity <kod>           Limit, rezerwacje i wykorzystania kuponu
+  coupon-reservations [kod] [stan] [size] [cursor]  Rejestr kuponow; domyslnie RESERVED
+  order-coupon <id>               Rezerwacja kuponu dla zamowienia
+  order-coupon-reconcile <id>     Zarezerwuj kupon starego zamowienia wedlug zapisanej wyceny
   promotion-code-create           Utworz kod rabatowy dla profilu dev/test
-  returns-list                    Pokaz zwroty i reklamacje
-  returns-status <id> <status>    Zmien status zwrotu lub reklamacji
-  orders-list [limit]             Pokaz wszystkie zamowienia z kwota, e-mailem, pozycjami i faktura
-  invoices-list [limit]           Pokaz liste wszystkich wystawionych faktur VAT
-  invoices-export-zip [plik]      Pobierz archiwum ZIP ze wszystkimi fakturami PDF
-  invoice-correct <id>            Wystaw fakture korygujaca (KOR) do wskazanej faktury
+  returns-list [rozmiar] [kursor] Pokaz strone zwrotow i reklamacji
+  returns-show <id>              Odczytaj stan, pozycje i wersje zgloszenia
+  returns-history <id> [size] [cursor]  Historia decyzji operatora
+  returns-status <id> <status> <wersja> <UUID> <notatka>  Zapisz lub ponow decyzje
+  returns-reconcile <id> <wersja> <UUID> <notatka>  Zweryfikuj starsze nieterminalne zgloszenie
+  orders-list [rozmiar] [kursor]  Pokaz strone zamowien z pozycjami i faktura
+  invoices-list [rozmiar] [kursor] Pokaz strone wystawionych faktur VAT
+  invoices-export-zip [plik] [od] [do]  Eksportuj ZIP; daty ISO-8601 ze strefą
+  invoice-balance <id>            Odczytaj saldo faktury i wersje rejestru korekt
+  invoice-correct <id> <powod> <delta> <klucz> <wersja>  Wystaw lub ponow korekte
   corrections-list [id]           Pokaz liste wystawionych faktur korygujacych
   invoice-show <orderId>          Pokaz fakture dla zamowienia
   invoice-pdf <orderId>            Pobierz PDF faktury do gitIgnoreOwn/runtime/invoices
-  review-pending                  Pokaz opinie oczekujace na moderacje
+  review-pending [rozmiar] [kursor] Pokaz strone opinii do moderacji
   review-moderate <id> <status>   Opublikuj albo odrzuc opinie (PUBLISHED|REJECTED)
-  chat-list [limit]               Pokaz wiadomosci z formularza czatu
-  chat-reply <id> [message]       Odpowiedz klientowi przez e-mail
+  chat-list [rozmiar] [kursor]    Pokaz strone wiadomosci z formularza czatu
+  chat-reply <id> [message] [request-id]  Zapisz odpowiedz i zlec powiadomienie
+  chat-history <id> [before]      Pokaz strone niezmiennej historii rozmowy
+  chat-notification-retry <id> <entry-id>  Ponow przekazanie zadania DEAD_LETTER
   doctor                            Pelna diagnostyka lokalnego srodowiska
 
 Frontend sklepu:
@@ -107,13 +125,26 @@ Centrala webowa:
 
 
 Diagnostyka:
-  monitoring-up                   Uruchom Prometheus i Grafane
+  monitoring-up                   Sprawdz i uruchom Prometheus, Alertmanager i Grafane
+  monitoring-check                Sprawdz konfiguracje i testy regul alertow
+  monitoring-alerts               Pokaz aktywne alarmy Alertmanagera
   monitoring-down                 Zatrzymaj Prometheus i Grafane
   monitoring-status               Pokaz status i endpointy monitoringu
   monitoring-logs [service]       Pokaz logi monitoringu
   monitoring-urls                 Pokaz adresy Prometheus/Grafana
   dlq-list                        Pokaz otwarte wpisy Notification DLQ
   dlq-replay <id>                 Ponow wysylke wpisu z Notification DLQ
+  payment-follow-ups [status] [size] [cursor]  Zadania po platnosci (domyslnie DEAD_LETTER; ALL = wszystkie)
+  payment-follow-up-replay <id>   Ponow nieudane zadanie faktury/przesylki/kuponu
+  payment-collect <id> <kwota-PLN> <dowod>  Zarejestruj pobranie po doreczeniu/odbiorze
+  order-cancel <id>                 Anuluj nieoplacone zamowienie; bez pozornego zwrotu pieniedzy
+  order-sagas [stan] [size] [cursor]  Sagi zamowien, domyslnie wymagajace uzgodnienia
+  order-reconcile <id>              Zweryfikuj rezerwacje starego nieoplaconego zamowienia
+  inventory-receive <id> <ilosc> <UUID>  Przyjmij dostawe; ponawiaj z tym samym UUID
+  inventory-adjust <id> <stan> <wersja> <UUID>  Korekta po odczycie inventory-item
+  inventory-operation <UUID>       Sprawdz trwaly wynik operacji magazynowej
+  inventory-operations [id] [size] [cursor]  Rejestr przyjec i korekt
+  inventory-item <id>              Biezacy zapas i wersja rekordu
   secrets-init                    Utworz klucze age dla profili dev/test
   secrets-setup <dev|test>        Utworz klucz i wprowadz sekrety kreatorem
   secrets-ensure-auth <dev|test>  Wygeneruj brakujacy sekret JWT bez wyswietlania
@@ -240,11 +271,14 @@ database_menu() {
     printf '10. %s\n' "$(cc_text 'Wykonaj backup wszystkich baz' 'Back up all databases')"
     printf '11. %s\n' "$(cc_text 'Pokaz backupy aktywnego profilu' 'Show backups for active profile')"
     printf '12. %s\n' "$(cc_text 'Test odtworzenia backupu' 'Test backup restore')"
-    printf '13. %s\n' "$(cc_text 'Usun backupy starsze niz retencja' 'Delete backups older than retention')"
+    printf '13. %s\n' "$(cc_text 'Podglad wygasania starych backupow' 'Preview backup expiry')"
     printf '14. %s\n' "$(cc_text 'Przygotuj klucz szyfrowania backupow' 'Prepare backup encryption key')"
     printf '15. %s\n' "$(cc_text 'Ustaw automatyczny backup przez crontab WSL' 'Schedule automatic backup with WSL crontab')"
     printf '16. %s\n' "$(cc_text 'Usun harmonogram automatycznego backupu' 'Remove automatic backup schedule')"
     printf '17. %s\n' "$(cc_text 'Pokaz status harmonogramu backupu' 'Show backup schedule status')"
+    printf '18. %s\n' "$(cc_text 'Zaszyfruj zestaw 14 baz i Redis' 'Encrypt 14 databases and Redis as a set')"
+    printf '19. %s\n' "$(cc_text 'Izolowana proba odtworzenia zestawu' 'Isolated platform restore drill')"
+    printf '20. %s\n' "$(cc_text 'Podglad wygasania calych zestawow' 'Preview whole-set expiry')"
     printf '0. %s\n' "$(cc_text 'Powrot' 'Back')"
     choice_prompt
     read -r choice || return
@@ -281,6 +315,13 @@ database_menu() {
       15) run_menu_action backup_schedule_install ;;
       16) run_menu_action backup_schedule_remove ;;
       17) run_menu_action backup_schedule_status ;;
+      18) run_menu_action platform_backup ;;
+      19)
+        printf '%s: ' "$(cc_text 'ID oplaconego zamowienia (Enter = tylko proba techniczna)' 'Paid order ID (Enter = technical drill only)')"
+        read -r recovery_order_id || return
+        run_menu_action platform_restore_drill latest "$recovery_order_id"
+        ;;
+      20) run_menu_action platform_backup_prune ;;
       0) return ;;
       exit|quit) exit 0 ;;
       *) invalid_choice ;;
@@ -430,13 +471,15 @@ production_menu() {
 monitoring_menu() {
   while true; do
     printf '\n%s%s%s\n' "$C_BLUE" "$(cc_text 'Monitoring i Dead Letter Queue' 'Monitoring and Dead Letter Queue')" "$C_RESET"
-    printf '1. %s\n' "$(cc_text 'Uruchom Prometheus i Grafane' 'Start Prometheus and Grafana')"
-    printf '2. %s\n' "$(cc_text 'Zatrzymaj Prometheus i Grafane' 'Stop Prometheus and Grafana')"
+    printf '1. %s\n' "$(cc_text 'Sprawdz i uruchom monitoring' 'Validate and start monitoring')"
+    printf '2. %s\n' "$(cc_text 'Zatrzymaj monitoring' 'Stop monitoring')"
     printf '3. %s\n' "$(cc_text 'Status monitoringu' 'Monitoring status')"
-    printf '4. %s\n' "$(cc_text 'Pokaz logi Prometheus/Grafana' 'Show Prometheus/Grafana logs')"
+    printf '4. %s\n' "$(cc_text 'Pokaz logi monitoringu' 'Show monitoring logs')"
     printf '5. %s\n' "$(cc_text 'Pokaz adresy monitoringu' 'Show monitoring URLs')"
     printf '6. %s\n' "$(cc_text 'Pokaz otwarte wpisy DLQ' 'Show open DLQ entries')"
     printf '7. %s\n' "$(cc_text 'Ponow wysylke wpisu DLQ' 'Replay DLQ entry')"
+    printf '8. %s\n' "$(cc_text 'Sprawdz konfiguracje i reguly alertow' 'Validate monitoring and alert rules')"
+    printf '9. %s\n' "$(cc_text 'Pokaz aktywne alarmy' 'Show active alerts')"
     printf '0. %s\n' "$(cc_text 'Powrot' 'Back')"
     choice_prompt
     read -r choice || return
@@ -447,6 +490,8 @@ monitoring_menu() {
       4) run_menu_action monitoring_logs ;;
       5) run_menu_action monitoring_urls ;;
       6) run_menu_action dead_letter_list ;;
+      8) run_menu_action monitoring_check ;;
+      9) run_menu_action monitoring_alerts ;;
       7)
         printf '%s: ' "$(cc_text 'Podaj ID wpisu DLQ' 'Enter DLQ entry ID')"
         read -r dead_letter_id || exit 0

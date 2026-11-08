@@ -3,6 +3,7 @@ package org.demo.productservice.product;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -19,16 +20,18 @@ public class PromotionClient {
     private static final Logger log = LoggerFactory.getLogger(PromotionClient.class);
     private final RestClient client;
 
-    public PromotionClient(@Value("${services.promotion.base-url:http://localhost:18089}") String baseUrl) {
-        this.client = RestClient.builder().baseUrl(baseUrl).build();
+    @Autowired
+    public PromotionClient(RestClient.Builder builder, @Value("${services.promotion.base-url:http://localhost:18089}") String baseUrl) {
+        this(builder.clone().baseUrl(baseUrl).build());
     }
 
-    public Map<Long, DailyCatalogRotation.ProductOffer> evaluate(List<Product> catalog) {
+    PromotionClient(RestClient client) { this.client = client; }
+
+    public Map<Long, DailyCatalogRotation.ProductOffer> evaluate(List<CatalogProduct> catalog) {
         if (catalog.isEmpty()) return Map.of();
-        int size = catalog.size();
         List<PromotionEvaluationRequest> request = catalog.stream()
-                .map(product -> new PromotionEvaluationRequest(product.getId(), product.getPrice(),
-                        catalog.indexOf(product), size)).toList();
+                .map(entry -> new PromotionEvaluationRequest(entry.product().getId(), entry.product().getPrice(),
+                        entry.index(), entry.size())).toList();
         try {
             List<PromotionEvaluationResponse> response = client.post()
                     .uri("/promotions/evaluate")

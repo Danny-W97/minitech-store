@@ -1,0 +1,16 @@
+package org.demo.platformevents;
+
+import org.junit.jupiter.api.Test;
+import java.util.*;
+import static org.assertj.core.api.Assertions.*;
+
+class EventIdentityVersionTest {
+    Map<String,String> old(){var fields=new LinkedHashMap<String,String>();fields.put("eventType","PAYMENT_SUCCEEDED");fields.put("orderId","71");fields.put("amount","10.00");fields.put("recipient","owner@fixture.example");fields.put("eventKey","PAYMENT_SUCCEEDED:71:owner@fixture.example");fields.put("eventId",EventIdentity.payment(fields.get("eventKey")));fields.put("deliveryAddress","Private fixture address");fields.put("correlationId","trace");return fields;}
+    Map<String,String> modern(Map<String,String> old){var result=new LinkedHashMap<>(old);result.put("eventId","payment-v2-"+UUID.randomUUID());result.put("eventKey","v2:"+EventIdentity.hash(old.get("eventKey")));result.put("protocolVersion","2");result.put("legacyEventId",EventIdentity.payment(old.get("eventKey")));return result;}
+    @Test void v2CarriesTheExactLegacyFingerprintWithoutAnEmailInItsIdentity(){var old=old();var fields=modern(old);var identity=EventIdentity.envelope(fields.get("eventId"),fields);assertThat(identity.canonicalId()).isEqualTo(old.get("eventId"));assertThat(identity.payloadHash()).isEqualTo(EventIdentity.fingerprint(old));assertThat(fields.get("eventKey")).doesNotContain("owner","@");assertThat(identity.aliasId()).startsWith("payment-v2-");}
+    @Test void equivalentAliasesShareOneCanonicalBusinessIdentity(){var old=old();var first=modern(old);var second=modern(old);var a=EventIdentity.envelope(first.get("eventId"),first);var b=EventIdentity.envelope(second.get("eventId"),second);assertThat(a.aliasId()).isNotEqualTo(b.aliasId());assertThat(a.canonicalId()).isEqualTo(b.canonicalId());assertThat(a.payloadHash()).isEqualTo(b.payloadHash());}
+    @Test void changedAmountAndPrivateContentRemainConflicts(){var old=old();for(String field:List.of("amount","deliveryAddress","correlationId")){var changed=modern(old);changed.put(field,field.equals("amount")?"11.00":"different");assertThat(EventIdentity.envelope(changed.get("eventId"),changed).payloadHash()).isNotEqualTo(EventIdentity.fingerprint(old));}}
+    @Test void recipientOrderAndAliasBindingsCannotBeForged(){for(String field:List.of("recipient","orderId","eventKey","legacyEventId","eventId")){var fields=modern(old());String supplied=fields.get("eventId");fields.put(field,field.equals("recipient")?"other@fixture.example":field.equals("orderId")?"72":"wrong");assertThatThrownBy(()->EventIdentity.envelope(supplied,fields)).isInstanceOf(IllegalArgumentException.class);}}
+    @Test void unknownVersionsAreNotSilentlyReadAsLegacy(){var fields=old();fields.put("protocolVersion","3");assertThatThrownBy(()->EventIdentity.envelope(fields.get("eventId"),fields)).isInstanceOf(IllegalArgumentException.class);}
+    @Test void legacyExplicitKeyAndStreamRecordFallbacksRetainTheirOldRules(){var fields=old();assertThat(EventIdentity.id("payments","1-0",fields)).isEqualTo(fields.get("eventId"));fields.remove("eventId");assertThat(EventIdentity.id("payments","2-0",fields)).isEqualTo(EventIdentity.payment(fields.get("eventKey")));fields.remove("eventKey");assertThat(EventIdentity.id("payments","2-0",fields)).isEqualTo("legacy-"+EventIdentity.hash("payments:2-0"));}
+}

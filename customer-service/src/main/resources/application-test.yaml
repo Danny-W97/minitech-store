@@ -17,6 +17,16 @@ spring:
       enabled: false
 
 customer:
+  privacy:
+    worker:
+      enabled: false
+  export:
+    cleanup:
+      enabled: false
+  audit-retention:
+    mode: "off"
+  security-retention:
+    enabled: false
   verification:
     ttl-seconds: 300
     resend:

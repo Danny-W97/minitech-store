@@ -18,10 +18,11 @@ import java.util.Set;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private RestoreEpochStore restoreEpoch;
+    private final InternalAuthController internalAuth;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
+    public JwtAuthenticationFilter(InternalAuthController internalAuth) {
+        this.internalAuth = internalAuth;
     }
 
     @Override
@@ -31,10 +32,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        request.setAttribute(org.demo.platformsecurity.Access.ACTOR,org.demo.platformsecurity.Actor.ANONYMOUS);
         if (authorization != null && authorization.startsWith("Bearer ")) {
             String rawToken = authorization.substring("Bearer ".length()).trim();
-            jwtService.parseAccessToken(rawToken).ifPresent(claims -> {
-                CustomerPrincipal principal = new CustomerPrincipal(claims.customerId(), claims.email());
+            var actor = internalAuth.resolve(rawToken);
+            request.setAttribute(org.demo.platformsecurity.Access.ACTOR,actor);
+            if(actor.internal()&&org.demo.platformsecurity.RoutePolicy.allowed(request.getMethod(),request.getRequestURI(),actor)
+                    &&(request.getRequestURI().startsWith("/internal/privacy/fences/")||request.getRequestURI().startsWith("/internal/privacy/account-cleanup/"))) {
+                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor,null,List.of(new SimpleGrantedAuthority("ROLE_SERVICE"))));
+            }
+            if (operatorRead(request) && actor.operator()) {
+                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                        "operator", null, List.of(new SimpleGrantedAuthority("ROLE_OPERATOR"))));
+            }
+            if ("CUSTOMER".equals(actor.role())) {
+                CustomerPrincipal principal = new CustomerPrincipal(actor.customerId(), actor.email());
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 principal,
@@ -42,9 +54,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
                         );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-            });
+            }
         }
-        if (isProtectedCustomerPath(request.getRequestURI())
+        if(restoreEpoch!=null&&request.getRequestURI().startsWith("/customers")&&!org.demo.platformsecurity.Access.actor().operator()&&!org.demo.platformsecurity.Access.actor().internal()){
+            try{if(!restoreEpoch.permitsLogin()){response.sendError(503,"Restored environment requires reconciliation");return;}}
+            catch(org.springframework.dao.DataAccessException unavailable){response.sendError(503,"Authentication state unavailable");return;}
+        }
+        if (isProtectedCustomerPath(request) && !operatorReadAuthenticated(request)
                 && !(SecurityContextHolder.getContext().getAuthentication() != null
                 && SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof CustomerPrincipal)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required");
@@ -53,7 +69,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isProtectedCustomerPath(String path) {
+    private boolean operatorRead(HttpServletRequest request) {
+        return (request.getRequestURI().startsWith("/customers/privacy-journal/")&&(request.getMethod().equals("GET")||request.getMethod().equals("POST")))||"GET".equals(request.getMethod()) && (request.getRequestURI().matches("/customers(/(\\d+|operator-session))?")
+                ||request.getRequestURI().matches("/customers/privacy-requests/[0-9a-fA-F-]{36}/operator-status"))
+                ||"POST".equals(request.getMethod())&&request.getRequestURI().matches("/customers/privacy-requests/[0-9a-fA-F-]{36}/retry");
+    }
+
+    private boolean operatorReadAuthenticated(HttpServletRequest request) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return operatorRead(request) && authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_OPERATOR"));
+    }
+
+    private boolean isProtectedCustomerPath(HttpServletRequest request) {
+        String path=request.getRequestURI();
+        if(request.getMethod().equals("GET")&&path.matches("/customers/privacy-requests/[0-9a-fA-F-]{36}/status"))return false;
         if (!path.startsWith("/customers/") || path.equals("/customers/")) {
             return false;
         }

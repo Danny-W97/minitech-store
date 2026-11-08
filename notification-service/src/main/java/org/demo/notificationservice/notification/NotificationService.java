@@ -1,6 +1,6 @@
 package org.demo.notificationservice.notification;
 
-import org.demo.notificationservice.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.demo.notificationservice.web.CreateNotificationRequest;
@@ -20,88 +20,43 @@ public class NotificationService {
     private final NotificationDeliveryService deliveryService;
     private final NotificationRetryPolicy retryPolicy;
     private final NotificationDeadLetterService deadLetterService;
+    private final NotificationStateStore states;
 
     public NotificationService(
             NotificationRepository notificationRepository,
             NotificationDeliveryService deliveryService,
             NotificationRetryPolicy retryPolicy,
-            NotificationDeadLetterService deadLetterService
+            NotificationDeadLetterService deadLetterService, NotificationStateStore states
     ) {
         this.notificationRepository = notificationRepository;
         this.deliveryService = deliveryService;
         this.retryPolicy = retryPolicy;
         this.deadLetterService = deadLetterService;
+        this.states = states;
     }
 
-    @Transactional
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public NotificationResponse create(CreateNotificationRequest request) {
-        String correlationId = CorrelationIdContext.currentOrNew();
-        log.info("Creating notification for event {} and source {}", request.eventType(), request.sourceId());
-        Notification existing = notificationRepository
-                .findByEventTypeAndSourceIdAndRecipient(
-                        request.eventType(), request.sourceId(), request.recipient()
-                )
-                .orElse(null);
-
-        if (existing != null && existing.getStatus() == NotificationStatus.SENT) {
-            return NotificationResponse.from(existing);
-        }
-
-        Notification notification = existing;
-        if (notification == null) {
-            notification = new Notification(
-                    request.eventType(),
-                    request.sourceId(),
-                    request.recipient(),
-                    request.channel(),
-                    request.subject(),
-                    request.message(),
-                    correlationId,
-                    request.invoiceId()
-            );
-        } else {
-            notification.prepareForRetry(
-                    request.recipient(),
-                    request.channel(),
-                    request.subject(),
-                    request.message(),
-                    correlationId,
-                    request.invoiceId()
-            );
-        }
-        return NotificationResponse.from(deliverAndStore(notification, request.simulateFailure()));
+        NotificationStateStore.Ticket ticket;
+        try { ticket=states.create(request); }
+        catch (org.springframework.dao.DataIntegrityViolationException concurrentInsert) { ticket=states.create(request); }
+        return deliver(ticket,request.simulateFailure());
     }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    public void retry(Notification notification) { retry(notification.getId()); }
 
-    @Transactional
-    public void retry(Notification notification) {
-        if (notification.getStatus() != NotificationStatus.FAILED
-                || notification.getNextAttemptAt() == null) {
-            return;
-        }
-        deliverAndStore(notification, false);
-    }
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    public void retry(Long id) { deliver(states.retry(id),false); }
 
-    private Notification deliverAndStore(Notification notification, boolean simulateFailure) {
-        notification.startDeliveryAttempt();
-        notificationRepository.save(notification);
-
-        NotificationDeliveryResult delivery = deliveryService.deliver(notification, simulateFailure);
-        if (delivery.sent()) {
-            notification.markSent(delivery.providerReference());
-        } else {
-            Instant nextAttemptAt = simulateFailure
-                    ? null
-                    : retryPolicy.nextAttemptAt(notification.getAttemptCount());
-            notification.markFailed(delivery.failureReason(), nextAttemptAt);
-        }
-        Notification stored = notificationRepository.save(notification);
-        log.info("Notification {} delivery status: {}", stored.getId(), stored.getStatus());
-        if (stored.getStatus() == NotificationStatus.SENT) {
-            deadLetterService.resolveByNotificationId(stored.getId());
-        } else if (!simulateFailure && stored.getNextAttemptAt() == null) {
-            deadLetterService.record(stored);
-        }
-        return stored;
+    private NotificationResponse deliver(NotificationStateStore.Ticket ticket,boolean simulated) {
+        if (ticket.token()==null) return NotificationResponse.from(ticket.notification());
+        NotificationDeliveryResult result;
+        try (var ignored=org.demo.platformsecurity.RequestBudget.open(8000);
+             var correlation=CorrelationIdContext.open(ticket.notification().getCorrelationId())) {
+            org.demo.platformsecurity.RequestBudget.check();
+            result=deliveryService.deliver(ticket.notification(),simulated);
+        } catch (RuntimeException failure) { result=NotificationDeliveryResult.uncertain("Delivery outcome unknown; manual review required: "+failure.getMessage()); }
+        return NotificationResponse.from(states.complete(ticket,result,simulated));
     }
 
     public NotificationResponse get(Long notificationId) {
@@ -111,33 +66,19 @@ public class NotificationService {
     }
 
     public List<NotificationResponse> getAll() {
-        return notificationRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(NotificationResponse::from)
-                .toList();
+        return list(null, null, org.demo.platformsecurity.ListWindow.FIRST).items();
     }
 
     public List<NotificationResponse> getBySourceId(Long sourceId) {
-        return notificationRepository.findAllBySourceIdOrderByCreatedAtDesc(sourceId).stream()
-                .map(NotificationResponse::from)
-                .toList();
+        return list(sourceId, null, org.demo.platformsecurity.ListWindow.FIRST).items();
     }
 
-    @Transactional
-    public NotificationResponse replayDeadLetter(Long deadLetterId) {
-        NotificationDeadLetterEntry deadLetter = deadLetterService.get(deadLetterId);
-        Notification notification = notificationRepository.findById(deadLetter.getNotificationId())
-                .orElseThrow(() -> new NotificationNotFoundException(deadLetter.getNotificationId()));
-
-        notification.prepareForRetry(
-                deadLetter.getRecipient(),
-                deadLetter.getChannel(),
-                deadLetter.getSubject(),
-                deadLetter.getMessage()
-        );
-        NotificationResponse response = NotificationResponse.from(deliverAndStore(notification, false));
-        if (response.status() == NotificationStatus.SENT) {
-            deadLetterService.resolve(deadLetter);
-        }
-        return response;
+    @Transactional(readOnly = true)
+    public org.demo.platformsecurity.ListWindow.ListPage<NotificationResponse> list(Long sourceId, NotificationStatus status,
+            org.demo.platformsecurity.ListWindow window) {
+        return window.map(notificationRepository.page(window.ceiling(), sourceId, status, window.fetch()), Notification::getId, NotificationResponse::from);
     }
+
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    public NotificationResponse replayDeadLetter(Long id) { return deliver(states.replay(id),false); }
 }

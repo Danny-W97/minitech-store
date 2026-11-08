@@ -1,2 +1,5 @@
 spring.config.activate.on-profile: test
 spring.docker.compose.enabled: false
+outbox.retention.mode: "off"
+messaging.rejected-inbox-retention.mode: "off"
+messaging.invoice-stream-retention.mode: "off"

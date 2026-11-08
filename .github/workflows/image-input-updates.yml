@@ -1,0 +1,22 @@
+name: Review image input updates
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare upstream-verified candidate without applying changes
+        run: python3 scripts/deploy/refresh-supply-chain-lock.py --output "$RUNNER_TEMP/a44-update-candidate"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: a44-image-input-update-candidate
+          path: ${{ runner.temp }}/a44-update-candidate/
+          retention-days: 1

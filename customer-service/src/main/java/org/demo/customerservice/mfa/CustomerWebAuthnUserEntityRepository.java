@@ -40,7 +40,8 @@ public class CustomerWebAuthnUserEntityRepository implements PublicKeyCredential
 
     @Override
     public void delete(Bytes id) {
-        // Customer deletion cascades credentials through the Customer DB schema.
+        // Account cleanup explicitly removes ID-bound credentials in bounded batches.
+        // user_credentials has no Customer foreign key; this callback does not delete an account.
     }
 
     public static Bytes userId(Long customerId) {

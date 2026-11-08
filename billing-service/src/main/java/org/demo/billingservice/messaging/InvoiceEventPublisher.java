@@ -2,12 +2,6 @@ package org.demo.billingservice.messaging;
 
 import org.demo.billingservice.billing.Invoice;
 import org.demo.billingservice.billing.InvoiceCorrection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.connection.stream.StreamRecords;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -16,19 +10,11 @@ import java.util.Map;
 @Component
 public class InvoiceEventPublisher {
 
-    private static final Logger log = LoggerFactory.getLogger(InvoiceEventPublisher.class);
+    private final InvoiceOutboxRepository outbox;
+    @org.springframework.beans.factory.annotation.Autowired private org.demo.platformsecurity.privacy.PrivacySql privacy;
+    public InvoiceEventPublisher(InvoiceOutboxRepository outbox) { this.outbox=outbox; }
 
-    private final StringRedisTemplate redisTemplate;
-    private final String streamName;
-
-    public InvoiceEventPublisher(
-            StringRedisTemplate redisTemplate,
-            @Value("${messaging.invoice-stream:invoice-events}") String streamName
-    ) {
-        this.redisTemplate = redisTemplate;
-        this.streamName = streamName;
-    }
-
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public boolean publishInvoiceIssued(Invoice invoice) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("eventType", "INVOICE_ISSUED");
@@ -50,19 +36,11 @@ public class InvoiceEventPublisher {
             fields.put("createdAt", invoice.getCreatedAt().toString());
         }
 
-        try {
-            redisTemplate.opsForStream().add(
-                    StreamRecords.newRecord().ofMap(fields).withStreamKey(streamName)
-            );
-            log.info("Published INVOICE_ISSUED event to stream '{}' for invoice {} (order #{})",
-                    streamName, invoice.getInvoiceNumber(), invoice.getOrderId());
-            return true;
-        } catch (DataAccessException | IllegalStateException exception) {
-            log.warn("Could not publish INVOICE_ISSUED event to stream '{}': {}", streamName, exception.getMessage());
-            return false;
-        }
+        save("invoice-issued-"+invoice.getId(),fields);
+        return true;
     }
 
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
     public boolean publishInvoiceCorrected(InvoiceCorrection correction) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("eventType", "INVOICE_CORRECTED");
@@ -74,20 +52,19 @@ public class InvoiceEventPublisher {
         fields.put("reason", correction.getReason());
         fields.put("correctionGross", correction.getCorrectionGross().toPlainString());
         fields.put("finalGross", correction.getFinalGross().toPlainString());
+        fields.put("balanceModel",correction.getLedgerVersion()==null ? "LEGACY_BASE_DELTA" : "CUMULATIVE_DELTA");
+        if(correction.getLedgerVersion()!=null) fields.put("balanceVersion",correction.getLedgerVersion().toString());
         if (correction.getCreatedAt() != null) {
             fields.put("createdAt", correction.getCreatedAt().toString());
         }
 
-        try {
-            redisTemplate.opsForStream().add(
-                    StreamRecords.newRecord().ofMap(fields).withStreamKey(streamName)
-            );
-            log.info("Published INVOICE_CORRECTED event to stream '{}' for correction {} (order #{})",
-                    streamName, correction.getCorrectionNumber(), correction.getOrderId());
-            return true;
-        } catch (DataAccessException | IllegalStateException exception) {
-            log.warn("Could not publish INVOICE_CORRECTED event to stream '{}': {}", streamName, exception.getMessage());
-            return false;
-        }
+        save("invoice-corrected-"+correction.getId(),fields);
+        return true;
+    }
+
+    private void save(String id,Map<String,String> fields){
+        boolean sealed=privacy!=null&&privacy.orderSealed(Long.parseLong(fields.get("orderId")));
+        if(sealed){fields.keySet().removeAll(java.util.Set.of("customerEmail","buyerName","companyName","reason"));fields.put("privacySuppressed","true");}
+        var event=new InvoiceOutboxEvent(id,fields);if(sealed)event.privacySafe();outbox.save(event);
     }
 }

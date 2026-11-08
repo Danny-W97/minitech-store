@@ -4,12 +4,11 @@ import org.demo.notificationservice.notification.NotificationChannel;
 import org.demo.notificationservice.notification.NotificationEventType;
 import org.demo.notificationservice.notification.NotificationService;
 import org.demo.notificationservice.notification.NotificationStatus;
-import org.demo.notificationservice.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import org.demo.notificationservice.web.CreateNotificationRequest;
 import org.demo.notificationservice.web.NotificationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataAccessException;
@@ -33,107 +32,42 @@ public class PaymentEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentEventConsumer.class);
 
-    private final StringRedisTemplate redisTemplate;
-    private final NotificationService notificationService;
+    private final org.demo.platformevents.RedisEventStreams stream;
+    private final NotificationEventInbox inbox;
+    private final RejectedEventStore rejected;
     private final String streamName;
-    private final String groupName;
-    private final String consumerName;
-    private boolean groupReady;
-
-    public PaymentEventConsumer(
-            StringRedisTemplate redisTemplate,
-            NotificationService notificationService,
+    public PaymentEventConsumer(StringRedisTemplate redis,NotificationEventInbox inbox,RejectedEventStore rejected,
             @Value("${messaging.payment-stream}") String streamName,
-            @Value("${messaging.consumer.group}") String groupName,
-            @Value("${messaging.consumer.name}") String consumerName
-    ) {
-        this.redisTemplate = redisTemplate;
-        this.notificationService = notificationService;
-        this.streamName = streamName;
-        this.groupName = groupName;
-        this.consumerName = consumerName;
+            @Value("${messaging.consumer.group:notification-service}") String group,
+            @Value("${messaging.consumer.name:notification-service}") String name,
+            @Value("${messaging.consumer.claim-idle-ms:60000}") long idle,
+            @Value("${messaging.retention.age-ms:604800000}") long retention,
+            @Value("${messaging.retention.required-groups:notification-service,billing-service}") String requiredGroups) {
+        this.streamName=streamName;this.inbox=inbox;this.rejected=rejected;
+        stream=new org.demo.platformevents.RedisEventStreams(redis,streamName,group,name,idle,retention,requiredGroups);
     }
-
-    @Scheduled(fixedDelayString = "${messaging.consumer.fixed-delay-ms:1000}")
+    @Scheduled(fixedDelayString="${messaging.consumer.fixed-delay-ms:1000}")
     public void consume() {
-        try {
-            ensureConsumerGroup();
-            consumeBatch(ReadOffset.from("0-0"));
-            consumeBatch(ReadOffset.lastConsumed());
-        } catch (DataAccessException exception) {
-            log.warn("Payment event broker is unavailable for stream '{}' and group '{}': {}",
-                    streamName, groupName, exception.getMessage(), exception);
-        }
+        try { stream.poll(this::processRecord); }
+        catch(RuntimeException error) { log.warn("Payment stream polling failed; records remain pending",error); }
     }
-
-    void processRecord(MapRecord<String, ?, ?> record) {
-        if ("true".equals(record.getValue().get("_bootstrap"))) {
-            acknowledge(record);
-            return;
-        }
-
-        String correlationId = CorrelationIdContext.resolve(optional(record.getValue(), "correlationId"));
-        try (MDC.MDCCloseable ignored = MDC.putCloseable(CorrelationIdContext.MDC_KEY, correlationId)) {
-            log.info("Processing payment event {}", record.getId());
+    void processRecord(MapRecord<String,?,?> record) {
+        var fields=org.demo.platformevents.EventIdentity.fields(record.getValue());
+        if("true".equals(fields.get("_bootstrap"))) { stream.acknowledge(record.getId());return; }
+        try(var correlation=CorrelationIdContext.open(fields.get("correlationId"))) {
             try {
-                NotificationResponse response = notificationService.create(toNotificationRequest(record));
-                if (response.status() == NotificationStatus.SENT) {
-                    acknowledge(record);
-                } else {
-                    acknowledge(record);
-                    log.warn("Payment event {} acknowledged after durable notification retry scheduling", record.getId());
-                }
-            } catch (IllegalArgumentException exception) {
-                log.warn("Ignoring malformed payment event {}: {}", record.getId(), exception.getMessage());
-                acknowledge(record);
-            } catch (RuntimeException exception) {
-                log.warn("Payment event {} will be retried: {}", record.getId(), exception.getMessage());
+                org.demo.platformevents.PaymentEventData.parse(fields);
+                String id=org.demo.platformevents.EventIdentity.id(streamName,record.getId().getValue(),fields);
+                var request=toNotificationRequest(record);
+                if(request.message().length()>1000) throw new IllegalArgumentException("Notification message exceeds the schema limit");
+                try { inbox.accept(id,fields,request); }
+                catch(org.springframework.dao.DataIntegrityViolationException insertRace) { inbox.accept(id,fields,request); }
+            } catch(IllegalArgumentException malformed) {
+                try { rejected.reject(streamName,record.getId().getValue(),fields,malformed.getMessage()); }
+                catch(org.springframework.dao.DataIntegrityViolationException insertRace) { rejected.reject(streamName,record.getId().getValue(),fields,malformed.getMessage()); }
             }
-        }
-    }
-
-    private void ensureConsumerGroup() {
-        if (groupReady) {
-            return;
-        }
-
-        redisTemplate.opsForStream().add(StreamRecords.newRecord()
-                .ofMap(Map.of("_bootstrap", "true"))
-                .withStreamKey(streamName));
-        try {
-            redisTemplate.opsForStream().createGroup(
-                    streamName,
-                    ReadOffset.from("0-0"),
-                    groupName
-            );
-        } catch (DataAccessException exception) {
-            if (!isConsumerGroupAlreadyExists(exception)) {
-                throw exception;
-            }
-        }
-        groupReady = true;
-    }
-
-    private boolean isConsumerGroupAlreadyExists(Throwable exception) {
-        Throwable current = exception;
-        while (current != null) {
-            if (String.valueOf(current.getMessage()).contains("BUSYGROUP")) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private void consumeBatch(ReadOffset offset) {
-        List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream().read(
-                Consumer.from(groupName, consumerName),
-                StreamReadOptions.empty().count(20),
-                StreamOffset.create(streamName, offset)
-        );
-        if (records != null) {
-            records.forEach(this::processRecord);
-        }
+            stream.acknowledge(record.getId());
+        } catch(RuntimeException error) { log.warn("Event {} remains pending until its SQL commit/ACK succeeds",record.getId(),error); }
     }
 
     private CreateNotificationRequest toNotificationRequest(MapRecord<String, ?, ?> record) {
@@ -192,7 +126,4 @@ public class PaymentEventConsumer {
         return rawValue == null ? null : rawValue.toString();
     }
 
-    private void acknowledge(MapRecord<String, ?, ?> record) {
-        redisTemplate.opsForStream().acknowledge(streamName, groupName, record.getId());
-    }
 }

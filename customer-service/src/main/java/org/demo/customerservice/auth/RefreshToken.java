@@ -36,6 +36,12 @@ public class RefreshToken {
     @Column(name = "auth_method", nullable = false, length = 40)
     private String authenticationMethod;
 
+    @Column(name = "family_id", nullable = false, length = 64)
+    private String familyId;
+
+    @Column(name = "rotated_at")
+    private Instant rotatedAt;
+
     protected RefreshToken() {
     }
 
@@ -44,11 +50,16 @@ public class RefreshToken {
     }
 
     public RefreshToken(Long customerId, String tokenHash, Instant expiresAt, String authenticationMethod) {
+        this(customerId, tokenHash, expiresAt, authenticationMethod, java.util.UUID.randomUUID().toString());
+    }
+
+    public RefreshToken(Long customerId, String tokenHash, Instant expiresAt, String authenticationMethod, String familyId) {
         this.customerId = customerId;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
         this.authenticationMethod = authenticationMethod == null || authenticationMethod.isBlank()
                 ? "pwd" : authenticationMethod;
+        this.familyId = familyId;
     }
 
     public boolean isUsable(Instant now) {
@@ -59,6 +70,11 @@ public class RefreshToken {
         if (revokedAt == null) {
             revokedAt = Instant.now();
         }
+    }
+
+    public void rotate() {
+        rotatedAt = Instant.now();
+        revoke();
     }
 
     @PrePersist
@@ -73,4 +89,6 @@ public class RefreshToken {
     public Instant getRevokedAt() { return revokedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public String getAuthenticationMethod() { return authenticationMethod; }
+    public String getFamilyId() { return familyId; }
+    public Instant getRotatedAt() { return rotatedAt; }
 }

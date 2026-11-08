@@ -8,6 +8,7 @@ public record InventoryItemResponse(
         Integer reservedQuantity,
         Integer soldQuantity,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        long version
 ) {
 }

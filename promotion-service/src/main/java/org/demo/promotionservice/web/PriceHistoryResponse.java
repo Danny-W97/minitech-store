@@ -6,5 +6,5 @@ import java.time.LocalDate;
 
 public record PriceHistoryResponse(Long productId, String campaignCode, BigDecimal regularPrice,
                                    BigDecimal promotionalPrice, int discountPercent, LocalDate rotationDate,
-                                   Instant recordedAt) {
+                                   Instant recordedAt, Long priceRevision, Long layoutRevision, String sourceType) {
 }

@@ -5,7 +5,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "invoice_corrections")
+@Table(name = "invoice_corrections",uniqueConstraints={
+        @UniqueConstraint(name="uk_correction_request",columnNames={"invoice_id","idempotency_key"}),
+        @UniqueConstraint(name="uk_correction_version",columnNames={"invoice_id","ledger_version"})})
 public class InvoiceCorrection {
 
     @Id
@@ -54,6 +56,14 @@ public class InvoiceCorrection {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+    @Column(name="idempotency_key",length=100) private String idempotencyKey;
+    @Column(name="ledger_version") private Long ledgerVersion;
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public Long getLedgerVersion() { return ledgerVersion; }
+    public void bindLedger(String key,long version) {
+        if(idempotencyKey!=null || ledgerVersion!=null) throw new IllegalStateException("Correction is immutable");
+        idempotencyKey=key;ledgerVersion=version;
+    }
 
     protected InvoiceCorrection() {}
 

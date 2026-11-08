@@ -8,7 +8,7 @@ import org.demo.customerservice.auth.PasswordResetToken;
 import org.demo.customerservice.auth.PasswordResetTokenRepository;
 import org.demo.customerservice.auth.RefreshToken;
 import org.demo.customerservice.auth.RefreshTokenRepository;
-import org.demo.customerservice.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import org.demo.customerservice.audit.AuditService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -106,7 +106,7 @@ public class CustomerService {
 
         Customer saved = repository.saveAndFlush(customer);
         notificationClient.sendConfirmation(saved, verificationLinkBaseUrl + rawToken);
-        auditService.record("CUSTOMER_REGISTERED", saved.getEmail(), "CUSTOMER", "PENDING", "verification_required");
+        auditService.recordForCustomer(saved.getId(),"CUSTOMER_REGISTERED", saved.getEmail(), "CUSTOMER", "PENDING", "verification_required");
         return new RegistrationResponse(
                 saved.getEmail(),
                 true,
@@ -142,13 +142,13 @@ public class CustomerService {
         );
         Customer saved = repository.saveAndFlush(customer);
         notificationClient.sendConfirmation(saved, verificationLinkBaseUrl + rawToken);
-        auditService.record("VERIFICATION_RESENT", saved.getEmail(), "CUSTOMER", "ACCEPTED", "");
+        auditService.recordForCustomer(saved.getId(),"VERIFICATION_RESENT", saved.getEmail(), "CUSTOMER", "ACCEPTED", "");
     }
 
     @Transactional
     public void requestPasswordReset(CustomerRequests.PasswordResetRequest request) {
         String email = normalize(request.email());
-        Customer customer = repository.findByEmail(email).orElse(null);
+        Customer customer = repository.findByEmailForUpdate(email).orElse(null);
         if (customer == null || !customer.isEnabled()) {
             auditService.record("PASSWORD_RESET_REQUESTED", email, "CUSTOMER", "ACCEPTED", "account_not_disclosed");
             return;
@@ -162,7 +162,7 @@ public class CustomerService {
         );
         passwordResetTokenRepository.save(token);
         notificationClient.sendPasswordReset(customer, passwordResetLinkBaseUrl + rawToken, token.getId());
-        auditService.record("PASSWORD_RESET_REQUESTED", customer.getEmail(), "CUSTOMER", "SENT", "");
+        auditService.recordForCustomer(customer.getId(),"PASSWORD_RESET_REQUESTED", customer.getEmail(), "CUSTOMER", "SENT", "");
     }
 
     @Transactional
@@ -170,10 +170,11 @@ public class CustomerService {
         PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(hashToken(request.token()))
                 .orElseThrow(InvalidPasswordResetTokenException::new);
         if (!token.isUsable(Instant.now())) {
-            auditService.record("PASSWORD_RESET_CONFIRMED", "anonymous", "CUSTOMER", "REJECTED", "expired_or_used");
+            auditService.recordForCustomer(token.getCustomerId(),"PASSWORD_RESET_CONFIRMED", "anonymous", "CUSTOMER", "REJECTED", "expired_or_used");
             throw new InvalidPasswordResetTokenException();
         }
-        Customer customer = repository.findById(token.getCustomerId())
+        Customer customer = repository.findByIdForUpdate(token.getCustomerId())
+                .filter(Customer::isEnabled)
                 .orElseThrow(InvalidPasswordResetTokenException::new);
         customer.changePassword(passwordEncoder.encode(request.password()));
         token.markUsed();
@@ -184,7 +185,7 @@ public class CustomerService {
                 });
         repository.save(customer);
         passwordResetTokenRepository.save(token);
-        auditService.record("PASSWORD_RESET_CONFIRMED", customer.getEmail(), "CUSTOMER", "SUCCESS", "sessions_revoked=true");
+        auditService.recordForCustomer(customer.getId(),"PASSWORD_RESET_CONFIRMED", customer.getEmail(), "CUSTOMER", "SUCCESS", "sessions_revoked=true");
     }
 
     @Transactional(readOnly = true)
@@ -202,15 +203,15 @@ public class CustomerService {
         if (rawToken == null || rawToken.isBlank()) {
             throw new InvalidVerificationTokenException();
         }
-        Customer customer = repository.findByVerificationTokenHash(hashToken(rawToken))
+        Customer customer = repository.findByVerificationTokenHashForUpdate(hashToken(rawToken))
                 .orElseThrow(InvalidVerificationTokenException::new);
         if (customer.isEnabled() || customer.getVerificationExpiresAt() == null
                 || !customer.getVerificationExpiresAt().isAfter(Instant.now())) {
-            auditService.record("CUSTOMER_VERIFICATION", "anonymous", "CUSTOMER", "REJECTED", "expired_or_used");
+            auditService.recordForCustomer(customer.getId(),"CUSTOMER_VERIFICATION", "anonymous", "CUSTOMER", "REJECTED", "expired_or_used");
             throw new InvalidVerificationTokenException();
         }
         customer.confirmVerification();
-        auditService.record("CUSTOMER_VERIFICATION", customer.getEmail(), "CUSTOMER", "SUCCESS", "");
+        auditService.recordForCustomer(customer.getId(),"CUSTOMER_VERIFICATION", customer.getEmail(), "CUSTOMER", "SUCCESS", "");
         return CustomerResponse.from(repository.save(customer));
     }
 
@@ -219,6 +220,16 @@ public class CustomerService {
         return repository.findById(id)
                 .map(CustomerResponse::from)
                 .orElseThrow(() -> new CustomerNotFoundException(id));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<CustomerResponse> list() {
+        return list("", org.demo.platformsecurity.ListWindow.FIRST).items();
+    }
+
+    @Transactional(readOnly = true)
+    public org.demo.platformsecurity.ListWindow.ListPage<CustomerResponse> list(String search, org.demo.platformsecurity.ListWindow window) {
+        return window.map(repository.page(window.ceiling(), org.demo.platformsecurity.ListWindow.search(search), window.fetch()), Customer::getId, CustomerResponse::from);
     }
 
     @Transactional
@@ -244,7 +255,7 @@ public class CustomerService {
                 request.phoneNumber() == null ? null : request.phoneNumber().trim()
         );
         Customer saved = repository.save(customer);
-        auditService.record("CUSTOMER_PROFILE_UPDATED", saved.getEmail(), "CUSTOMER", "SUCCESS", "contact_and_delivery_data");
+        auditService.recordForCustomer(saved.getId(),"CUSTOMER_PROFILE_UPDATED", saved.getEmail(), "CUSTOMER", "SUCCESS", "contact_and_delivery_data");
         return CustomerResponse.from(saved);
     }
 

@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "receiptVersion": "a43-decisions-2026-10-30.2",
+  "scope": "planning-only-not-runtime-configuration",
+  "environments": [
+    "dev",
+    "test"
+  ],
+  "activationAllowed": false,
+  "decisions": {
+    "D01": {
+      "option": "A",
+      "followUp": "P01=B",
+      "status": "partial",
+      "plannedAgeDays": 30,
+      "reviewEveryDays": 7,
+      "startsAt": "final-closure-and-reconciliation-of-entire-linked-process-including-returns-and-complaints",
+      "exceptions": "unresolved",
+      "action": "protect-financial-source-records-no-age-delete"
+    },
+    "D02": {
+      "option": "B",
+      "followUp": [
+        "P02=A",
+        "D02-F01=redact-delivery-date-slot-pickup-location-after-365-days"
+      ],
+      "status": "approved-plan",
+      "scope": [
+        "orders-and-items",
+        "shipments",
+        "returns-and-complaints",
+        "inventory-reservations",
+        "coupon-reservations-and-redemptions"
+      ],
+      "accounts": "all-completed-reconciled-purchases-including-active-accounts",
+      "redactAfterDays": 365,
+      "redactionStartsAt": "final-reconciliation-of-entire-linked-chain",
+      "redact": [
+        "remaining-personal-data",
+        "free-text"
+      ],
+      "preserveMinimum": [
+        "ids",
+        "amounts",
+        "quantities",
+        "statuses",
+        "links"
+      ],
+      "minimumAgeDays": 90,
+      "minimumStartsAt": "actual-confirmed-redaction-completion",
+      "guards": [
+        "positive-proof-of-chain-completion",
+        "positive-proof-of-no-preservation-hold",
+        "open-or-reopened-cases-and-disputes-block",
+        "required-retention-blocks",
+        "D01-dependencies-block",
+        "restore-retry-and-dedup-dependencies-block",
+        "missing-release-proof-blocks",
+        "ambiguous-cases-manual-review"
+      ],
+      "additionalExceptions": "none-known-by-user-verify-during-implementation",
+      "excluded": [
+        "D01-financial-source-records",
+        "protected-markers",
+        "independent-erasure-journal"
+      ],
+      "ownerDeletionRequests": "existing-protocol-not-delayed",
+      "implementation": "local-field-map-and-assessor-present-durable-proofs-migrations-workers-and-database-acceptance-pending",
+      "deliveryFieldsToRedact": [
+        "delivery_date",
+        "delivery_slot",
+        "pickup_location"
+      ]
+    },
+    "D03": {
+      "option": "A",
+      "status": "approved-plan",
+      "ageDays": 7,
+      "startsAt": "existing-SQL-GREATEST-COALESCE-and-whole-family-eligibility",
+      "runtime": "preserve-current-enablement-eligibility-locks-and-active-method-protection"
+    },
+    "D04": {
+      "option": "A",
+      "status": "partial",
+      "plannedAgeDays": 7,
+      "requiredGroups": [
+        "billing-service",
+        "notification-service"
+      ],
+      "runtimeEvidence": {
+        "dev": "pending",
+        "test": "pending"
+      },
+      "guards": [
+        "review-all-actual-groups-and-pending",
+        "reconciled-process-and-replay-proof",
+        "no-new-trim-activation"
+      ]
+    },
+    "D05": {
+      "option": "A",
+      "status": "partial",
+      "plannedAgeDays": 30,
+      "intendedConsumers": {
+        "dev": [],
+        "test": []
+      },
+      "runtimeEvidence": {
+        "dev": "pending",
+        "test": "pending"
+      },
+      "guards": [
+        "verify-absence-of-actual-and-historical-consumers",
+        "review-stream-without-consumers",
+        "no-empty-group-guard-bypass",
+        "no-publisher-change",
+        "no-new-trim-activation"
+      ]
+    },
+    "D06": {
+      "option": "B",
+      "status": "approved-plan",
+      "conditionsAllRequired": [
+        "completed-and-reconciled-process",
+        "durably-confirmed-required-effects",
+        "no-active-retries-or-open-DLQ",
+        "content-not-needed-for-recovery"
+      ],
+      "guards": [
+        "missing-proof-blocks",
+        "ambiguous-cases-manual-review",
+        "separate-ID-dedup-and-replay-protection"
+      ],
+      "implementation": "pending-per-class-evidence-and-field-mapping"
+    },
+    "D07": {
+      "option": "A",
+      "followUp": "P09=C",
+      "status": "partial",
+      "scope": [
+        "CC-launched-service-and-frontend-files",
+        "Docker-container-logs"
+      ],
+      "maximumAgeDays": 30,
+      "startsAt": "entry-write-not-rotation-compression-or-restart",
+      "maximumBytesPerSourceIncludingRotations": 104857600,
+      "sizeMayRemoveOldestEarlier": true,
+      "excluded": [
+        "D10-legacy",
+        "certified-CC-job-logs"
+      ],
+      "exceptions": "unresolved"
+    },
+    "D08": {
+      "option": "A",
+      "followUp": "P09=C",
+      "status": "partial",
+      "scope": "current-local-Prometheus-Grafana-Alertmanager-stack",
+      "prometheus": {
+        "ageDays": 30,
+        "alarmBytes": 1073741824,
+        "sizeMayRemoveEarlier": false
+      },
+      "grafana": {
+        "retiredDashboardAgeDays": 90,
+        "startsAt": "confirmed-explicit-retirement",
+        "dependenciesAndHoldsBlock": true
+      },
+      "alertmanager": {
+        "nativeRetentionHours": 120,
+        "semantics": "expired-silences-from-EndsAt-and-native-notification-log-expiry-not-full-alert-archive"
+      },
+      "otherReceiversAndCopies": "separate-review",
+      "exceptions": "unresolved"
+    },
+    "D09": {
+      "option": "A",
+      "followUp": [
+        "P03=local-copy-independent-location-later",
+        "P04=B",
+        "P05=not-asked-dependent-on-P04"
+      ],
+      "status": "partial",
+      "journalDirectories": {
+        "dev": "E:\\Klucze\\privacy-journal\\dev",
+        "test": "E:\\Klucze\\privacy-journal\\test"
+      },
+      "keyDirectories": {
+        "dev": "E:\\Klucze\\privacy-journal-keys\\dev",
+        "test": "E:\\Klucze\\privacy-journal-keys\\test"
+      },
+      "localCopyRoots": [
+        "E:\\Klucze\\Kopia",
+        "E:\\Klucze\\Kopia3"
+      ],
+      "independentCopyLocation": "unresolved",
+      "headCustody": {
+        "folder": "SAFE",
+        "tool": "unresolved",
+        "entries": "separate-dev-test",
+        "updateProcedure": "dependent-on-tool-selection"
+      },
+      "implementation": "no-directory-key-entry-or-copy-created"
+    },
+    "D10": {
+      "option": "C",
+      "status": "deferred",
+      "scope": "legacy-CC-history-old-logs-and-free-text"
+    },
+    "D11": {
+      "option": "B",
+      "status": "approved-plan",
+      "scope": [
+        "durable-MFA",
+        "encrypted-CC-AI-settings",
+        "backups",
+        "erasure-journal"
+      ],
+      "targetKeys": "correct-existing-active-keys-per-domain-and-environment-plan-missing-keys-separately",
+      "guards": [
+        "separate-plan-and-restore-test-per-domain-and-environment",
+        "retain-old-keys-until-all-dependent-ciphertexts-and-copies-accounted-for",
+        "preserve-signed-history-and-independent-head"
+      ],
+      "implementation": "inventory-and-migration-plans-pending-no-key-read-or-change"
+    },
+    "D12": {
+      "option": "A",
+      "status": "partial",
+      "additionalLocation": "E:\\Klucze\\Kopia2",
+      "declaredScope": "database-and-Redis-dumps-RDB-AOF-or-backup-sets",
+      "environments": "dev-test-separate-shared-copies-mark-both",
+      "retention": "unresolved-inventory-concrete-artifacts-first-no-folder-TTL",
+      "knownLocations": "user-declaration-not-proof-of-no-other-copies"
+    },
+    "D13": {
+      "option": "C",
+      "status": "deferred",
+      "scope": "downloads-and-device-state"
+    },
+    "D14": {
+      "option": "per-recipient",
+      "followUp": [
+        "P06=B",
+        "P09=C"
+      ],
+      "status": "partial",
+      "AI": {
+        "userKnowledge": "only-built-in-CC",
+        "runtimeAndHistoryEvidence": {
+          "dev": "pending",
+          "test": "pending"
+        },
+        "adapter": "unchanged"
+      },
+      "SMTP": {
+        "CC": "A-user-knowledge-only-local-Mailpit",
+        "Notification": "A-user-knowledge-only-local-Mailpit",
+        "forwarding": "none-known-not-proof-of-complete-history"
+      },
+      "mailpit": {
+        "maximumAgeDays": 30,
+        "startsAt": "message-receipt",
+        "maximumMessagesPerInstance": 1000,
+        "countMayRemoveOldestAndAttachmentsEarlier": true,
+        "exceptions": "unresolved"
+      },
+      "externalAPI": "earlier-A-meant-Notification-own-REST-API-not-confirmed-external-provider-no-integration-requested",
+      "Stripe": "A05-deferred"
+    },
+    "D15": {
+      "option": "A",
+      "followUp": [
+        "P07=operator-1-operator-2",
+        "P08=owner-only",
+        "P09=C"
+      ],
+      "status": "partial",
+      "caseDirectory": "E:\\Klucze\\Rejestr",
+      "chatScope": "verified-individual-request-manually-reviewed-no-email-link-or-general-age-purge",
+      "evidenceAgeDays": 90,
+      "minimumCaseRecordAgeDays": 365,
+      "startsAt": "safe-confirmed-case-closure",
+      "additionalReviewer": "owner-only-operator-1-no-second-person-requirement",
+      "guards": [
+        "owner-authorization-required",
+        "missing-owner-or-insufficient-proof-unresolved",
+        "active-disputed-cases-and-holds-protected",
+        "not-a-TTL-for-D09-protocol-or-dedup"
+      ],
+      "exceptions": "unresolved"
+    },
+    "D16": {
+      "option": "B",
+      "status": "deferred",
+      "scope": "A05-Stripe",
+      "manualDependency": "user-adds-STRIPE_SECRET_KEY-and-STRIPE_WEBHOOK_SECRET-to-both-dev.env.sops-and-test.env.sops-and-provides-sandbox-evidence"
+    },
+    "D17": {
+      "option": "A",
+      "status": "approved-plan",
+      "scope": "local-acceptance-no-new-activation-existing-workers-unchanged"
+    },
+    "D18": {
+      "option": "A",
+      "followUp": "P07=organizational-labels",
+      "status": "approved-plan",
+      "owner": "operator-1",
+      "deputy": "operator-2",
+      "roles": "organizational-labels-not-proof-of-existing-accounts-or-rights",
+      "alarmChannel": "local-panels-statuses-and-report-log-manually-checked-no-external-notifications",
+      "escalation": "owner-and-deputy-from-first-alarm",
+      "implementation": "verify-actual-operators-rights-local-alarm-path-and-scoped-worker-stop"
+    }
+  },
+  "activationBlockers": [
+    "D01-financial-exceptions-and-required-retention",
+    "D02-commercial-field-state-and-dependency-mapping-and-isolated-tests",
+    "D04-D05-actual-stream-groups-pending-replay-and-consumerless-design",
+    "D06-technical-state-and-recovery-proof-mapping",
+    "D07-D08-D14-D15-P09-unresolved-preservation-exceptions",
+    "D09-independent-copy-tool-custody-and-P05-head-update-procedure",
+    "D11-key-dependency-inventory-and-domain-specific-migration-plans",
+    "D12-concrete-copy-inventory-and-retention",
+    "D14-AI-SMTP-runtime-history-and-provider-copy-evidence",
+    "D15-D18-actual-owner-authorization-case-workflow-and-stop-evidence",
+    "D10-D13-D16-deferred-required-scope",
+    "D17-no-new-activation-and-A43.41-acceptance-pending"
+  ]
+}

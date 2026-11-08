@@ -26,6 +26,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    ResponseEntity<ApiError> responseStatus(org.springframework.web.server.ResponseStatusException exception) {
+        return error(HttpStatus.valueOf(exception.getStatusCode().value()), exception.getReason(), Map.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> parameterType(Exception exception) {
+        return error(HttpStatus.BAD_REQUEST, "Invalid request parameter", Map.of());
+    }
+
     @ExceptionHandler(CustomerNotFoundException.class)
     ResponseEntity<ApiError> notFound(CustomerNotFoundException exception) {
         return error(HttpStatus.NOT_FOUND, exception.getMessage(), Map.of());
@@ -58,12 +68,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({MfaChallengeExpiredException.class, InvalidMfaCodeException.class})
     ResponseEntity<ApiError> mfaFailure(RuntimeException exception) {
-        return error(HttpStatus.UNAUTHORIZED, exception.getMessage(), Map.of());
+        String code = exception instanceof InvalidMfaCodeException ? "MFA_INVALID_CODE" : "MFA_CHALLENGE_EXPIRED";
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage(), Map.of("code", code));
     }
 
     @ExceptionHandler(MfaAlreadyEnabledException.class)
     ResponseEntity<ApiError> mfaAlreadyEnabled(MfaAlreadyEnabledException exception) {
         return error(HttpStatus.CONFLICT, exception.getMessage(), Map.of());
+    }
+
+    @ExceptionHandler(org.demo.customerservice.mfa.MfaEnrollmentExpiredException.class)
+    ResponseEntity<ApiError> enrollmentExpired(RuntimeException exception) {
+        return error(HttpStatus.GONE, exception.getMessage(), Map.of("code", "MFA_ENROLLMENT_EXPIRED"));
     }
 
     @ExceptionHandler(CustomerAccessDeniedException.class)

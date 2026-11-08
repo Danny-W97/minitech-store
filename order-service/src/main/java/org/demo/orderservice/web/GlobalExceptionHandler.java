@@ -1,7 +1,10 @@
 package org.demo.orderservice.web;
 
 import org.demo.orderservice.order.InvalidOrderStatusTransitionException;
+import org.demo.orderservice.delivery.DeliveryServiceException;
+import org.demo.orderservice.delivery.InvalidDeliverySelectionException;
 import org.demo.orderservice.order.OrderNotFoundException;
+import org.demo.orderservice.order.AccountRequiredException;
 import org.demo.orderservice.order.ProductInactiveException;
 import org.demo.orderservice.product.ProductNotFoundException;
 import org.demo.orderservice.product.ProductServiceException;
@@ -20,6 +23,23 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.demo.orderservice.order.OrderIdempotencyException.class)
+    ResponseEntity<ApiError> handleIdempotency(org.demo.orderservice.order.OrderIdempotencyException exception) {
+        String message=switch(exception.code()) {
+            case "ORDER_IN_PROGRESS" -> "Order is being processed; retry the same request and key";
+            case "ORDER_IDEMPOTENCY_LEGACY_REVIEW" -> "Legacy checkout has no verifiable intent; inspect the existing order before proceeding";
+            default -> "Idempotency key is already bound to a different checkout";
+        };
+        var response=error(HttpStatus.CONFLICT,message,Map.of("code",exception.code(),"orderId",exception.orderId().toString()));
+        var builder=ResponseEntity.status(HttpStatus.CONFLICT).header("Cache-Control","no-store");
+        if("ORDER_IN_PROGRESS".equals(exception.code())) builder.header("Retry-After","1");
+        return builder.body(response.getBody());
+    }
+
+    @ExceptionHandler(AccountRequiredException.class)
+    ResponseEntity<ApiError> handleAccountRequired(AccountRequiredException exception) {
+        return error(HttpStatus.FORBIDDEN, exception.getMessage(), Map.of("code", "ACCOUNT_REQUIRED", "threshold", "1000.00"));
+    }
 
     @ExceptionHandler({OrderNotFoundException.class, ProductNotFoundException.class})
     ResponseEntity<ApiError> handleNotFound(RuntimeException exception) {
@@ -36,8 +56,8 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, exception.getMessage(), Map.of());
     }
 
-    @ExceptionHandler(ProductServiceException.class)
-    ResponseEntity<ApiError> handleProductService(ProductServiceException exception) {
+    @ExceptionHandler({ProductServiceException.class, DeliveryServiceException.class, org.demo.orderservice.inventory.InventoryServiceException.class})
+    ResponseEntity<ApiError> handleProductService(RuntimeException exception) {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), Map.of());
     }
 
@@ -51,8 +71,8 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), Map.of());
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception) {
+    @ExceptionHandler({IllegalArgumentException.class, InvalidDeliverySelectionException.class, ArithmeticException.class})
+    ResponseEntity<ApiError> handleIllegalArgument(RuntimeException exception) {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage(), Map.of());
     }
 

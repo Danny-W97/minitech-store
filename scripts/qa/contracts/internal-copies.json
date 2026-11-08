@@ -1,0 +1,108 @@
+{
+  "stage": "A43.38",
+  "decisionSource": "explicit-human-option-dialog-2026-10-30",
+  "fullErasureComplete": false,
+  "retentionActivation": "A43.40",
+  "resources": {
+    "cc-job-output": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "scripts/control-center/web/cc_job_logs.py",
+        "scripts/control-center/web/cc_log_writer.py"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: cc-job-output",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "cc-dispatch-history": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "scripts/control-center/web/cc_data.py",
+        "scripts/control-center/web/server.py",
+        "scripts/control-center/web/cc_dispatch_history.py"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: cc-dispatch-history",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "cc-ai-settings": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "scripts/control-center/web/ai_settings.py",
+        "scripts/control-center/web/cc_secrets.py"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: cc-ai-settings",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "application-logs": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "compose.apps.yaml",
+        "deploy/k8s/base/deployments.yaml"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: application-logs",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "monitoring-storage": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "docker-compose.monitoring.yaml"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: monitoring-storage",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "pdf-memory-cache": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "billing-service/src/main/java/org/demo/billingservice/billing/PdfDocumentCache.java",
+        "billing-service/src/main/java/org/demo/billingservice/export/InvoiceDataExportController.java"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: pdf-memory-cache",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "browser-state": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "frontend/customer-session.js",
+        "frontend/cart-storage.js",
+        "frontend/chat-widget.js"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: browser-state",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "service-keyrings": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "customer-service/src/main/java/org/demo/customerservice/mfa/MfaEncryptionService.java",
+        "customer-service/src/main/java/org/demo/customerservice/auth/JwtService.java",
+        "payment-service/src/main/resources/application.yaml"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: service-keyrings",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "cc-operator-sessions": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "scripts/control-center/web/panel_security.py"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: cc-operator-sessions",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "account-export-chunks": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "customer-service/src/main/java/org/demo/customerservice/export/jobs/ExportJobStore.java",
+        "customer-service/src/main/resources/db/migration/V18__account_export_jobs.sql"
+      ],
+      "handling": "Ograniczone mechanizmy i procedura określone w dedykowanym wierszu macierzy A43.38: account-export-chunks",
+      "remainingLimit": "Okresy/aktywacja A43.40; konfiguracja środowiska wymaga dowodu; brak globalnej deklaracji usunięcia."
+    },
+    "cc-browser-intents": {
+      "procedure": "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+      "sources": [
+        "scripts/control-center/web/operator-intents.js",
+        "scripts/control-center/web/panel-operations.js"
+      ],
+      "handling": "Dotychczasowy protokół niezmiennego zamiaru A13/A21 i usunięcie tylko po zgodnym potwierdzeniu; bez automatycznego kasowania przy końcu sesji.",
+      "remainingLimit": "Swobodny powód i nieuzgodnione klucze wymagają oceny; okresy A43.40."
+    }
+  }
+}

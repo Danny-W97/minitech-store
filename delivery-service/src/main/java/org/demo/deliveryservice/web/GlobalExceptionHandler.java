@@ -1,6 +1,7 @@
 package org.demo.deliveryservice.web;
 
 import org.demo.deliveryservice.delivery.DeliveryMethodNotFoundException;
+import org.demo.deliveryservice.delivery.InvalidPickupLocationException;
 import org.demo.deliveryservice.delivery.DeliveryDateUnavailableException;
 import org.demo.deliveryservice.delivery.InvalidShipmentStatusException;
 import org.demo.deliveryservice.delivery.ShipmentNotFoundException;
@@ -16,6 +17,11 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InvalidPickupLocationException.class)
+    ResponseEntity<ApiError> handlePickupLocation(InvalidPickupLocationException exception) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage(), Map.of());
+    }
 
     @ExceptionHandler(DeliveryMethodNotFoundException.class)
     ResponseEntity<ApiError> handleNotFound(DeliveryMethodNotFoundException exception) {

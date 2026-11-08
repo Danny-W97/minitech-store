@@ -26,28 +26,41 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> published(Long productId) {
-        return repository.findAllByProductIdAndStatusOrderByCreatedAtDesc(productId, ReviewStatus.PUBLISHED)
-                .stream().map(ReviewResponse::from).toList();
+        return published(productId, org.demo.platformsecurity.ListWindow.FIRST).items();
     }
 
     @Transactional(readOnly = true)
     public ReviewSummaryResponse summary(Long productId) {
-        List<Review> reviews = repository.findAllByProductIdAndStatusOrderByCreatedAtDesc(productId, ReviewStatus.PUBLISHED);
-        BigDecimal average = reviews.isEmpty() ? BigDecimal.ZERO : BigDecimal.valueOf(
-                reviews.stream().mapToInt(Review::getRating).average().orElse(0)).setScale(2, RoundingMode.HALF_UP);
-        return new ReviewSummaryResponse(productId, reviews.size(), average);
+        var summary = repository.ratingSummary(productId);
+        BigDecimal average = summary.getAverageRating() == null ? BigDecimal.ZERO
+                : BigDecimal.valueOf(summary.getAverageRating()).setScale(2, RoundingMode.HALF_UP);
+        return new ReviewSummaryResponse(productId, summary.getReviewCount(), average);
     }
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> forCustomer(Long customerId) {
-        return repository.findAllByCustomerIdOrderByCreatedAtDesc(customerId)
-                .stream().map(ReviewResponse::from).toList();
+        return forCustomer(customerId, org.demo.platformsecurity.ListWindow.FIRST).items();
     }
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> pending() {
-        return repository.findAllByStatusOrderByCreatedAtAsc(ReviewStatus.PENDING)
-                .stream().map(ReviewResponse::from).toList();
+        return pending(org.demo.platformsecurity.ListWindow.FIRST).items();
+    }
+
+    @Transactional(readOnly = true)
+    public org.demo.platformsecurity.ListWindow.ListPage<ReviewResponse> published(Long productId, org.demo.platformsecurity.ListWindow window) {
+        return window.map(repository.page(window.ceiling(), productId, null, ReviewStatus.PUBLISHED, window.fetch()), Review::getId, ReviewResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public org.demo.platformsecurity.ListWindow.ListPage<ReviewResponse> forCustomer(Long customerId, org.demo.platformsecurity.ListWindow window) {
+        if (org.demo.platformsecurity.Access.request() != null) org.demo.platformsecurity.Access.customer(customerId);
+        return window.map(repository.page(window.ceiling(), null, customerId, null, window.fetch()), Review::getId, ReviewResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public org.demo.platformsecurity.ListWindow.ListPage<ReviewResponse> pending(org.demo.platformsecurity.ListWindow window) {
+        return window.map(repository.pendingPage(window.cursor(), window.fetch()), Review::getId, ReviewResponse::from);
     }
 
     @Transactional
@@ -56,7 +69,8 @@ public class ReviewService {
             throw new ReviewException(HttpStatus.CONFLICT, "Dla tego produktu i zamówienia opinia już istnieje.");
         }
         OrderSnapshot order = orderClient.getOrder(request.orderId());
-        boolean purchased = "PAID".equals(order.status())
+        boolean purchased = !order.lifecycleReviewRequired() && java.util.Set.of("PAID","SHIPPED","COMPLETED").contains(order.status()==null ? "" : order.status())
+                && ("PAID".equals(order.paymentState()) || order.paymentState()==null)
                 && Objects.equals(order.customerId(), request.customerId())
                 && order.items() != null
                 && order.items().stream().anyMatch(item -> Objects.equals(item.productId(), request.productId()));

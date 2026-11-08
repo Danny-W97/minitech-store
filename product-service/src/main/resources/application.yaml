@@ -57,3 +57,12 @@ management:
 services:
   promotion:
     base-url: ${PROMOTION_SERVICE_URL:http://localhost:18089}
+
+catalog:
+  layout:
+    ttl-ms: ${CATALOG_LAYOUT_TTL_MS:30000}
+    max-products: ${CATALOG_LAYOUT_MAX_PRODUCTS:10000}
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

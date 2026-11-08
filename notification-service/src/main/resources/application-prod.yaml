@@ -12,10 +12,20 @@ spring:
   data:
     redis:
       url: ${REDIS_URL}
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.ssl.checkserveridentity: true
 
 notification:
   delivery:
-    provider: ${NOTIFICATION_DELIVERY_PROVIDER:external-api}
+    provider: ${NOTIFICATION_DELIVERY_PROVIDER:smtp}
     from: ${MAIL_FROM:no-reply@minitech.example}
     external-api-url: ${NOTIFICATION_EXTERNAL_API_URL:}
 

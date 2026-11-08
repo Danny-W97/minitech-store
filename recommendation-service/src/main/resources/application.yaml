@@ -22,8 +22,18 @@ services:
     base-url: ${PRODUCT_SERVICE_URL:http://localhost:18081}
   order:
     base-url: ${ORDER_SERVICE_URL:http://localhost:18082}
+recommendation:
+  request-log:
+    enabled: ${RECOMMENDATION_REQUEST_LOG_ENABLED:false}
+    retention: ${RECOMMENDATION_REQUEST_LOG_RETENTION:7d}
+    cleanup-enabled: ${RECOMMENDATION_REQUEST_LOG_CLEANUP_ENABLED:true}
+    cleanup-batch-size: ${RECOMMENDATION_REQUEST_LOG_CLEANUP_BATCH_SIZE:500}
+    cleanup-max-batches: ${RECOMMENDATION_REQUEST_LOG_CLEANUP_MAX_BATCHES:4}
+    cleanup-interval-ms: ${RECOMMENDATION_REQUEST_LOG_CLEANUP_INTERVAL_MS:600000}
+    cleanup-initial-delay-ms: ${RECOMMENDATION_REQUEST_LOG_CLEANUP_INITIAL_DELAY_MS:60000}
 resilience:
   http:
+    request-budget-ms: ${RESILIENCE_HTTP_REQUEST_BUDGET_MS:15000}
     connect-timeout-ms: ${RESILIENCE_HTTP_CONNECT_TIMEOUT_MS:1000}
     read-timeout-ms: ${RESILIENCE_HTTP_READ_TIMEOUT_MS:3000}
 springdoc:
@@ -47,3 +57,7 @@ management:
     livenessstate.enabled: ${MANAGEMENT_HEALTH_LIVENESS_ENABLED:true}
     readinessstate.enabled: ${MANAGEMENT_HEALTH_READINESS_ENABLED:true}
   metrics.tags.application: ${spring.application.name}
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

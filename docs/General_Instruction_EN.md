@@ -72,6 +72,19 @@ asynchronous messaging & DLQ inspection (Redis streams `payment-events` & `invoi
 a Failure Simulator (Chaos Engineering), an embedded AI Assistant (which operates by default in offline mode powered by top prompt chips with frequently asked questions; full conversational chat requires connecting an external LLM agent in AI Settings), customer chat replies, tests,
 job logs, and an embedded WSL terminal for interactive SOPS/Vim workflows.
 
+Host/port and Origin are checked before issuing a panel session. An independent
+in-memory token protects reads and writes; reload the page after 30 minutes
+without HTTP requests or 8 hours since issue. Jobs and terminals have capacity
+and lifetime limits. Reloading/stopping CC ends its active jobs and PTYs,
+including services started as foreground tasks. Configuration and checks:
+[A25 — Control Center sessions and limits](A25_CONTROL_CENTER_SESJE.md).
+
+Keys entered in `AI Settings` are encrypted with SOPS/age separately for each
+active profile and provider. `ai-config.json` contains ordinary preferences;
+environment keys stay in memory. An empty field preserves the key, while
+removing a vault entry requires the dedicated checkbox. Legacy `apiKey` fields
+are removed after verified migration: [A26 — AI keys](A26_KLUCZE_AI.md).
+
 First-time secret setup is also available in the browser: start the dashboard,
 choose `Operations → Profiles and secrets → Create DEV secrets` or `Create TEST
 secrets`, enter the required values, and confirm creation. The form creates
@@ -616,6 +629,13 @@ manufacturer, model, technical parameters, image URLs, base price, and active
 state. Stock never belongs here. Product may ask Promotion for current offer
 data.
 
+Single-product reads load one product; checkout uses an internal 1–100 ID batch
+available only to Order Service. A bounded, versioned cache stores ID positions,
+while prices and offers remain current. The ID index defaults to a 30-second
+TTL and 10,000 entries. Deploy Product with migration V10 before updating Order;
+see [A27 rollout and verification](A27_ODCZYTY_KATALOGU.md). Photos are outside
+this optimization's scope.
+
 Main API:
 
 - `GET /products`;
@@ -623,16 +643,104 @@ Main API:
 - `POST /products`;
 - `PATCH /products/{id}`.
 
+### Bounded business lists (A29)
+
+Business list APIs use `size=1..200` (default 50) and `cursor=0` to start;
+follow `X-Next-Cursor` as a string while `X-Has-More` is true. Responses remain
+JSON arrays. Filtering happens on the server; CC sorting and KPIs describe
+the current page. Older store orders/reviews have a load button. Deploy the
+new internal Order aggregate before Recommendation and coordinate the other
+services, Gateway, CC/CLI and frontend. See [A29](A29_PAGINACJA_LIST.md) for
+filters, indexes, tests and the migration procedure. Photo changes stay deferred.
+
+### Document cache and ZIP exports (A30)
+
+Document PDFs use a shared byte/entry/TTL cache (default 32 MiB, 512 entries,
+15 minutes). Invoice ZIP exports read SQL windows of 25 and stream through the
+Gateway with an independent concurrency limit and no automatic retries.
+CC/CLI accept optional date ranges; the default archive limit is 10,000 invoices.
+Deploy Billing, Gateway and CC/CLI together; no DB migration is needed.
+See [A30 document export](A30_PDF_CACHE_EKSPORT.md). Photo changes remain deferred.
+
+A31 adds shared HTTP deadlines, bounded response-body reads and short local
+state transactions around network calls. Saga recovery and notification retry
+use bounded workers and database leases. See [A31 HTTP and transactions](A31_HTTP_TRANSAKCJE.md)
+for settings, Order V14/Payment V8/Notification V7 migrations and coordinated
+worker replacement. Photo changes remain deferred.
+
+A32 adds leased outbox publication, transactional invoice/correction events,
+durable inboxes and Redis pending recovery. ACK follows SQL commit. An uncertain
+SMTP outcome is quarantined for manual review. See [A32 events and replicas](A32_ZDARZENIA_REPLIKI.md)
+for Payment V9/Billing V6–V7/Notification V8 migrations, broker persistence,
+safe retention and replica/crash tests.
+
+A33 adds schema contracts for 14 services, strict security/load/failure-recovery
+gates and P1 evidence checks in CI. The standalone gates require the pinned QA
+Python dependencies and an operator credential; Control Center reads the local
+profile for trusted local targets. Chaos uses its own disposable platform.
+See [A33 quality gates](A33_BRAMKI_JAKOSCI.md) for budgets and reports. The full
+A33 acceptance remains open until the unfinished P1 work is implemented and tested.
+
+A08 replaces payment JVM locking with SQL coordination, immutable command checks,
+persisted authorization and result replay. Concurrent identical requests wait up
+to five seconds, then return the committed result or 409 with Retry-After. A
+shorter request deadline returns 504. Apply Payment V10 during a coordinated
+replacement of all Payment replicas. See [A08 payment replicas](A08_PLATNOSCI_REPLIKI.md)
+for migrations and isolated two-process crash tests. Real provider integration
+remains in A05. A09 persists invoice/shipment/coupon tasks with payment success,
+retries them independently of e-mail and holds invoice notifications until the
+document ID is available. Control Center's Monitoring operations provide task
+listing and dead-letter replay. See [A09 durable effects](A09_TRWALE_SKUTKI_PLATNOSCI.md)
+for Payment V11, rollout, retry limits and the two-replica outage/crash regression.
+
+A10 confirms inventory before accepting cash fulfillment and exposes
+`COLLECTION_DUE` independently of delivery status. Control Center records an
+operator's exact PLN collection and receipt after delivery/pickup; the CLI is
+`payment-collect <payment-id> <PLN-amount> <receipt-reference>`. Invoice issuance
+waits for settlement. See [A10 cash fulfillment](A10_POBRANIE_I_REALIZACJA.md)
+for Order V15/Payment V12 and the coordinated shared-security rollout.
+
+A11 adds **Cancel unpaid order** in Control Center and
+`order-cancel <order-id>` in the CLI. Cancellation fences all Payment replicas,
+confirms stock release and only then records CANCELLED. Pending/paid payments
+and accepted cash fulfillment return 409; dependency outages remain recoverable.
+Refunds are unavailable. Deploy Payment V13 across the fleet before Order.
+See [A11 MVP cancellation boundary](A11_BEZPIECZNE_ANULOWANIE.md).
+
+A06 adds versioned lifecycle transitions, bounded orphan scanning and
+`lifecycleReviewRequired`. Control Center provides `order-sagas [state] [size] [cursor]`
+and `order-reconcile <order-id>`. Only verified historical unpaid CONFIRMED orders
+can resume; other ambiguous history retains its facts for financial reconciliation.
+Deploy Payment/Billing/Review consumers first, then the complete Order V16 fleet.
+See [A06 order consistency](A06_SPOJNOSC_ZAMOWIEN.md).
+
+A21 replaces read/add/PATCH replenishment with atomic receipts. The +10/+50 panel
+retains the UUID after reply loss and reload. CLI commands `inventory-receive`,
+`inventory-operation` and `inventory-operations` handle receipt, status and ledger.
+`inventory-adjust` requires the version from `inventory-item` and an operation UUID.
+Legacy PATCH without expectedVersion/operationId is rejected. Deploy Inventory V8
+across the writer fleet before using corrections. [A21 protocol](A21_PRZYJECIA_MAGAZYNOWE.md).
+
+
 ### Inventory Service
 
 Owns stock and reservations. It uses pessimistic locking for concurrent
 reservations and makes reserve/confirm/release operations idempotent.
 
+`GET /inventory/items/batch?productIds=1,2,3` reads up to 100 IDs in one query.
+The storefront renders the catalog before availability/history and enriches
+the first group and cards entering the viewport with at most two stock requests
+in flight. Checkout forces fresh data. Deploy Inventory before the updated
+frontend; see [A28 availability](A28_DOSTEPNOSC_KATALOGU.md).
+
 Main API:
 
 - `GET /inventory/items/{productId}`;
+- `GET /inventory/items/batch?productIds=1,2,3`;
 - `POST /inventory/items`;
-- `PATCH /inventory/items/{productId}`;
+- `POST /inventory/items/{productId}/receipts` with a positive quantity and operation UUID;
+- `PATCH /inventory/items/{productId}` for a correction with `expectedVersion` and operation UUID; legacy PATCH is rejected;
+- `GET /inventory/operations/{operationId}` and bounded `GET /inventory/operations` for operation status and history;
 - `POST /inventory/reservations`;
 - `POST /inventory/reservations/{id}/confirm`;
 - `POST /inventory/reservations/{id}/release`.
@@ -793,8 +901,10 @@ digits. Numbering is continuous and gap-free based on pessimistic locking in
 
 Billing Service also supports credit notes / correction invoices (`InvoiceCorrection`),
 calculating gross/net/VAT deltas and final amounts after correction. In event-driven
-architecture (EDA), Billing Service consumes `payment-events` and publishes both
-`INVOICE_ISSUED` and `INVOICE_CORRECTED` to `invoice-events`.
+architecture (EDA), Billing Service records `payment-events` in a durable inbox;
+that consumer does not issue invoices. The synchronous issuance API verifies a
+paid order. Invoice/correction transactions save `INVOICE_ISSUED` and
+`INVOICE_CORRECTED` to an outbox for later publication to `invoice-events`.
 
 ```bash
 bash scripts/control-center/control-center.sh orders-list 100
@@ -839,6 +949,12 @@ with their full PDF attachments.
 - logout: server-side revocation;
 - refresh: token rotation, new access token, old refresh invalidation.
 
+Refresh rotation is serialized across instances. Reusing an already rotated
+token returns 401 and revokes its login family, including newly issued refresh
+tokens; other login families remain independent. The storefront serializes
+refreshes within a document and across tabs when Web Locks is available.
+See the [A23 contract and upgrade procedure](A23_SESJE_I_MFA.md).
+
 The storefront also enforces a 30-minute inactivity timeout. It stores only the
 last activity timestamp under `minitech-auth:last-activity` in browser
 `localStorage`; no token or customer data is stored there. Pointer, touch, or
@@ -863,6 +979,14 @@ Authenticator application. The frontend displays both the text secret and a QR
 code. The setup code must contain exactly six digits. The account security
 dialog can enable and disable TOTP.
 
+Setup expires after ten minutes and requires both the database deadline and a
+matching pending Redis secret. HTTP 410 requires starting setup again. TOTP and
+recovery-code consumption is serialized across instances. Recovery-code
+regeneration requires a fresh TOTP code in the request body (`{"code":"123456"}`).
+An independent 32-byte MFA encryption key is mandatory in every profile;
+Control Center provisions it in SOPS. Follow the [A22 migration procedure](A22_MFA_KLUCZE_ROTACJA.md)
+when upgrading existing data or rotating encryption keys.
+
 ### Passkey / WebAuthn
 
 Passkeys use public-key credentials managed by the browser or device. The
@@ -886,7 +1010,10 @@ has a minimum interval and an hourly attempt limit.
 
 ### Rate limiting and lockout
 
-Gateway uses Redis-backed request windows. Customer uses Redis TTL keys for
+Gateway uses one atomic Redis request budget per client IP across routes and
+replicas. Only explicitly trusted proxy IPs/CIDRs may supply forwarded client
+addresses; chains are evaluated from the right. See [A24](A24_LIMITOWANIE_ZADAN.md)
+for configuration, timeouts, CORS and rollout. Customer uses Redis TTL keys for
 failed-login counters and temporary locks. Redis failure behavior in the local
 Gateway is configurable and defaults to fail-open to preserve development
 availability.
@@ -943,9 +1070,12 @@ downstream services, returned to the caller, and included in log patterns as
 ### Outbox and DLQ
 
 Payment and its Outbox event are stored in one PostgreSQL transaction. A
-publisher later writes to Redis Stream. Notification uses a consumer group and
-stores provider failures. After the configured retries, a durable DLQ entry can
-be inspected and replayed.
+publisher later writes to Redis Stream. Billing likewise stores invoice and
+correction events transactionally in its own outbox. Both consumers commit
+inbox state before ACK; Notification queues delivery durably in that transaction.
+Known preparation failures can be retried. An uncertain SMTP result or interrupted
+started attempt goes directly to the existing DLQ for manual review before replay.
+See [A32](A32_ZDARZENIA_REPLIKI.md) for recovery and retention.
 
 ### BOOTSTRAP Initialization Event in Redis Streams
 
@@ -953,20 +1083,19 @@ When inspecting Redis streams (e.g. `payment-events` or `invoice-events`), a tec
 
 ![BOOTSTRAP Event in Control Center Web](screenshots/control-center-redis-bootstrap.png)
 
-#### Why does the BOOTSTRAP event occur?
-In Redis Streams, executing `XGROUP CREATE payment-events billing-service 0-0` fails with `ERR no such key` if the target stream key does not exist yet (e.g. on fresh startup before any customer checkout).
-
-#### Microservice implementation details
-Consumer services (`Notification Service` and `Billing Service`) handle this in their `ensureConsumerGroup()` initialization routine:
-1. **Emit technical seed record:** The service adds a minimal `{"_bootstrap": "true"}` record to the stream, ensuring Redis allocates the stream structure.
-2. **Create consumer group:** Once the stream key exists, `XGROUP CREATE` succeeds without error.
-3. **Idempotent acknowledgment (ACK):** The consumer processor immediately acknowledges (`XACK`) and skips records where `_bootstrap=true` without triggering any notifications or invoices (which is why *ORDER ID* and *AMOUNT* display dashes `—`).
-
-Control Center Web recognizes the `_bootstrap: true` payload and styles it with a prominent yellow **`BOOTSTRAP`** badge to distinguish technical seed entries from business domain events.
+Since A32, consumers create groups using `XGROUP CREATE ... 0-0 MKSTREAM`
+and do not append bootstrap records. Entries from older versions can remain;
+the consumer acknowledges and skips them. Control Center retains its yellow
+`BOOTSTRAP` badge for these historical technical entries.
 
 ---
 
 ## Frontend
+
+A37 adds native dialog focus loops, Escape/return handling, keyboard checkout/MFA,
+visible focus and contrast fixes. Accessibility tests cover Chromium, Firefox,
+WebKit and mobile Chrome. See [A37 scope and verification](A37_DOSTEPNOSC_SKLEPU.md)
+for test commands and the limits of automated checks.
 
 The frontend is plain HTML/CSS/JavaScript and is served by a small no-cache
 Python server. No Node build is required for normal runtime.
@@ -1001,11 +1130,24 @@ bash scripts/control-center/control-center.sh frontend-logs
 bash scripts/control-center/control-center.sh frontend-down
 ```
 
-Override Gateway for diagnostics:
+The shared `frontend/api-config.js` selects the API. The `api` URL parameter
+is ignored so a link cannot redirect login credentials. The local frontend on
+`:18070` uses the Gateway on `:18080`; other HTTP(S) deployments default to
+the same-origin `/api` path.
 
-```text
-http://127.0.0.1:18070/?api=http://127.0.0.1:18080/api
+Trusted deployment JavaScript loaded before `api-config.js` can select an API
+version. A separate backend origin must be explicitly allowed:
+
+```html
+<script>
+window.MINITECH_API_BASE = 'https://api.example/api/v1';
+window.MINITECH_ALLOWED_API_ORIGINS = ['https://api.example'];
+</script>
+<script src="api-config.js?v=20261023-1"></script>
 ```
+
+Never derive this configuration from URL parameters or user input. Run its
+security checks with `pnpm run test:unit`.
 
 ---
 
@@ -1154,6 +1296,12 @@ not a guarantee for untested future changes.
 
 ## Monitoring and DLQ
 
+A35.1 adds Alertmanager (`http://127.0.0.1:19093`), ten alert rules and a business
+dashboard. CLI and web Control Center expose `monitoring-check` and
+`monitoring-alerts`; `monitoring-up` validates the configuration and rules first.
+The default receiver shows local alerts without sending external messages.
+See [A35 scope, acceptance and runbooks](A35_ALERTY_BIZNESOWE.md) for remaining work.
+
 Monitoring uses a separate Compose file:
 
 ```bash
@@ -1165,10 +1313,11 @@ bash scripts/control-center/control-center.sh monitoring-urls
 Images:
 
 - `prom/prometheus:v3.5.0`;
+- `prom/alertmanager:v0.28.1`;
 - `grafana/grafana:12.1.1`.
 
-Prometheus scrapes application Micrometer endpoints through
-`host.docker.internal`. Grafana provisioning loads the project data source and
+Prometheus scrapes application Micrometer endpoints by service name on the
+application Compose network. Grafana provisioning loads the project data source and
 dashboard.
 
 Notification DLQ:
@@ -1188,6 +1337,17 @@ bash scripts/control-center/control-center.sh stream-read 20
 ---
 
 ## Backups and continuity
+
+A43.37 defaults backup expiry to preview (`observe`); deletion awaits the
+A43.40 policy. Erasure requires acknowledgement from an independent signed
+journal. Privacy restore remains quarantined; see the
+[configuration and limits](A43_BACKUPY_I_REJESTR_USUNIEC.md).
+
+A36.1 adds `platform-backup`, `platform-restore-drill latest [order-id]` and
+`platform-backup-prune 14` in Control Center's backup group. The set covers 14
+databases and Redis with an encrypted manifest; drills create fresh containers
+without networking or host ports. Snapshots are independent. The existing
+single-database backup schedule is unchanged. See the [A36 recovery runbook](A36_ODTWARZANIE_PLATFORMY.md).
 
 Backups are stored outside tracked files, normally under `gitIgnoreOwn/`.
 Control Center supports manual backup, backup of all databases, listing,
@@ -1286,6 +1446,14 @@ removed before reviewing repository contents for publication.
 
 ## Docker, Kubernetes, OpenBao, and production preparation
 
+**A34.1 (26 October 2026):** `deploy/components.json` is the common inventory for
+all 16 application components, images and network dependencies. Kubernetes
+validation now checks strict schemas and service/database/secret bindings.
+Pods and the frontend container run as UID 10001 with a read-only root and a
+bounded writable `/tmp`. Target configuration and preproduction acceptance
+remain open; the local prod profile remains unavailable. See
+[A34 deployment templates](A34_SZABLONY_WDROZENIOWE.md) for tools and limits.
+
 The platform container architecture relies on strictly isolated Docker images built in compliance with cloud-native security best practices (non-root execution, minimal footprint, and zero build toolchains in runtime images).
 
 ### 1. Backend Microservices (`deploy/docker/service.Dockerfile`)
@@ -1310,14 +1478,14 @@ All 15 Spring Boot microservices (API Gateway and 14 domain services) share **a 
 The frontend container is **fundamentally different** from the backend:
 * **Base Image:** `nginx:1.29-alpine` — an ultralight Alpine Linux distribution running an optimized Nginx HTTP server (~30-40 MB total).
 * **Zero Java / Node.js Dependencies:** Because the storefront is built with Vanilla JS (pure HTML5, CSS3, and standard ECMAScript without heavy bundlers), no runtime compiler or Node engine is required.
-* **Image Contents:** Copies static assets from `frontend/` straight into `/usr/share/nginx/html/` and injects [deploy/docker/nginx.frontend.conf](file:///c:/Dysk%20D/stuff/Mini%20Order%20Platform/deploy/docker/nginx.frontend.conf) to manage SPA routing, gzip compression, and security headers.
+* **Image Contents:** Copies static assets from `frontend/` straight into `/usr/share/nginx/html/` and injects [deploy/docker/nginx.frontend.conf](../deploy/docker/nginx.frontend.conf) to manage SPA routing, gzip compression, and security headers.
 
 ### 3. Container Platform Overview
 
 | Category | Base Image | Role & Contents | Privileges | Internal Port | Host Port |
 |---|---|---|:---:|:---:|:---:|
 | **15 Backend Microservices** | `eclipse-temurin:25-jre` | Compiled Spring Boot JAR (`app.jar`) + DejaVu fonts | `10001:10001` (non-root) | `8080` | `18080`–`18095` |
-| **Store Frontend** | `nginx:1.29-alpine` | Nginx HTTP server + static HTML/CSS/JS | `nginx` | `8080` | `18070` |
+| **Store Frontend** | `nginx:1.29-alpine` | Nginx HTTP server + static HTML/CSS/JS | `10001:10001` (non-root) | `8080` | `18070` |
 | **14 PostgreSQL DBs** | `postgres:16-alpine` | Isolated relational database engine per service | `postgres` | `5432` | `15432`–`15446` |
 | **Redis Broker** | `redis:7-alpine` | Redis Streams (`payment-events`, `invoice-events`) + cache | `redis` | `6379` | `16379` |
 | **Mailpit Server** | `axllent/mailpit` | SMTP catch-all mail server & dev web mailbox | `mailpit` | `1025` / `8025` | `18025` |

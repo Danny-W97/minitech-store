@@ -101,7 +101,7 @@ public class WebAuthnService {
         var record = relyingParty.registerCredential(new ImmutableRelyingPartyRegistrationRequest(
                 options, new RelyingPartyPublicKey(credential, safeLabel(label))
         ));
-        auditService.record("MFA_WEBAUTHN_REGISTERED", customer.getEmail(), "MFA", "SUCCESS", "credential_id=" + record.getCredentialId().toBase64UrlString());
+        auditService.recordForCustomer(customer.getId(),"MFA_WEBAUTHN_REGISTERED", customer.getEmail(), "MFA", "SUCCESS", "credential_id=" + record.getCredentialId().toBase64UrlString());
         return new WebAuthnResponses.RegisteredCredential(record.getCredentialId().toBase64UrlString(), safeLabel(label));
     }
 
@@ -117,6 +117,7 @@ public class WebAuthnService {
         return challengeId;
     }
 
+    @Transactional
     public WebAuthnResponses.RequestOptions loginOptions(String challengeId) {
         Challenge challenge = challenge(challengeId);
         Customer customer = customer(challenge.customerId());
@@ -128,19 +129,18 @@ public class WebAuthnService {
 
     @Transactional
     public Customer verifyLogin(String challengeId, WebAuthnCredentialRequest request) {
-        Challenge challenge = challenge(challengeId);
+        Challenge challenge = readChallenge(challengeId, true);
         Customer customer = customer(challenge.customerId());
         PublicKeyCredentialRequestOptions options = requestOptionsFor(customer, Bytes.fromBase64(challenge.challenge()));
         PublicKeyCredential<AuthenticatorAssertionResponse> credential = request.assertionCredential();
-        redis.delete(loginKey(challengeId));
         CustomerWebAuthnUserEntityRepository.userId(customer.getId());
         relyingParty.authenticate(new RelyingPartyAuthenticationRequest(options, credential));
-        auditService.record("MFA_WEBAUTHN_LOGIN_SUCCESS", customer.getEmail(), "MFA", "SUCCESS", "");
+        auditService.recordForCustomer(customer.getId(),"MFA_WEBAUTHN_LOGIN_SUCCESS", customer.getEmail(), "MFA", "SUCCESS", "");
         return customer;
     }
 
     private Customer customer(Long id) {
-        return customerRepository.findById(id).filter(Customer::isEnabled)
+        return customerRepository.findByIdForUpdate(id).filter(Customer::isEnabled)
                 .orElseThrow(MfaChallengeExpiredException::new);
     }
 
@@ -208,7 +208,12 @@ public class WebAuthnService {
     }
 
     private Challenge challenge(String challengeId) {
-        String raw = redis.opsForValue().get(loginKey(challengeId));
+        return readChallenge(challengeId, false);
+    }
+
+    private Challenge readChallenge(String challengeId, boolean consume) {
+        String raw = consume ? redis.opsForValue().getAndDelete(loginKey(challengeId))
+                : redis.opsForValue().get(loginKey(challengeId));
         if (raw == null || !raw.contains("|")) {
             throw new MfaChallengeExpiredException();
         }

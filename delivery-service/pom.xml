@@ -5,26 +5,20 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
-        <relativePath/>
+        <groupId>org.demo</groupId>
+        <artifactId>mini-order-platform</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>org.demo</groupId>
+
     <artifactId>delivery-service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+
     <name>Delivery Service</name>
     <description>Delivery methods and shipping quotes for the Mini Order Platform</description>
 
-    <properties>
-        <java.version>25</java.version>
-        <tomcat.version>11.0.25</tomcat.version>
-        <netty.version>4.2.18.Final</netty.version>
-        <springdoc.version>3.0.3</springdoc.version>
-    </properties>
-
     <dependencies>
+        <dependency><groupId>org.demo</groupId><artifactId>platform-security</artifactId></dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -48,7 +42,6 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>${springdoc.version}</version>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -65,7 +58,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>42.7.12</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -90,6 +82,9 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers-postgresql</artifactId><scope>test</scope></dependency>
     </dependencies>
 
     <build>
@@ -100,4 +95,14 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>integration</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
+                <configuration><systemPropertyVariables><run.integration>true</run.integration></systemPropertyVariables></configuration>
+                <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 </project>

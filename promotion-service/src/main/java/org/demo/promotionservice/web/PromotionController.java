@@ -27,7 +27,8 @@ public class PromotionController {
     public List<PriceHistoryResponse> history(@PathVariable Long productId) { return promotionService.history(productId); }
 
     @GetMapping("/history/{productId}/lowest")
-    @Operation(summary = "Show the lowest observed price for the last 30 days")
+    @Operation(summary = "Show the lowest price when history is complete",
+            description = "days is clamped to 1–30. lowestPrice is null and historyComplete is false until every date in the UTC window is observed.")
     public LowestPriceResponse lowestPrice(@PathVariable Long productId,
                                            @RequestParam(defaultValue = "30") int days) {
         return promotionService.lowestPrice(productId, days);

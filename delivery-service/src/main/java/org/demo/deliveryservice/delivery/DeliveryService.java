@@ -4,6 +4,7 @@ import org.demo.deliveryservice.web.DeliveryMethodResponse;
 import org.demo.deliveryservice.web.DeliveryQuoteRequest;
 import org.demo.deliveryservice.web.DeliveryQuoteResponse;
 import org.demo.deliveryservice.web.ShipmentResponse;
+import org.demo.deliveryservice.web.PickupLocationResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class DeliveryService {
 
     private final DeliveryMethodRepository deliveryMethodRepository;
     private final ShipmentRepository shipmentRepository;
+    private final PickupLocationRepository pickupLocationRepository;
 
     private static final Set<String> SHIPMENT_STATUSES = Set.of(
             Shipment.LABEL_CREATED, Shipment.READY_FOR_PICKUP, Shipment.IN_TRANSIT,
@@ -30,9 +32,17 @@ public class DeliveryService {
     );
 
     public DeliveryService(DeliveryMethodRepository deliveryMethodRepository,
-                           ShipmentRepository shipmentRepository) {
+                           ShipmentRepository shipmentRepository,
+                           PickupLocationRepository pickupLocationRepository) {
         this.deliveryMethodRepository = deliveryMethodRepository;
         this.shipmentRepository = shipmentRepository;
+        this.pickupLocationRepository = pickupLocationRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PickupLocationResponse> getPickupLocations() {
+        return pickupLocationRepository.findAllByActiveTrueOrderByCodeAsc().stream()
+                .map(point -> new PickupLocationResponse(point.getCode(), point.getName())).toList();
     }
 
     @Transactional(readOnly = true)
@@ -45,9 +55,10 @@ public class DeliveryService {
 
     @Transactional(readOnly = true)
     public DeliveryQuoteResponse quote(DeliveryQuoteRequest request) {
-        String code = request.methodCode().trim().toUpperCase();
+        String code = request.methodCode().trim().toUpperCase(Locale.ROOT);
         DeliveryMethod method = deliveryMethodRepository.findByCodeAndActiveTrue(code)
                 .orElseThrow(() -> new DeliveryMethodNotFoundException(code));
+        PickupLocation pickup = resolvePickupLocation(code, request.pickupLocation());
 
         BigDecimal subtotal = money(request.subtotal());
         BigDecimal cost = money(method.getBasePrice());
@@ -76,8 +87,24 @@ public class DeliveryService {
                 method.getEtaMaxDays(),
                 fulfillmentType,
                 availableDates,
-                selectedDate
+                selectedDate,
+                pickup == null ? null : pickup.getCode(),
+                pickup == null ? null : pickup.getName()
         );
+    }
+
+    private PickupLocation resolvePickupLocation(String method, String requestedLocation) {
+        boolean supplied = requestedLocation != null && !requestedLocation.isBlank();
+        if (!"STORE_PICKUP".equals(method)) {
+            if (supplied) throw new InvalidPickupLocationException("A pickup location is only valid for store pickup");
+            return null;
+        }
+        List<PickupLocation> active = pickupLocationRepository.findAllByActiveTrueOrderByCodeAsc();
+        // Older clients omitted the location or sent the display name. Both resolve
+        // to an active server record; arbitrary client labels are never persisted.
+        return active.stream().filter(point -> !supplied || point.getCode().equals(requestedLocation.trim())
+                        || point.getName().equals(requestedLocation.trim()))
+                .findFirst().orElseThrow(() -> new InvalidPickupLocationException("Pickup location is unavailable"));
     }
 
     private List<LocalDate> availableDates(DeliveryMethod method) {
@@ -102,6 +129,7 @@ public class DeliveryService {
                 ? "STANDARD_COURIER" : methodCode.trim().toUpperCase(Locale.ROOT);
         Shipment shipment = shipmentRepository.findByOrderId(orderId)
                 .orElseGet(() -> shipmentRepository.save(new Shipment(orderId, resolvedMethod)));
+        if(!resolvedMethod.equals(shipment.getMethodCode())) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Shipment delivery method is immutable");
         return toShipmentResponse(shipment);
     }
 
@@ -118,7 +146,7 @@ public class DeliveryService {
         if (!SHIPMENT_STATUSES.contains(status)) {
             throw new InvalidShipmentStatusException(status);
         }
-        Shipment shipment = shipmentRepository.findByOrderId(orderId)
+        Shipment shipment = shipmentRepository.lockOrder(orderId)
                 .orElseThrow(() -> new ShipmentNotFoundException(orderId));
         shipment.updateStatus(status);
         return toShipmentResponse(shipmentRepository.save(shipment));

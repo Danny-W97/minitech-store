@@ -126,7 +126,7 @@ printf 'JWT /me: OK\n'
 
 status="$(curl --silent --show-error --connect-timeout 3 --max-time 10 \
   -o "$response_file" -w '%{http_code}' \
-  "$API_URL/recommendations/products/${E2E_PRODUCT_ID:-4}?limit=4" 2>/dev/null || true)"
+  "$API_URL/recommendations/products/${E2E_PRODUCT_ID:-1}?limit=4" 2>/dev/null || true)"
 status="${status:-000}"
 [[ "$status" == "200" ]] || {
   printf 'E2E FAIL: rekomendacje produktu HTTP %s\n' "$status" >&2
@@ -152,7 +152,7 @@ status="${status:-000}"
 printf 'Wylogowanie serwerowe: OK\n'
 
 printf '\nUruchamiam istniejący scenariusz zakupu MVP...\n'
-export APP_VERIFY_PRODUCT_ID="${E2E_PRODUCT_ID:-4}"
+export APP_VERIFY_PRODUCT_ID="${E2E_PRODUCT_ID:-1}"
 export APP_VERIFY_QUANTITY="${E2E_QUANTITY:-1}"
 bash "$PROJECT_ROOT/scripts/control-center/control-center.sh" app-verify
 

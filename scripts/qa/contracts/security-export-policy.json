@@ -1,0 +1,41 @@
+{
+  "stage": "A43.29",
+  "decisions": {
+    "source": "explicit-human-option-dialog-2026-10-28",
+    "auditOwnership": "explicit-subject-plus-strict-legacy-refresh-id",
+    "freeText": "manual-subject-review-and-redaction"
+  },
+  "automatic": {
+    "audit_events": ["id", "event_type:allowlisted", "outcome:allowlisted", "occurred_at", "subjectProof:derived-constant"],
+    "customer_totp_methods": ["enabled", "created_at", "updated_at", "enrollment_expires_at"],
+    "customer_recovery_codes": ["id", "created_at", "used_at"],
+    "user_credentials": ["export_id", "created", "last_used", "uv_initialized", "backup_eligible", "backup_state"],
+    "chatPublicContent": ["existing-capability-authorized-customer-and-support-messages-as-stored"]
+  },
+  "qualificationOnly": {
+    "audit_events": ["subject_customer_id", "actor:strict-canonical-id-for-known-legacy-refresh-only", "resource:allowlist"],
+    "customer_recovery_codes": ["customer_id"],
+    "customer_totp_methods": ["customer_id", "id:null-detection-only"],
+    "user_credentials": ["user_entity_user_id:canonical-base64url-of-customer-id"]
+  },
+  "manualReview": {
+    "audit_events": ["actor:unbound-or-other-person", "resource:unknown", "event_type:unknown", "outcome:unknown", "client_ip", "user_agent", "metadata", "historical-subject-not-proved"],
+    "user_credentials": ["label", "authenticator_transports:free-form"],
+    "reviews": ["moderation_note"],
+    "return_requests": ["moderation_note"],
+    "return_events": ["note"]
+  },
+  "excluded": {
+    "audit_events": ["correlation_id:internal-cross-subject-link"],
+    "customer_totp_methods": ["secret_ciphertext", "last_used_time_step"],
+    "customer_recovery_codes": ["code_hash", "raw-code:not-stored"],
+    "user_credentials": ["credential_id", "public_key", "signature_count", "attestation_object", "attestation_client_data_json", "public_key_credential_type:operational-fixed-tag"],
+    "return_events": ["actor_ref:raw-operator-or-service-identity", "operation_id", "expected_version", "revision", "order_status", "payment_state"],
+    "chatPrivateNotes": ["not-stored-no-reconstruction"]
+  },
+  "procedure": "docs/A43_OCENA_NOTATEK_I_DANYCH_BEZPIECZENSTWA.md",
+  "manualExportAutomated": false,
+  "automaticEmailInference": false,
+  "secretDisclosureAllowed": false,
+  "retentionActivated": false
+}

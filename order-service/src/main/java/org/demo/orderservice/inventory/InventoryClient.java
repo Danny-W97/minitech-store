@@ -53,4 +53,28 @@ public class InventoryClient {
             throw new InventoryServiceException("Could not reach Inventory Service", exception);
         }
     }
+    public Long reservationForCancellation(Long orderId) {
+        var row=lookupForReconciliation(orderId);
+        return row==null ? null : row.reservationId();
+    }
+    public InventoryReservationResponse lookupForReconciliation(Long orderId) {
+        try {
+            var row=resilientHttpExecutor.execute("inventory",() -> restClient.get()
+                    .uri("/inventory/reservations/order/{id}",orderId).retrieve().body(InventoryReservationResponse.class));
+            if(row==null || !orderId.equals(row.orderId()) || row.reservationId()==null)
+                throw new InventoryServiceException("Invalid inventory reservation identity",null);
+            return row;
+        } catch(RestClientResponseException failure) {
+            if(failure.getStatusCode().value()==404) return null;
+            throw new InventoryServiceException("Inventory cancellation lookup failed",failure);
+        } catch(RestClientException failure) { throw new InventoryServiceException("Inventory cancellation lookup unavailable",failure); }
+    }
+    public void releaseForCancellation(Long orderId,Long reservationId) {
+        try {
+            var row=resilientHttpExecutor.execute("inventory",() -> restClient.post()
+                    .uri("/inventory/reservations/{id}/release",reservationId).retrieve().body(InventoryReservationResponse.class));
+            if(row==null || !orderId.equals(row.orderId()) || !reservationId.equals(row.reservationId()) || !"RELEASED".equals(row.status()))
+                throw new InventoryServiceException("Inventory did not confirm this order's release",null);
+        } catch(RestClientException failure) { throw new InventoryServiceException("Inventory cancellation release unavailable",failure); }
+    }
 }

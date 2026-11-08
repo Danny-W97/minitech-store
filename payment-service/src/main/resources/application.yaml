@@ -72,6 +72,7 @@ services:
 
 resilience:
   http:
+    request-budget-ms: ${RESILIENCE_HTTP_REQUEST_BUDGET_MS:15000}
     connect-timeout-ms: ${RESILIENCE_HTTP_CONNECT_TIMEOUT_MS:1000}
     read-timeout-ms: ${RESILIENCE_HTTP_READ_TIMEOUT_MS:3000}
   retry:
@@ -89,12 +90,46 @@ resilience:
     max-wait-duration-ms: ${RESILIENCE_BULKHEAD_MAX_WAIT_DURATION_MS:0}
 
 payment:
+  follow-ups:
+    enabled: ${PAYMENT_FOLLOW_UPS_ENABLED:true}
+    fixed-delay-ms: ${PAYMENT_FOLLOW_UPS_FIXED_DELAY_MS:1000}
+    lease-ms: ${PAYMENT_FOLLOW_UPS_LEASE_MS:45000}
+    max-attempts: ${PAYMENT_FOLLOW_UPS_MAX_ATTEMPTS:20}
+  concurrent-wait-ms: ${PAYMENT_CONCURRENT_WAIT_MS:5000}
+  processing-lease-ms: ${PAYMENT_PROCESSING_LEASE_MS:120000}
+  provider: ${PAYMENT_PROVIDER:disabled}
+  stripe:
+    recovery-enabled: ${STRIPE_RECOVERY_ENABLED:true}
+    recovery-delay-ms: ${STRIPE_RECOVERY_DELAY_MS:5000}
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    return-base-url: ${PAYMENT_RETURN_BASE_URL:}
+    api-base-url: ${STRIPE_API_BASE_URL:https://api.stripe.com}
+    signature-tolerance-seconds: ${STRIPE_SIGNATURE_TOLERANCE_SECONDS:300}
   inventory-confirm-attempts: ${PAYMENT_INVENTORY_CONFIRM_ATTEMPTS:3}
   inventory-confirm-backoff-ms: ${PAYMENT_INVENTORY_CONFIRM_BACKOFF_MS:250}
 
 outbox:
+  retention:
+    mode: ${PAYMENT_OUTBOX_RETENTION_MODE:observe}
+    retention: ${PAYMENT_OUTBOX_RETENTION_AGE:30d}
+    batch-size: ${PAYMENT_OUTBOX_RETENTION_BATCH_SIZE:500}
+    max-batches: ${PAYMENT_OUTBOX_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${PAYMENT_OUTBOX_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${PAYMENT_OUTBOX_RETENTION_INITIAL_DELAY_MS:60000}
   publisher:
+    enabled: ${OUTBOX_PUBLISHER_ENABLED:true}
+    lease-ms: ${OUTBOX_PUBLISHER_LEASE_MS:30000}
     fixed-delay-ms: ${OUTBOX_PUBLISHER_FIXED_DELAY_MS:5000}
 
 messaging:
   payment-stream: ${PAYMENT_EVENT_STREAM:payment-events}
+
+# Bound broker calls independently of request/worker budgets.
+spring.data.redis.connect-timeout: ${EVENT_REDIS_CONNECT_TIMEOUT:1000ms}
+spring.data.redis.timeout: ${EVENT_REDIS_TIMEOUT:1000ms}
+spring.task.scheduling.pool.size: 4
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

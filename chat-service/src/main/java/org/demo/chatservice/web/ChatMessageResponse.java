@@ -17,12 +17,13 @@ public record ChatMessageResponse(
         String replyNotificationStatus,
         Instant createdAt,
         Instant updatedAt,
-        Instant repliedAt
+        Instant repliedAt,
+        long lastEntryId
 ) {
     public static ChatMessageResponse from(ChatMessage message) {
         return new ChatMessageResponse(
                 message.getId(), message.getCustomerName(), message.getCustomerEmail(), message.getSubject(),
                 message.getMessage(), message.getStatus(), message.getNotificationStatus(), message.getReplyMessage(),
-                message.getReplyNotificationStatus(), message.getCreatedAt(), message.getUpdatedAt(), message.getRepliedAt());
+                message.getReplyNotificationStatus(), message.getCreatedAt(), message.getUpdatedAt(), message.getRepliedAt(),message.getLastEntryId());
     }
 }

@@ -1,6 +1,8 @@
 package org.demo.orderservice.order;
 
 import org.demo.orderservice.product.ProductClient;
+import org.demo.orderservice.delivery.DeliveryClient;
+import org.demo.orderservice.delivery.DeliveryQuoteResponse;
 import org.demo.orderservice.product.ProductResponse;
 import org.demo.orderservice.promotion.PromotionClient;
 import org.demo.orderservice.web.CreateOrderItemRequest;
@@ -36,22 +38,30 @@ class MultiItemOrderTest {
     private PromotionClient promotionClient;
     @Mock
     private OrderSagaService orderSagaService;
+    @Mock
+    private DeliveryClient deliveryClient;
+    @Mock
+    private OrderCreationService orderCreationService;
 
     @Test
     void createsOneOrderContainingAllCartLines() throws Exception {
         ProductResponse headphones = product(1L, "AUDIO-001", "Headphones", "99.99");
         ProductResponse processor = product(2L, "CPU-002", "Processor", "49.50");
         when(orderRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
-        when(productClient.getProduct(1L)).thenReturn(headphones);
-        when(productClient.getProduct(2L)).thenReturn(processor);
+        when(productClient.getProducts(List.of(1L, 2L))).thenReturn(Map.of(1L, headphones, 2L, processor));
 
         Order[] savedOrder = new Order[1];
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+        when(orderCreationService.create(any(Order.class))).thenAnswer(invocation -> {
             savedOrder[0] = invocation.getArgument(0);
             setId(savedOrder[0], 42L);
+            savedOrder[0].changeStatus(OrderStatus.CONFIRMED);
             return savedOrder[0];
         });
         when(orderRepository.findById(42L)).thenAnswer(invocation -> Optional.of(savedOrder[0]));
+        when(deliveryClient.quote("STANDARD_COURIER", "00-001", 3,
+                new BigDecimal("249.48"), LocalDate.of(2026, 8, 21), null))
+                .thenReturn(new DeliveryQuoteResponse("STANDARD_COURIER", new BigDecimal("9.99"),
+                        "HOME_DELIVERY", LocalDate.of(2026, 8, 21)));
 
         CreateOrderRequest request = new CreateOrderRequest(
                 null,
@@ -71,7 +81,7 @@ class MultiItemOrderTest {
         );
 
         OrderResponse response = new OrderService(
-                orderRepository, productClient, promotionClient, orderSagaService
+                orderRepository, productClient, promotionClient, orderSagaService, deliveryClient, orderCreationService
         ).create(request, "checkout-42");
 
         assertThat(response.id()).isEqualTo(42L);
@@ -79,6 +89,8 @@ class MultiItemOrderTest {
         assertThat(response.items().get(0).productName()).isEqualTo("Headphones");
         assertThat(response.items().get(0).quantity()).isEqualTo(2);
         assertThat(response.items().get(1).productName()).isEqualTo("Processor");
+        org.mockito.Mockito.verify(productClient).getProducts(List.of(1L, 2L));
+        org.mockito.Mockito.verifyNoMoreInteractions(productClient);
         assertThat(response.totalPrice()).isEqualByComparingTo("259.47");
     }
 

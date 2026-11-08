@@ -1,6 +1,12 @@
 package org.demo.orderservice.order;
 
+import org.demo.platformsecurity.Access;
+import org.demo.platformsecurity.OrderAccess;
+
 import org.demo.orderservice.product.ProductClient;
+import org.demo.orderservice.delivery.DeliveryClient;
+import org.demo.orderservice.delivery.DeliveryQuoteResponse;
+import org.demo.orderservice.delivery.InvalidDeliverySelectionException;
 import org.demo.orderservice.product.ProductResponse;
 import org.demo.orderservice.promotion.CouponValidationResponse;
 import org.demo.orderservice.promotion.PromotionClient;
@@ -16,13 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
-import java.util.UUID;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 
 @Service
 public class OrderService {
+
+    private static final BigDecimal GUEST_SUBTOTAL_LIMIT = new BigDecimal("1000.00");
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
@@ -30,17 +36,24 @@ public class OrderService {
     private final ProductClient productClient;
     private final PromotionClient promotionClient;
     private final OrderSagaService orderSagaService;
+    private final DeliveryClient deliveryClient;
+    private final OrderCreationService orderCreationService;
+    @org.springframework.beans.factory.annotation.Autowired private DeferredFulfillmentService fulfillment;
 
     public OrderService(
             OrderRepository orderRepository,
             ProductClient productClient,
             PromotionClient promotionClient,
-            OrderSagaService orderSagaService
+            OrderSagaService orderSagaService,
+            DeliveryClient deliveryClient,
+            OrderCreationService orderCreationService
     ) {
         this.orderRepository = orderRepository;
         this.productClient = productClient;
         this.promotionClient = promotionClient;
         this.orderSagaService = orderSagaService;
+        this.deliveryClient = deliveryClient;
+        this.orderCreationService = orderCreationService;
     }
 
     public OrderResponse create(CreateOrderRequest request) {
@@ -48,30 +61,67 @@ public class OrderService {
     }
 
     public OrderResponse create(CreateOrderRequest request, String requestedIdempotencyKey) {
-        String idempotencyKey = requestedIdempotencyKey == null || requestedIdempotencyKey.isBlank()
-                ? "generated-" + UUID.randomUUID()
-                : requestedIdempotencyKey.trim();
-        Order existingOrder = orderRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
-        if (existingOrder != null) {
-            log.info("Returning existing order {} for idempotency key", existingOrder.getId());
-            return toResponse(existingOrder);
+        if (Access.request() != null) {
+            Access.submittedCustomer(request.customerId());
+            if (request.customerId() != null) Access.require(request.customerEmail().equalsIgnoreCase(Access.actor().email()));
+            else Access.capabilityHash(Access.ORDER_TOKEN);
         }
-        List<CreateOrderItemRequest> requestedItems = normalizeItems(request);
+        var command=OrderCommand.from(request,requestedIdempotencyKey);
+        Order existingOrder = orderRepository.findByIdempotencyKey(command.key()).orElse(null);
+        if (existingOrder != null) return replay(existingOrder,command);
+        Order order;
+        try { order=resolveAndPersist(request,command); }
+        catch(RuntimeException failure) {
+            // A concurrent winner may have committed while this request was quoting
+            // or inserting. Re-read only after the creation transaction rolls back.
+            var winner=orderRepository.findByIdempotencyKey(command.key()).orElse(null);
+            if(winner==null) throw failure;
+            return replay(winner,command);
+        }
+        return continueCheckout(order);
+    }
+
+    private OrderResponse replay(Order existing,OrderCommand command) {
+        if(Access.request()!=null) Access.owner(existing.getCustomerId(),existing.getGuestAccessTokenHash(),Access.ORDER_TOKEN);
+        command.requireSame(existing);
+        return continueCheckout(existing);
+    }
+
+    private OrderResponse continueCheckout(Order order) {
+        if(order.getStatus()==OrderStatus.CREATED) orderSagaService.resume(order.getId());
+        var result=get(order.getId());
+        if(result.status()==OrderStatus.CREATED) throw new OrderIdempotencyException("ORDER_IN_PROGRESS",order.getId());
+        return result;
+    }
+
+    private Order resolveAndPersist(CreateOrderRequest request,OrderCommand command) {
+        List<CreateOrderItemRequest> requestedItems = command.items();
         log.info("Creating one order with {} product line(s)", requestedItems.size());
+        Map<Long, ProductResponse> products = productClient.getProducts(requestedItems.stream()
+                .map(CreateOrderItemRequest::productId).toList());
         List<ResolvedOrderItem> resolvedItems = requestedItems.stream()
-                .map(this::resolveItem)
+                .map(item -> resolveItem(item, products.get(item.productId())))
                 .toList();
 
         BigDecimal totalPrice = resolvedItems.stream()
                 .map(ResolvedOrderItem::lineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal deliveryCost = request.deliveryCost() == null
-                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
-                : request.deliveryCost().setScale(2, RoundingMode.HALF_UP);
-        if (deliveryCost.signum() < 0) {
-            throw new IllegalArgumentException("Delivery cost cannot be negative");
+        if (request.customerId() == null && totalPrice.compareTo(GUEST_SUBTOTAL_LIMIT) > 0) {
+            throw new AccountRequiredException();
         }
+        int itemCount = requestedItems.stream().mapToInt(CreateOrderItemRequest::quantity)
+                .reduce(0, Math::addExact);
+        DeliveryQuoteResponse delivery = deliveryClient.quote(request.deliveryMethod(),
+                request.deliveryAddress().postalCode(), itemCount, totalPrice, request.deliveryDate(), request.pickupLocation());
+        if (request.fulfillmentType() != null && !request.fulfillmentType().isBlank()
+                && !delivery.fulfillmentType().equalsIgnoreCase(request.fulfillmentType().trim())) {
+            throw new InvalidDeliverySelectionException("Fulfillment type does not match the delivery method");
+        }
+        if (request.deliverySlot() != null && !request.deliverySlot().isBlank()) {
+            throw new InvalidDeliverySelectionException("Delivery time slots are not supported");
+        }
+        BigDecimal deliveryCost = delivery.deliveryCost().setScale(2, RoundingMode.HALF_UP);
         CouponValidationResponse coupon = promotionClient.validateCoupon(request.promotionCode(), totalPrice);
         BigDecimal discountAmount = coupon == null ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
                 : coupon.discountAmount().setScale(2, RoundingMode.HALF_UP);
@@ -83,16 +133,18 @@ public class OrderService {
                 request.customerId(),
                 request.customerEmail(),
                 request.deliveryAddress(),
-                request.deliveryMethod(),
+                delivery.methodCode(),
                 deliveryCost,
-                idempotencyKey,
+                command.key(),
                 coupon == null ? null : coupon.code(),
                 discountAmount,
-                request.fulfillmentType(),
-                request.deliveryDate(),
-                request.deliverySlot(),
-                request.pickupLocation()
+                delivery.fulfillmentType(),
+                delivery.selectedDate(),
+                null,
+                delivery.pickupLocation()
         );
+        order.bindCheckout(command);
+        if (Access.request() != null && request.customerId() == null) order.setGuestAccessTokenHash(Access.capabilityHash(Access.ORDER_TOKEN));
         order.markInvoiceRequested(Boolean.TRUE.equals(request.invoiceRequested()));
         for (ResolvedOrderItem item : resolvedItems) {
             order.addItem(
@@ -104,31 +156,23 @@ public class OrderService {
                     item.lineTotal()
             );
         }
-        order = orderRepository.save(order);
-        orderSagaService.start(order.getId());
-        orderSagaService.resume(order.getId());
-        return get(order.getId());
+        return orderCreationService.create(order);
     }
 
-    private List<CreateOrderItemRequest> normalizeItems(CreateOrderRequest request) {
-        Map<Long, Integer> quantitiesByProduct = new LinkedHashMap<>();
-        if (request.items() != null) {
-            request.items().forEach(item -> quantitiesByProduct.merge(
-                    item.productId(), item.quantity(), Integer::sum));
-        }
-        if (quantitiesByProduct.isEmpty() && request.productId() != null && request.quantity() != null) {
-            quantitiesByProduct.put(request.productId(), request.quantity());
-        }
-        if (quantitiesByProduct.isEmpty()) {
-            throw new IllegalArgumentException("Order must contain at least one product");
-        }
-        return quantitiesByProduct.entrySet().stream()
-                .map(entry -> new CreateOrderItemRequest(entry.getKey(), entry.getValue()))
-                .toList();
+    @Transactional(readOnly = true)
+    public void requireOwner(Long id) {
+        Order order = orderRepository.findById(id).orElseThrow(() -> new OrderNotFoundException(id));
+        Access.owner(order.getCustomerId(), order.getGuestAccessTokenHash(), Access.ORDER_TOKEN);
     }
 
-    private ResolvedOrderItem resolveItem(CreateOrderItemRequest requestedItem) {
-        ProductResponse product = productClient.getProduct(requestedItem.productId());
+    @Transactional(readOnly = true)
+    public OrderAccess.Ownership ownership(Long id, String capability) {
+        Order order = orderRepository.findById(id).orElseThrow(() -> new OrderNotFoundException(id));
+        return new OrderAccess.Ownership(order.getCustomerId(), order.getCustomerEmail(),
+                order.getCustomerId() == null && Access.matches(order.getGuestAccessTokenHash(), capability));
+    }
+
+    private ResolvedOrderItem resolveItem(CreateOrderItemRequest requestedItem, ProductResponse product) {
         if (!product.active()) {
             throw new ProductInactiveException(requestedItem.productId());
         }
@@ -150,21 +194,37 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderResponse get(Long id) {
         return orderRepository.findById(id)
-                .map(this::toResponse)
+                .map(order -> toResponse(order,order.isLifecycleReviewRequired() || orderSagaService.requiresReconciliation(id)))
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getAll() {
-        return orderRepository.findAll().stream().map(this::toResponse).toList();
+        return list(null, null, null, "", org.demo.platformsecurity.ListWindow.FIRST).items();
     }
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getForCustomer(Long customerId) {
-        return orderRepository.findAllByCustomerIdOrderByCreatedAtDesc(customerId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        return list(customerId, null, null, "", org.demo.platformsecurity.ListWindow.FIRST).items();
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public org.demo.platformsecurity.ListWindow.ListPage<OrderResponse> list(Long customerId, OrderStatus status,
+            Long productId, String search, org.demo.platformsecurity.ListWindow window) {
+        if (customerId != null && Access.request() != null) Access.customer(customerId);
+        var ids = orderRepository.findPageIds(window.ceiling(), customerId, status, productId,
+                org.demo.platformsecurity.ListWindow.search(search), window.fetch());
+        var found = new java.util.HashMap<Long, Order>();
+        if (!ids.isEmpty()) orderRepository.findPageWithItems(ids.stream().limit(window.size()).toList())
+                .forEach(order -> found.put(order.getId(), order));
+        return window.map(ids, Long::longValue, id -> toResponse(found.get(id)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> purchasedProducts(Long customerId, List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty() || productIds.size() > 100
+                || productIds.stream().anyMatch(id -> id == null || id <= 0)) throw new IllegalArgumentException("Provide 1 to 100 positive product IDs");
+        return orderRepository.findPurchasedIds(customerId, productIds.stream().distinct().toList());
     }
 
     @Transactional(readOnly = true)
@@ -177,39 +237,15 @@ public class OrderService {
     }
 
     public OrderResponse changeStatus(Long id, OrderStatus requestedStatus) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new OrderNotFoundException(id));
-
-        if (!isAllowedTransition(order.getStatus(), requestedStatus)) {
-            throw new InvalidOrderStatusTransitionException(order.getStatus(), requestedStatus);
-        }
-
-        if (requestedStatus == OrderStatus.CANCELLED) {
-            orderSagaService.compensate(order.getId());
-            return get(id);
-        }
-        order.changeStatus(requestedStatus);
-        OrderResponse response = toResponse(orderRepository.save(order));
-        if (requestedStatus == OrderStatus.PAID) {
-            orderSagaService.markPaymentConfirmed(order.getId());
-        }
-        return response;
+        if(requestedStatus!=OrderStatus.CANCELLED) return fulfillment.transition(id,requestedStatus);
+        orderSagaService.compensate(id);
+        return get(id);
     }
 
-    private boolean isAllowedTransition(OrderStatus current, OrderStatus requested) {
-        if (current == requested) {
-            return true;
-        }
-        return switch (current) {
-            case CREATED -> requested == OrderStatus.CONFIRMED || requested == OrderStatus.CANCELLED;
-            case CONFIRMED -> requested == OrderStatus.PAID || requested == OrderStatus.CANCELLED;
-            case PAID -> requested == OrderStatus.SHIPPED || requested == OrderStatus.CANCELLED;
-            case SHIPPED -> requested == OrderStatus.COMPLETED;
-            case COMPLETED, CANCELLED -> false;
-        };
+    static OrderResponse toResponse(Order order) {
+        return toResponse(order,order.isLifecycleReviewRequired());
     }
-
-    private OrderResponse toResponse(Order order) {
+    private static OrderResponse toResponse(Order order,boolean lifecycleReviewRequired) {
         List<OrderItemResponse> items = order.getItems().stream()
                 .map(item -> new OrderItemResponse(
                         item.getId(),
@@ -248,7 +284,7 @@ public class OrderService {
                 order.getDeliveryDate(),
                 order.getDeliverySlot(),
                 order.getPickupLocation(),
-                order.isInvoiceRequested()
+                order.isInvoiceRequested(),order.getPaymentState(),order.getDeferredPaymentMethod(),order.getDeferredPaymentId(),lifecycleReviewRequired,order.isCouponReservationVerified()
         );
     }
 }

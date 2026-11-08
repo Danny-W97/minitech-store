@@ -21,3 +21,8 @@ notification:
   delivery:
     provider: ${NOTIFICATION_DELIVERY_PROVIDER:smtp}
     from: ${MAIL_FROM:no-reply@minitech.local}
+
+# PostgreSQL retention is invoked explicitly by integration fixtures.
+messaging.rejected-inbox-retention.mode: "off"
+notification.sent-retention.mode: "off"
+notification.resolved-dlq-retention.mode: "off"

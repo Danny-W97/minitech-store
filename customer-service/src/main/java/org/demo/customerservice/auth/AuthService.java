@@ -73,24 +73,24 @@ public class AuthService {
             throw exception;
         }
 
-        Customer customer = customerRepository.findByEmail(email).orElse(null);
+        Customer customer = customerRepository.findByEmailForUpdate(email).orElse(null);
         if (customer == null || !customer.isEnabled()
                 || !passwordEncoder.matches(request.password(), customer.getPasswordHash())) {
             boolean locked = loginProtectionService.recordFailure(email);
-            auditService.record(locked ? "LOGIN_LOCKED" : "LOGIN_FAILURE", email, "CUSTOMER", "REJECTED",
+            auditService.recordForCustomer(customer==null?null:customer.getId(),locked ? "LOGIN_LOCKED" : "LOGIN_FAILURE", email, "CUSTOMER", "REJECTED",
                     locked ? "lock_seconds=" + loginProtectionService.lockSeconds() : "");
             throw new InvalidCredentialsException();
         }
         loginProtectionService.clearFailures(email);
-        auditService.record("LOGIN_SUCCESS", email, "CUSTOMER", "SUCCESS", "");
+        auditService.recordForCustomer(customer.getId(),"LOGIN_SUCCESS", email, "CUSTOMER", "SUCCESS", "");
         if (mfaService.isTotpEnabled(customer.getId())) {
             String challengeId = mfaService.createLoginChallenge(customer);
-            auditService.record("MFA_LOGIN_CHALLENGE", customer.getEmail(), "MFA", "PENDING", "totp");
+            auditService.recordForCustomer(customer.getId(),"MFA_LOGIN_CHALLENGE", customer.getEmail(), "MFA", "PENDING", "totp");
             return AuthLoginResult.mfaRequired(new MfaLoginChallenge(true, challengeId, 300, "totp"));
         }
         if (webAuthnService.hasCredentials(customer.getId())) {
             String challengeId = webAuthnService.createLoginChallenge(customer);
-            auditService.record("MFA_LOGIN_CHALLENGE", customer.getEmail(), "MFA", "PENDING", "webauthn");
+            auditService.recordForCustomer(customer.getId(),"MFA_LOGIN_CHALLENGE", customer.getEmail(), "MFA", "PENDING", "webauthn");
             return AuthLoginResult.mfaRequired(new MfaLoginChallenge(true, challengeId, 300, "webauthn"));
         }
         return AuthLoginResult.authenticated(issueSession(customer, "pwd"));
@@ -115,17 +115,17 @@ public class AuthService {
         return issueSession(customer, "pwd+webauthn");
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public AuthSession refresh(String rawRefreshToken) {
         try {
             RefreshToken current = findUsable(rawRefreshToken);
             Customer customer = customerRepository.findById(current.getCustomerId())
                     .filter(Customer::isEnabled)
                     .orElseThrow(InvalidRefreshTokenException::new);
-            current.revoke();
+            current.rotate();
             refreshTokenRepository.save(current);
-            auditService.record("TOKEN_REFRESH", String.valueOf(customer.getId()), "REFRESH_TOKEN", "SUCCESS", "rotated=true");
-            return issueSession(customer, current.getAuthenticationMethod());
+            auditService.recordForCustomer(customer.getId(),"TOKEN_REFRESH", String.valueOf(customer.getId()), "REFRESH_TOKEN", "SUCCESS", "rotated=true");
+            return issueSession(customer, current.getAuthenticationMethod(), current.getFamilyId());
         } catch (InvalidRefreshTokenException exception) {
             auditService.record("TOKEN_REFRESH", "anonymous", "REFRESH_TOKEN", "REJECTED", "invalid_or_expired");
             throw exception;
@@ -137,12 +137,11 @@ public class AuthService {
         if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
             return;
         }
-        refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken))
-                .ifPresent(token -> {
-                    token.revoke();
-                    refreshTokenRepository.save(token);
-                });
-        auditService.record("LOGOUT", "anonymous", "REFRESH_TOKEN", "SUCCESS", "");
+        String hash = hashToken(rawRefreshToken);
+        var target=refreshTokenRepository.customerIdForHash(hash).flatMap(customerRepository::findByIdForUpdate)
+                .flatMap(customer -> refreshTokenRepository.findByTokenHash(hash));
+        target.ifPresent(token -> refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now()));
+        auditService.recordForCustomer(target.map(RefreshToken::getCustomerId).orElse(null),"LOGOUT", "anonymous", "REFRESH_TOKEN", "SUCCESS", "");
     }
 
     public java.util.Map<String, Object> jwks() {
@@ -150,12 +149,16 @@ public class AuthService {
     }
 
     private AuthSession issueSession(Customer customer, String authenticationMethod) {
+        return issueSession(customer, authenticationMethod, java.util.UUID.randomUUID().toString());
+    }
+
+    private AuthSession issueSession(Customer customer, String authenticationMethod, String familyId) {
         CustomerPrincipal principal = new CustomerPrincipal(customer.getId(), customer.getEmail());
         String accessToken = jwtService.createAccessToken(principal, authenticationMethod);
         String rawRefreshToken = generateRefreshToken();
         Instant refreshExpiresAt = Instant.now().plusSeconds(refreshTokenTtlSeconds);
         refreshTokenRepository.save(new RefreshToken(
-                customer.getId(), hashToken(rawRefreshToken), refreshExpiresAt, authenticationMethod
+                customer.getId(), hashToken(rawRefreshToken), refreshExpiresAt, authenticationMethod, familyId
         ));
         return new AuthSession(
                 new AuthResponse(
@@ -173,8 +176,18 @@ public class AuthService {
         if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
             throw new InvalidRefreshTokenException();
         }
-        RefreshToken token = refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken))
+        String hash = hashToken(rawRefreshToken);
+        Long customerId = refreshTokenRepository.customerIdForHash(hash).orElseThrow(InvalidRefreshTokenException::new);
+        customerRepository.findByIdForUpdate(customerId).filter(Customer::isEnabled)
                 .orElseThrow(InvalidRefreshTokenException::new);
+        // Read the token only AFTER the cross-instance customer lock; never reuse a stale managed snapshot.
+        RefreshToken token = refreshTokenRepository.findByTokenHash(hash)
+                .orElseThrow(InvalidRefreshTokenException::new);
+        if (token.getRotatedAt() != null) {
+            refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now());
+            auditService.recordForCustomer(customerId,"REFRESH_TOKEN_REUSE", String.valueOf(customerId), "REFRESH_TOKEN", "REJECTED", "family_revoked=true");
+            throw new InvalidRefreshTokenException();
+        }
         if (!token.isUsable(Instant.now())) {
             throw new InvalidRefreshTokenException();
         }

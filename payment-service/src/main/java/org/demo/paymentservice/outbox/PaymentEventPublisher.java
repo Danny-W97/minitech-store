@@ -14,17 +14,25 @@ public class PaymentEventPublisher {
 
     private final StringRedisTemplate redisTemplate;
     private final String streamName;
+    private final PaymentIdentityReadiness readiness;
 
+    public PaymentEventPublisher(StringRedisTemplate redisTemplate,String streamName){this(redisTemplate,streamName,null);}
+    @org.springframework.beans.factory.annotation.Autowired
     public PaymentEventPublisher(
             StringRedisTemplate redisTemplate,
-            @Value("${messaging.payment-stream}") String streamName
+            @Value("${messaging.payment-stream}") String streamName,PaymentIdentityReadiness readiness
     ) {
         this.redisTemplate = redisTemplate;
         this.streamName = streamName;
+        this.readiness=readiness;
     }
 
     public boolean publish(PaymentOutboxEvent event) {
+        event.requirePublishablePayload();
+        if(event.getIdentityVersion()==2&&(readiness==null||!readiness.ready()))return false;
         Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("eventId", event.getEventId());
+        if(event.getIdentityVersion()==2){fields.put("protocolVersion","2");fields.put("legacyEventId",event.getLegacyEventId());}
         fields.put("eventKey", event.getEventKey());
         fields.put("eventType", event.getEventType());
         fields.put("orderId", event.getOrderId().toString());
@@ -41,10 +49,7 @@ public class PaymentEventPublisher {
         }
 
         try {
-            return redisTemplate.opsForStream()
-                    .add(StreamRecords.newRecord()
-                            .ofMap(fields)
-                            .withStreamKey(streamName)) != null;
+            return org.demo.platformevents.RedisPrivacyStreams.publish(redisTemplate,streamName,event.getOrderId(),fields);
         } catch (DataAccessException | IllegalStateException exception) {
             return false;
         }

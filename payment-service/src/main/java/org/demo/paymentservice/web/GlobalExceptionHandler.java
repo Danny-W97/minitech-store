@@ -18,6 +18,31 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.demo.paymentservice.payment.StripeReviewRequiredException.class)
+    ResponseEntity<ApiError> handleStripeReview(org.demo.paymentservice.payment.StripeReviewRequiredException exception) {
+        return error(HttpStatus.CONFLICT,"Stripe operation requires reconciliation",Map.of("code",exception.getMessage()));
+    }
+    @ExceptionHandler({org.demo.paymentservice.inventory.InventoryServiceException.class,
+            org.demo.paymentservice.order.OrderServiceException.class,org.demo.paymentservice.delivery.DeliveryServiceException.class,
+            org.demo.paymentservice.promotion.PromotionServiceException.class})
+    ResponseEntity<ApiError> handleDependency(RuntimeException exception) {
+        for(Throwable cause=exception;cause!=null;cause=cause.getCause())
+            if(cause instanceof org.springframework.web.client.RestClientResponseException http && http.getStatusCode().value()==409)
+                return error(HttpStatus.CONFLICT,"Dependent service rejected the requested state",Map.of());
+        return error(HttpStatus.SERVICE_UNAVAILABLE,"Required service is unavailable or did not confirm the operation",Map.of());
+    }
+
+    @ExceptionHandler(org.demo.platformsecurity.RequestBudget.Exceeded.class)
+    ResponseEntity<ApiError> handleDeadline(org.demo.platformsecurity.RequestBudget.Exceeded exception) {
+        return error(HttpStatus.GATEWAY_TIMEOUT,exception.getMessage(),Map.of());
+    }
+
+    @ExceptionHandler(org.demo.paymentservice.payment.PaymentInProgressException.class)
+    ResponseEntity<ApiError> handleInProgress(org.demo.paymentservice.payment.PaymentInProgressException exception) {
+        var result=error(HttpStatus.CONFLICT,exception.getReason(),Map.of());
+        return ResponseEntity.status(HttpStatus.CONFLICT).header("Retry-After","1")
+                .header("Cache-Control","no-store").body(result.getBody());
+    }
 
     @ExceptionHandler({PaymentNotFoundException.class, OrderNotFoundException.class})
     ResponseEntity<ApiError> handleNotFound(RuntimeException exception) {

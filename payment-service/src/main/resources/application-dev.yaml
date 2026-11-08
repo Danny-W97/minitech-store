@@ -5,3 +5,5 @@ spring:
   docker:
     compose:
       enabled: false
+payment:
+  provider: ${PAYMENT_PROVIDER:simulation}

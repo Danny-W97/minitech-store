@@ -9,5 +9,9 @@ public enum NotificationEventType {
     CUSTOMER_REGISTERED,
     PASSWORD_RESET_REQUESTED,
     CHAT_MESSAGE_RECEIVED,
-    CHAT_REPLY_SENT
+    CHAT_REPLY_SENT,
+    CHAT_ENTRY_RECEIVED,
+    CHAT_ENTRY_REPLIED;
+
+    public boolean chatEvent() { return name().startsWith("CHAT_"); }
 }

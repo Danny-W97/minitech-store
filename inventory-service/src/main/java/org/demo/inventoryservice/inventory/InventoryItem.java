@@ -14,6 +14,8 @@ import java.time.Instant;
 @Entity
 @Table(name = "inventory_items")
 public class InventoryItem {
+    @jakarta.persistence.Version private long version;
+    public long getVersion() { return version; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,35 +62,58 @@ public class InventoryItem {
     }
 
     public void setAvailableQuantity(Integer availableQuantity) {
+        if(availableQuantity==null || availableQuantity<0 || (long)availableQuantity+reservedQuantity>Integer.MAX_VALUE)
+            throw new InventoryReservationConflictException("Stock exceeds supported on-hand capacity");
         this.availableQuantity = availableQuantity;
+    }
+
+    public void receive(int quantity) {
+        if(quantity<=0) throw new IllegalArgumentException("Receipt quantity must be positive");
+        if((long)availableQuantity+reservedQuantity+quantity>Integer.MAX_VALUE)
+            throw new InventoryReservationConflictException("Stock exceeds supported on-hand capacity");
+        availableQuantity=Math.addExact(availableQuantity,quantity);
     }
 
     public void reserve(Integer quantity) {
         if (availableQuantity < quantity) {
             throw new InsufficientStockException(productId, availableQuantity, quantity);
         }
+        int nextReserved=checkedAdd(reservedQuantity,quantity);
         availableQuantity -= quantity;
-        reservedQuantity += quantity;
+        reservedQuantity = nextReserved;
     }
 
     public void release(Integer quantity) {
         if (reservedQuantity < quantity) {
             throw new InventoryReservationConflictException("Reserved quantity is lower than requested release");
         }
+        int nextAvailable=checkedAdd(availableQuantity,quantity);
         reservedQuantity -= quantity;
-        availableQuantity += quantity;
+        availableQuantity = nextAvailable;
     }
 
     public void confirm(Integer quantity) {
         if (reservedQuantity < quantity) {
             throw new InventoryReservationConflictException("Reserved quantity is lower than requested confirmation");
         }
+        int nextSold=checkedAdd(soldQuantity,quantity);
         reservedQuantity -= quantity;
-        soldQuantity += quantity;
+        soldQuantity = nextSold;
+    }
+
+    public void reverseUnfulfilledSale(int quantity) {
+        if(quantity<=0 || soldQuantity<quantity) throw new InventoryReservationConflictException("Sale cannot be compensated");
+        int nextAvailable=checkedAdd(availableQuantity,quantity);
+        if((long)nextAvailable+reservedQuantity>Integer.MAX_VALUE) throw new InventoryReservationConflictException("Stock capacity exceeded");
+        soldQuantity-=quantity;availableQuantity=nextAvailable;
     }
 
     public Long getProductId() {
         return productId;
+    }
+    private int checkedAdd(int current,int quantity) {
+        try { return Math.addExact(current,quantity); }
+        catch(ArithmeticException overflow) { throw new InventoryReservationConflictException("Stock counter capacity exceeded"); }
     }
 
     public Integer getAvailableQuantity() {

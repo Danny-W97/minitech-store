@@ -12,5 +12,10 @@ public interface NotificationDeadLetterRepository
 
     List<NotificationDeadLetterEntry> findAllByStatusOrderByCreatedAtAsc(DeadLetterStatus status);
 
+    @org.springframework.data.jpa.repository.Query("select n from NotificationDeadLetterEntry n where n.id > :cursor "
+            + "and n.status = org.demo.notificationservice.notification.DeadLetterStatus.OPEN order by n.id asc")
+    List<NotificationDeadLetterEntry> page(@org.springframework.data.repository.query.Param("cursor") long cursor,
+            org.springframework.data.domain.Pageable pageable);
+
     long countByStatus(DeadLetterStatus status);
 }

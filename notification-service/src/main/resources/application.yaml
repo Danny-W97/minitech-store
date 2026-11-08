@@ -1,4 +1,9 @@
 spring:
+  mail:
+    properties:
+      mail.smtp.connectiontimeout: ${NOTIFICATION_SMTP_CONNECT_TIMEOUT_MS:1000}
+      mail.smtp.timeout: ${NOTIFICATION_SMTP_READ_TIMEOUT_MS:1000}
+      mail.smtp.writetimeout: ${NOTIFICATION_SMTP_WRITE_TIMEOUT_MS:1000}
   profiles:
     default: dev
   application:
@@ -59,21 +64,58 @@ management:
       application: ${spring.application.name}
 
 services:
+  chat:
+    base-url: ${CHAT_SERVICE_URL:http://localhost:18093}
   billing:
     base-url: ${BILLING_SERVICE_URL:http://localhost:18095}
 
 messaging:
+  rejected-inbox-retention:
+    mode: ${NOTIFICATION_REJECTED_INBOX_RETENTION_MODE:observe}
+    retention: ${NOTIFICATION_REJECTED_INBOX_RETENTION_AGE:30d}
+    batch-size: ${NOTIFICATION_REJECTED_INBOX_RETENTION_BATCH_SIZE:500}
+    max-batches: ${NOTIFICATION_REJECTED_INBOX_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${NOTIFICATION_REJECTED_INBOX_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${NOTIFICATION_REJECTED_INBOX_RETENTION_INITIAL_DELAY_MS:60000}
   payment-stream: ${PAYMENT_EVENT_STREAM:payment-events}
+  retention:
+    age-ms: ${PAYMENT_STREAM_RETENTION_AGE_MS:604800000}
+    required-groups: ${PAYMENT_STREAM_REQUIRED_GROUPS:notification-service,billing-service}
   consumer:
+    claim-idle-ms: ${EVENT_CONSUMER_CLAIM_IDLE_MS:60000}
     enabled: ${NOTIFICATION_CONSUMER_ENABLED:true}
     fixed-delay-ms: ${NOTIFICATION_CONSUMER_FIXED_DELAY_MS:1000}
     group: ${NOTIFICATION_CONSUMER_GROUP:notification-service}
     name: ${NOTIFICATION_CONSUMER_NAME:notification-service}
 
 notification:
+  resolved-dlq-retention:
+    mode: ${NOTIFICATION_RESOLVED_DLQ_RETENTION_MODE:observe}
+    retention: ${NOTIFICATION_RESOLVED_DLQ_RETENTION_AGE:30d}
+    batch-size: ${NOTIFICATION_RESOLVED_DLQ_RETENTION_BATCH_SIZE:500}
+    max-batches: ${NOTIFICATION_RESOLVED_DLQ_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${NOTIFICATION_RESOLVED_DLQ_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${NOTIFICATION_RESOLVED_DLQ_RETENTION_INITIAL_DELAY_MS:60000}
+  sent-retention:
+    mode: ${NOTIFICATION_SENT_RETENTION_MODE:observe}
+    retention: ${NOTIFICATION_SENT_RETENTION_AGE:30d}
+    batch-size: ${NOTIFICATION_SENT_RETENTION_BATCH_SIZE:500}
+    max-batches: ${NOTIFICATION_SENT_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${NOTIFICATION_SENT_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${NOTIFICATION_SENT_RETENTION_INITIAL_DELAY_MS:60000}
+  processing-lease-ms: ${NOTIFICATION_PROCESSING_LEASE_MS:120000}
   retry:
     enabled: ${NOTIFICATION_RETRY_ENABLED:true}
     fixed-delay-ms: ${NOTIFICATION_RETRY_FIXED_DELAY_MS:1000}
     max-attempts: ${NOTIFICATION_RETRY_MAX_ATTEMPTS:3}
     initial-backoff-ms: ${NOTIFICATION_RETRY_INITIAL_BACKOFF_MS:5000}
     max-backoff-ms: ${NOTIFICATION_RETRY_MAX_BACKOFF_MS:60000}
+
+# Bound broker calls independently of request/worker budgets.
+spring.data.redis.connect-timeout: ${EVENT_REDIS_CONNECT_TIMEOUT:1000ms}
+spring.data.redis.timeout: ${EVENT_REDIS_TIMEOUT:1000ms}
+spring.task.scheduling.pool.size: 4
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

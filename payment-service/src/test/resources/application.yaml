@@ -26,6 +26,7 @@ services:
     base-url: http://localhost:18083
 
 payment:
+  provider: simulation
   inventory-confirm-attempts: 3
   inventory-confirm-backoff-ms: 1
 
@@ -35,3 +36,6 @@ outbox:
 
 messaging:
   payment-stream: payment-events-test
+
+outbox.publisher.enabled: false
+payment.follow-ups.enabled: false

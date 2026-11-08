@@ -30,6 +30,7 @@ apps_compose() {
   local profile
   profile="$(active_profile)"
   if secret_profile_supported "$profile"; then
+    ensure_platform_auth "$profile" || return 1
     temporary_env_file="$(decrypt_profile_to_temp "$profile")" || return 1
   fi
   local -a compose_options=(--project-directory "$PROJECT_ROOT")
@@ -46,15 +47,26 @@ apps_compose() {
 
 docker_diagnose_service_error() {
   local service_name="$1"
+  local compose_service="$service_name"
+  case "$service_name" in
+    gateway) compose_service="api-gateway" ;;
+    frontend) compose_service="frontend" ;;
+    *-service) compose_service="$service_name" ;;
+    *) compose_service="${service_name}-service" ;;
+  esac
+
   local container_name
-  container_name="$(docker ps -a --filter "name=${service_name}" --format '{{.Names}}' | head -n 1)"
-  [[ -n "$container_name" ]] || container_name="miniorderplatform-${service_name}-1"
+  container_name="$(docker ps -a --filter "label=com.docker.compose.service=${compose_service}" --format '{{.Names}}' | head -n 1)"
+  if [[ -z "$container_name" ]]; then
+    container_name="$(docker ps -a --format '{{.Names}}' | grep -E "[-_]${compose_service}[-_][0-9]+$" | head -n 1)"
+  fi
+  [[ -n "$container_name" ]] || container_name="miniorderplatform-${compose_service}-1"
 
   local container_status
   container_status="$(docker inspect --format '{{.State.Status}} (kod wyjścia: {{.State.ExitCode}})' "$container_name" 2>/dev/null || echo "nieznany")"
 
   printf '\n%s============================================================%s\n' "$C_RED" "$C_RESET"
-  printf '%s[DIAGNOSTYKA BŁĘDU] Usługa „%s” jest OFFLINE%s\n' "$C_RED" "$service_name" "$C_RESET"
+  printf '%s[DIAGNOSTYKA BŁĘDU] Usługa „%s” (%s) jest OFFLINE%s\n' "$C_RED" "$service_name" "$compose_service" "$C_RESET"
   printf 'Status kontenera (%s): %s\n' "$container_name" "$container_status"
 
   local logs
@@ -84,9 +96,12 @@ docker_diagnose_service_error() {
   elif echo "$logs" | grep -qiE 'FlywayException|MigrationChecksumDiffers|Validate failed'; then
     printf '  %s• Przyczyna:%s Błąd migracji bazy danych Flyway (niezgodność sumy kontrolnej skryptów SQL).\n' "$C_RED" "$C_RESET"
     printf '  %s• Rozwiązanie:%s Sprawdź pliki migracji w db/migration wybranego serwisu.\n' "$C_GREEN" "$C_RESET"
+  elif [[ "$container_status" =~ ^running ]] && echo "$logs" | grep -qiE 'Started .*Application in|Starting .*ServiceApplication|Initializing Spring|HikariPool|Root WebApplicationContext'; then
+    printf '  %s• Przyczyna:%s Kontener wciąż się inicjalizuje (start Spring Boot w toku, proces nie uległ awarii).\n' "$C_YELLOW" "$C_RESET"
+    printf '  %s• Rozwiązanie:%s Równoległy start 15 serwisów mocno obciąża CPU w WSL2. Odczekaj chwilę i kliknij „Status kontenerów (Docker)” lub „Sprawdź zdrowie (health)”.\n' "$C_GREEN" "$C_RESET"
   else
     printf '  %s• Przyczyna:%s Nieoczekiwany błąd podczas uruchamiania aplikacji Spring Boot.\n' "$C_RED" "$C_RESET"
-    printf '  %s• Rozwiązanie:%s Zobacz pełny log kontenera poleceniem: bash ./scripts/control-center/control-center.sh docker-apps-logs %s\n' "$C_GREEN" "$C_RESET" "$service_name"
+    printf '  %s• Rozwiązanie:%s Zobacz pełny log kontenera poleceniem: bash ./scripts/control-center/control-center.sh docker-apps-logs %s\n' "$C_GREEN" "$C_RESET" "$compose_service"
   fi
   printf '%s============================================================%s\n\n' "$C_RED" "$C_RESET"
 }
@@ -101,7 +116,11 @@ docker_apps_up() {
   printf 'Uruchamiam wszystkie serwisy i frontend w kontenerach Docker...\n'
   apps_compose up -d --remove-orphans || return 1
 
-  printf '\nOczekuje na gotowosc i weryfikuje zdrowie wszystkich 15 mikroserwisow...\n'
+  local max_attempts="${DOCKER_APPS_TIMEOUT_ATTEMPTS:-75}"
+  local sleep_interval="${DOCKER_APPS_POLL_INTERVAL:-2}"
+  local total_timeout_sec=$(( max_attempts * sleep_interval ))
+
+  printf '\nOczekuje na gotowosc i weryfikuje zdrowie wszystkich 15 mikroserwisow (limit do %ds)...\n' "$total_timeout_sec"
   local -a services=(
     "gateway:18080:/api/products"
     "product:18081:/actuator/health"
@@ -121,7 +140,6 @@ docker_apps_up() {
     "frontend:18070:/"
   )
 
-  local max_attempts=30
   local attempt=0
   local all_healthy=0
   local -a failed_services=()
@@ -141,8 +159,14 @@ docker_apps_up() {
     fi
 
     attempt=$((attempt + 1))
-    printf '.'
-    sleep 1.5
+    local healthy_count=$(( ${#services[@]} - ${#failed_services[@]} ))
+    if (( attempt % 5 == 0 )); then
+      local elapsed=$(( attempt * sleep_interval ))
+      printf ' [%ds/%ds: %d/%d gotowych]\n' "$elapsed" "$total_timeout_sec" "$healthy_count" "${#services[@]}"
+    else
+      printf '.'
+    fi
+    sleep "$sleep_interval"
   done
   printf '\n'
 
@@ -154,7 +178,7 @@ docker_apps_up() {
     printf '  • Mailpit (E-maile):  http://127.0.0.1:18025\n'
     return 0
   else
-    printf '\n%s[UWAGA] Nastepujace uslugi nie odpowiedzialy w wyznaczonym czasie:%s %s\n' "$C_RED" "$C_RESET" "${failed_services[*]}"
+    printf '\n%s[UWAGA] Nastepujace uslugi nie odpowiedzialy w wyznaczonym czasie (%ds):%s %s\n' "$C_RED" "$total_timeout_sec" "$C_RESET" "${failed_services[*]}"
     for failed in "${failed_services[@]}"; do
       docker_diagnose_service_error "$failed"
     done
@@ -179,7 +203,17 @@ docker_apps_status() {
 
 
 docker_apps_logs() {
-  apps_compose logs -f "$@"
+  local -a mapped_args=()
+  for arg in "$@"; do
+    case "$arg" in
+      gateway) mapped_args+=("api-gateway") ;;
+      frontend) mapped_args+=("frontend") ;;
+      *-service) mapped_args+=("$arg") ;;
+      -*) mapped_args+=("$arg") ;;
+      *) mapped_args+=("${arg}-service") ;;
+    esac
+  done
+  apps_compose logs -f "${mapped_args[@]}"
 }
 
 
@@ -369,7 +403,21 @@ monitoring_compose() {
 
 
 monitoring_up() {
+  monitoring_check || return $?
   monitoring_compose up -d
+}
+
+monitoring_check() {
+  require_command python3 || return 1
+  require_command docker || return 1
+  python3 "$PROJECT_ROOT/scripts/qa/monitoring-check.py"
+}
+
+monitoring_alerts() {
+  require_command curl || return 1
+  curl --silent --show-error --fail --connect-timeout 2 --max-time 5 \
+    "http://127.0.0.1:${ALERTMANAGER_PORT}/api/v2/alerts" || return $?
+  printf '\n'
 }
 
 
@@ -387,14 +435,17 @@ monitoring_status() {
   printf '\nGrafana:    http://127.0.0.1:%s\n' "$GRAFANA_PORT"
   curl --silent --show-error --connect-timeout 2 --max-time 5 \
     "http://127.0.0.1:${GRAFANA_PORT}/api/health" || true
+  printf '\nAlertmanager: http://127.0.0.1:%s\n' "$ALERTMANAGER_PORT"
+  curl --silent --show-error --fail --connect-timeout 2 --max-time 5 \
+    "http://127.0.0.1:${ALERTMANAGER_PORT}/-/ready" || true
   printf '\n'
 }
 
 
 monitoring_logs() {
   local service="${1:-}"
-  if [[ -n "$service" && "$service" != "prometheus" && "$service" != "grafana" ]]; then
-    printf '%sUzycie: monitoring-logs [prometheus|grafana]%s\n' "$C_RED" "$C_RESET" >&2
+  if [[ -n "$service" && "$service" != "prometheus" && "$service" != "grafana" && "$service" != "alertmanager" ]]; then
+    printf '%sUzycie: monitoring-logs [prometheus|grafana|alertmanager]%s\n' "$C_RED" "$C_RESET" >&2
     return 2
   fi
   if [[ -n "$service" ]]; then
@@ -407,6 +458,7 @@ monitoring_logs() {
 
 monitoring_urls() {
   printf 'Prometheus: http://127.0.0.1:%s\n' "$PROMETHEUS_PORT"
+  printf 'Alertmanager: http://127.0.0.1:%s (lokalna lista alarmow)\n' "$ALERTMANAGER_PORT"
   printf 'Grafana:    http://127.0.0.1:%s\n' "$GRAFANA_PORT"
   printf 'Grafana user: %s\n' "${GRAFANA_ADMIN_USER:-admin}"
   printf 'Grafana password: z aktywnego skarbca profilu\n'

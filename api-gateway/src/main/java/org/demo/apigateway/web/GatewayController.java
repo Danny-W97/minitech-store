@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class GatewayController {
 
     private final GatewayProxy gatewayProxy;
+    private final org.demo.apigateway.proxy.ZipExportProxy zipExportProxy;
     private final String productServiceBaseUrl;
     private final String orderServiceBaseUrl;
     private final String inventoryServiceBaseUrl;
@@ -34,6 +35,7 @@ public class GatewayController {
 
     public GatewayController(
             GatewayProxy gatewayProxy,
+            org.demo.apigateway.proxy.ZipExportProxy zipExportProxy,
             @Value("${services.product.base-url}") String productServiceBaseUrl,
             @Value("${services.order.base-url}") String orderServiceBaseUrl,
             @Value("${services.inventory.base-url}") String inventoryServiceBaseUrl,
@@ -50,6 +52,7 @@ public class GatewayController {
             , @Value("${services.billing.base-url:http://localhost:18095}") String billingServiceBaseUrl
     ) {
         this.gatewayProxy = gatewayProxy;
+        this.zipExportProxy = zipExportProxy;
         this.productServiceBaseUrl = productServiceBaseUrl;
         this.orderServiceBaseUrl = orderServiceBaseUrl;
         this.inventoryServiceBaseUrl = inventoryServiceBaseUrl;
@@ -207,6 +210,12 @@ public class GatewayController {
             @RequestBody(required = false) byte[] body
     ) {
         return gatewayProxy.forward("returns", returnsServiceBaseUrl, request, body);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/invoices/export/zip")
+    @Operation(summary = "Export invoices", description = "Streams the Billing archive without buffering or retrying it")
+    public void invoiceExport(HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        zipExportProxy.forward(billingServiceBaseUrl, request, response);
     }
 
     @RequestMapping(value = {"/invoices", "/invoices/**"}, method = {

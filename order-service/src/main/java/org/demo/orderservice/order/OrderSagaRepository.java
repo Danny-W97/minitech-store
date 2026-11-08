@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderSagaRepository extends JpaRepository<OrderSaga, Long> {
+    @Query("select s from OrderSaga s where s.id <= :ceiling and (:state is null or s.state=:state) order by s.id desc")
+    List<OrderSaga> page(@Param("ceiling") long ceiling,@Param("state") OrderSagaState state,org.springframework.data.domain.Pageable page);
+    @Query("select s.orderId from OrderSaga s where s.state in :states and s.nextAttemptAt<=:now and (s.processingUntil is null or s.processingUntil<=:now) order by s.nextAttemptAt,s.id")
+    List<Long> due(@Param("states") Collection<OrderSagaState> states,@Param("now") Instant now,org.springframework.data.domain.Pageable page);
 
     Optional<OrderSaga> findByOrderId(Long orderId);
 

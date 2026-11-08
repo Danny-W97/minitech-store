@@ -1,6 +1,6 @@
 package org.demo.paymentservice.outbox;
 
-import org.demo.paymentservice.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import org.demo.paymentservice.payment.PaymentStatus;
 
 import jakarta.persistence.Column;
@@ -20,6 +20,22 @@ import java.time.Instant;
 @Entity
 @Table(name = "payment_outbox_events")
 public class PaymentOutboxEvent {
+    @Column(name="processing_token",length=36) private String processingToken;
+    @Column(name="processing_until") private Instant processingUntil;
+    public String getProcessingToken() { return processingToken; }
+    public boolean processing() { return processingUntil!=null && processingUntil.isAfter(Instant.now()); }
+    public void claim(String token,Instant until) { processingToken=token;processingUntil=until; }
+    public void release() { processingToken=null;processingUntil=null; }
+    @Column(name="stored_event_id",length=128) private String storedEventId;
+    @Column(name="identity_version",nullable=false) private int identityVersion=1;
+    public int getIdentityVersion(){return identityVersion;}
+    public String getEventId() { return storedEventId!=null?storedEventId:org.demo.platformevents.EventIdentity.payment(eventKey); }
+    public String getLegacyEventId(){return identityVersion==2?"payment-"+eventKey.substring(3):getEventId();}
+    public void useNewIdentity(){
+        if(id!=null||identityVersion!=1)throw new IllegalStateException("Existing outbox identity is immutable");
+        storedEventId="payment-v2-"+java.util.UUID.randomUUID();eventKey="v2:"+org.demo.platformevents.EventIdentity.hash(eventKey);identityVersion=2;
+    }
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,7 +53,7 @@ public class PaymentOutboxEvent {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String recipient;
 
     @Column(name = "delivery_address", length = 1000)
@@ -70,6 +86,15 @@ public class PaymentOutboxEvent {
 
     @Column(name = "published_at")
     private Instant publishedAt;
+
+    @Column(name = "payload_compacted_at")
+    private Instant payloadCompactedAt;
+
+    public boolean isPayloadCompacted() { return payloadCompactedAt != null; }
+
+    public void requirePublishablePayload() {
+        if (isPayloadCompacted()) throw new IllegalStateException("Payment outbox payload is compacted");
+    }
 
     protected PaymentOutboxEvent() {
     }

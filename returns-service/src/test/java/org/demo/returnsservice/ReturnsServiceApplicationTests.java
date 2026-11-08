@@ -13,6 +13,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 class ReturnsServiceApplicationTests {
+    @org.junit.jupiter.api.BeforeEach void noHttpFixture() { org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes(); }
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private org.demo.returnsservice.returns.ReturnOrderClient orders;
     @Autowired
     private ReturnService returnService;
 
@@ -25,6 +28,9 @@ class ReturnsServiceApplicationTests {
 
     @Test
     void createsOnlyOneRequestForTheSameOrderCustomerAndType() {
+        org.mockito.Mockito.doReturn(new org.demo.returnsservice.returns.ReturnOrderClient.Snapshot(501L,42L,"customer@example.test","COMPLETED","PAID",false,
+                java.util.List.of(new org.demo.returnsservice.returns.ReturnOrderClient.Line(1L,101L,"Product",1))))
+                .when(orders).get(501L,42L,"customer@example.test");
         var request = new CreateReturnRequest(
                 501L,
                 42L,

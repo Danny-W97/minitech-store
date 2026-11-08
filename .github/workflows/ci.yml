@@ -11,10 +11,6 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.gitignore'
   workflow_dispatch:
     inputs:
       deploy:
@@ -28,25 +24,115 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+
 concurrency:
   group: minitech-store-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  pr-image-plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_images: ${{ steps.plan.outputs.has_images }}
+    steps:
+      - name: Checkout tested merge and local history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select affected images with conservative fallback
+        id: plan
+        run: python3 scripts/deploy/image-plan.py --output "$RUNNER_TEMP/a44-plan.json"
+      - name: Upload image selection metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: a44-pr-selection-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/a44-plan.json
+          retention-days: 1
+
+  pr-images:
+    needs: pr-image-plan
+    if: github.event_name == 'pull_request' && needs.pr-image-plan.outputs.has_images == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.pr-image-plan.outputs.matrix) }}
+    steps:
+      - name: Checkout tested merge without persisted credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver-opts: image=moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+      - name: Set lower case repository owner
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: echo "REPO_OWNER=${REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - name: Build and scan affected image without publication
+        uses: ./.github/actions/build-scan-image
+        with:
+          service: ${{ matrix.service }}
+          image: ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
+          export-cache: 'false'
+
+  pr-image-gate:
+    needs: [pr-image-plan, pr-images]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Require successful plan and all selected build scans
+        env:
+          PLAN_RESULT: ${{ needs.pr-image-plan.result }}
+          BUILD_RESULT: ${{ needs.pr-images.result }}
+          HAS_IMAGES: ${{ needs.pr-image-plan.outputs.has_images }}
+        run: |
+          test "$PLAN_RESULT" = success
+          if [ "$HAS_IMAGES" = true ]; then
+            test "$BUILD_RESULT" = success
+          else
+            test "$HAS_IMAGES" = false
+            test "$BUILD_RESULT" = skipped
+          fi
+
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      image_matrix: ${{ steps.components.outputs.matrix }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Read deployable application component inventory
+        id: components
+        run: echo "matrix=$(python3 scripts/deploy/components.py --matrix)" >> "$GITHUB_OUTPUT"
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: '11.19.0'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: pnpm
@@ -54,14 +140,122 @@ jobs:
       - name: Install Playwright test dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium for Playwright
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Frontend security unit tests
+        run: pnpm run test:unit
+
+      - name: Install SOPS and age for encrypted credential tests
+        env:
+          SOPS_VERSION: '3.13.2'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends age
+          cc_tools_dir="$(mktemp -d)"
+          trap 'rm -rf -- "$cc_tools_dir"' EXIT
+          curl -fsSL --retry 3 -o "$cc_tools_dir/sops-v${SOPS_VERSION}.linux.amd64" \
+            "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64"
+          curl -fsSL --retry 3 -o "$cc_tools_dir/checksums.txt" \
+            "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.checksums.txt"
+          (cd "$cc_tools_dir" && sha256sum --check --ignore-missing checksums.txt)
+          sudo install -m 0755 "$cc_tools_dir/sops-v${SOPS_VERSION}.linux.amd64" /usr/local/bin/sops
+
+      - name: Install locked Python QA dependencies
+        run: |
+          python3 -m venv --system-site-packages gitIgnoreOwn/qa-venv
+          gitIgnoreOwn/qa-venv/bin/python -m pip install -r scripts/qa/requirements.txt
+          echo "$PWD/gitIgnoreOwn/qa-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Verify P1 evidence inventory
+        run: python3 scripts/qa/audit_readiness.py
+
+      - name: Verify PR image selection and publication boundaries
+        run: |
+          python3 scripts/qa/ci-images-check.py
+          python3 scripts/qa/supply-chain-check.py
+
+      - name: Verify shared Maven parent and module boundaries
+        run: python3 scripts/qa/maven-layout-check.py
+
+      - name: Verify reviewed data lifecycle inventory
+        run: python3 scripts/qa/data-lifecycle-check.py
+
+      - name: Verify all reviewed data columns, copies and export omissions
+        run: python3 scripts/qa/technical-data-classification-check.py --output tmp/technical-classification-check.json
+
+      - name: Verify internal copy procedures without reading runtime data or secrets
+        run: python3 scripts/qa/internal-copies-check.py
+
+      - name: Review external copies and manual evidence blockers
+        run: python3 scripts/qa/external-copies-check.py
+
+      - name: Verify retention policy coverage and explicit unresolved decisions
+        run: python3 scripts/qa/retention-policy-check.py --candidate scripts/qa/contracts/retention-observe-example.json
+
+      - name: Verify readiness roles, health exposure and Kubernetes probe paths
+        run: python3 scripts/qa/readiness-check.py
+
+      - name: Verify shared correlation infrastructure
+        run: python3 scripts/qa/correlation-layout-check.py
+
+      - name: Verify native frontend module graphs and CC feature boundaries
+        run: |
+          node scripts/qa/check-a42-modules.cjs
+          python3 scripts/qa/module-layout-check.py
+
+      - name: Verify opt-in shared resilience infrastructure
+        run: python3 scripts/qa/resilience-layout-check.py
+
+      - name: Install pinned Kubernetes validation tools
+        run: |
+          python3 scripts/deploy/install-validation-tools.py --with-kind
+          echo "$PWD/gitIgnoreOwn/tools/deploy/bin" >> "$GITHUB_PATH"
+
+      - name: Render and strictly validate Kubernetes application templates
+        run: python3 scripts/deploy/validate-k8s.py --output-dir gitIgnoreOwn/runtime/k8s-validation
+
+      - name: Disposable Kubernetes admission and restricted frontend runtime
+        run: python3 scripts/qa/k8s-templates-e2e.py
+
+      - name: Operator credentials, Control Center and encrypted AI storage tests
+        env:
+          CC_REQUIRE_SOPS_TESTS: '1'
+        run: |
+          python3 -m unittest discover -s scripts/qa/unit -p 'test_*.py'
+          bash scripts/qa/unit/platform-auth-test.sh
+          bash scripts/qa/unit/maven-startup-test.sh
+          bash scripts/qa/unit/list-pages-test.sh
+          bash scripts/qa/unit/export-zip-test.sh
+          bash scripts/qa/unit/invoice-corrections-test.sh
+          bash scripts/qa/unit/returns-workflow-test.sh
+
+      - name: Install Playwright engines for UI and accessibility
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
 
       - name: Browser UI regression with deterministic API fixtures
-        run: pnpm run test:ui
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: gitIgnoreOwn/runtime/playwright/storefront-chromium.json
+        run: pnpm run test:ui --reporter=line,json
+
+      - name: Accessibility, chat, cart and store transport across Firefox, WebKit and mobile Chrome
+        run: pnpm exec playwright test e2e/tests/accessibility/accessibility.spec.ts e2e/tests/chat/chat.spec.ts e2e/tests/cart/cart-storage.spec.ts e2e/tests/api/store-client.spec.ts e2e/tests/api/invoice-downloads.spec.ts e2e/tests/api/account-export.spec.ts e2e/tests/api/account-export-jobs.spec.ts e2e/tests/api/chat-client.spec.ts e2e/tests/authentication/passkey.spec.ts --project=firefox --project=webkit --project=mobile-chrome
+
+      - name: Critical checkout recovery across Firefox, WebKit and mobile Chrome
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: gitIgnoreOwn/runtime/playwright/checkout-recovery.json
+        run: pnpm exec playwright test e2e/tests/checkout/checkout-recovery.spec.ts --project=firefox --project=webkit --project=mobile-chrome --retries=0 --fail-on-flaky-tests --reporter=line,json
+
+      - name: Require every critical browser case to pass on its first attempt
+        run: python3 scripts/qa/critical-browser-check.py --report gitIgnoreOwn/runtime/playwright/storefront-chromium.json --report gitIgnoreOwn/runtime/playwright/checkout-recovery.json --output gitIgnoreOwn/runtime/playwright/critical-browser-gate.json
+
+      - name: Control Center browser session and origin security
+        run: pnpm run test:cc
+
+      - name: Control Center modules and lifecycle across Firefox and WebKit
+        run: |
+          CC_TEST_BROWSER=firefox CC_TEST_OUTPUT=gitIgnoreOwn/runtime/playwright/cc-firefox pnpm run test:cc --grep '@assistant-renderer|@command-palette|@operator-intents|@assistant-conversation|@job-monitor|@terminal-session'
+          CC_TEST_BROWSER=webkit CC_TEST_OUTPUT=gitIgnoreOwn/runtime/playwright/cc-webkit pnpm run test:cc --grep '@assistant-renderer|@command-palette|@operator-intents|@assistant-conversation|@job-monitor|@terminal-session'
 
       - name: Set up Java 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '25'
@@ -69,6 +263,144 @@ jobs:
 
       - name: Unit and integration tests
         run: ./mvnw --batch-mode -Pintegration verify
+
+      - name: Verify packaged shared correlation classes
+        run: python3 scripts/qa/correlation-layout-check.py --jars
+
+      - name: Verify packaged resilience isolation
+        run: python3 scripts/qa/resilience-layout-check.py --jars
+
+      - name: Checkout, access control and invoice integrity on isolated PostgreSQL
+        run: python3 scripts/qa/access-control-e2e.py --pagination --quality-gates
+
+      - name: Catalog pricing, source price history and constant checkout calls on isolated PostgreSQL
+        run: python3 scripts/qa/catalog-pricing-e2e.py
+
+      - name: Operator customer list, schema failure and recovery through Control Center
+        run: python3 scripts/qa/customer-list-e2e.py
+
+      - name: Owner-only partial account export through Gateway on isolated PostgreSQL
+        run: python3 scripts/qa/account-data-export-e2e.py
+
+      - name: Owner-only paginated Wishlist export through Gateway on isolated PostgreSQL
+        run: python3 scripts/qa/wishlist-data-export-e2e.py
+
+      - name: Owner-only paginated review export with private moderator fields excluded
+        run: python3 scripts/qa/review-data-export-e2e.py
+
+      - name: Owner-only retained recommendation log export without enabling recording
+        run: python3 scripts/qa/recommendation-data-export-e2e.py
+
+      - name: Owner-only bounded order headers and item exports through Gateway
+        run: python3 scripts/qa/order-data-export-e2e.py
+
+      - name: Shipment export with authoritative Order ownership and closed failure handling
+        run: python3 scripts/qa/shipment-data-export-e2e.py
+
+      - name: Owner-only bounded return cases, items and safe status event exports
+        run: python3 scripts/qa/return-data-export-e2e.py
+
+      - name: Stored payment and refund export with authoritative Order ownership
+        run: python3 scripts/qa/payment-data-export-e2e.py
+
+      - name: Owned invoice, item, correction and existing PDF export through Gateway
+        run: python3 scripts/qa/invoice-data-export-e2e.py
+
+      - name: Capability-only conversation and bounded chat-entry exports without account linking
+        run: python3 scripts/qa/chat-data-export-e2e.py
+
+      - name: Notification exports with Order ownership and conversation capability proof
+        run: python3 scripts/qa/notification-data-export-e2e.py
+
+      - name: Owned stock reservations and coupon reservation/redemption exports
+        run: python3 scripts/qa/reservation-data-export-e2e.py
+
+      - name: Safe subject-bound security history and MFA metadata with manual note policy
+        run: python3 scripts/qa/security-data-export-e2e.py
+
+      - name: Durable account export coordinator with owner-only chunks and bounded expiry
+        run: python3 scripts/qa/account-export-jobs-e2e.py --with-browser
+
+      - name: PostgreSQL column oracle and preserved deduplication obligations
+        run: python3 scripts/qa/technical-classification-postgres-e2e.py
+
+      - name: Account privacy fencing, status capability and restart recovery
+        run: python3 scripts/qa/privacy-requests-e2e.py
+
+      - name: Reviewed account cleanup, review deduplication and separate Chat ownership
+        run: python3 scripts/qa/account-cleanup-e2e.py
+
+      - name: Commerce privacy adapters, active workflow protection and finance handoff
+        run: python3 scripts/qa/commerce-cleanup-e2e.py
+
+      - name: Finance privacy quorum, identity compatibility and SQL/Redis fences
+        run: python3 scripts/qa/finance-privacy-e2e.py
+
+      - name: Bounded document cache, SQL export and ZIP streaming under constrained heap
+        run: python3 scripts/qa/document-export-e2e.py
+
+      - name: HTTP deadlines, short transactions and independent saga recovery
+        run: python3 scripts/qa/http-transactions-e2e.py
+
+      - name: Correlation propagation, concurrent isolation and input validation
+        run: python3 scripts/qa/correlation-e2e.py
+
+      - name: Event outbox, durable inbox, replica crashes and safe Redis retention
+        run: python3 scripts/qa/event-reliability-e2e.py
+
+      - name: Business metrics, alert rules and isolated firing/resolved webhook delivery
+        run: python3 scripts/qa/monitoring-e2e.py
+
+      - name: Encrypted platform backup, source loss and isolated 14-database Redis restore
+        run: python3 scripts/qa/platform-recovery-e2e.py
+
+      - name: Independent signed erasure journal and quarantined privacy replay after source loss
+        run: python3 scripts/qa/privacy-recovery-e2e.py
+
+      - name: Internal log rotation in disposable owned resources
+        run: python3 scripts/qa/internal-log-rotation-e2e.py
+
+      - name: Immutable chat history, notification handoff and replica restart recovery
+        run: python3 scripts/qa/chat-history-e2e.py
+
+      - name: Payment replica races, idempotent recovery and stale owner fencing
+        run: python3 scripts/qa/payment-replicas-e2e.py
+
+      - name: Durable invoice, shipment and coupon recovery after payment
+        run: python3 scripts/qa/payment-follow-ups-e2e.py
+      - name: Coupon capacity reservations and fenced expiry across replicas
+        run: python3 scripts/qa/coupon-reservations-e2e.py
+      - name: Owner-bound order idempotency and recovery across replicas
+        run: python3 scripts/qa/order-idempotency-e2e.py
+      - name: Verified return intake, immutable decisions and Returns replica recovery
+        run: python3 scripts/qa/returns-workflow-e2e.py
+
+      - name: Deferred fulfillment, stock TTL and authorized cash collection
+        run: python3 scripts/qa/deferred-payments-e2e.py
+
+      - name: Safe cancellation, payment fences and compensation crash recovery
+        run: python3 scripts/qa/cancellations-e2e.py
+
+      - name: Atomic order creation, orphan reconciliation and replica lifecycle races
+        run: python3 scripts/qa/order-lifecycle-e2e.py
+
+      - name: Atomic stock receipts, immutable operation replay and Inventory replica crashes
+        run: python3 scripts/qa/inventory-receipts-e2e.py
+
+      - name: Invoice correction ledger, migration and Billing replica concurrency
+        run: python3 scripts/qa/invoice-corrections-e2e.py
+
+      - name: Paid purchase lifecycle and durable Delivery to Order recovery
+        run: python3 scripts/qa/purchased-lifecycle-e2e.py
+
+      - name: Stripe protocol, full refunds and Payment replica crash recovery
+        run: python3 scripts/qa/stripe-payments-e2e.py
+
+      - name: Gateway rate limiting across replicas and Redis failure policies
+        run: python3 scripts/qa/rate-limit-e2e.py
+
+      - name: MFA encryption migration and JWT rotation across restarts
+        run: python3 scripts/qa/mfa-key-rotation-e2e.py --with-session-checks
 
       - name: Full API and business E2E
         run: bash scripts/qa/ci-e2e.sh
@@ -86,7 +418,7 @@ jobs:
       - name: Upload OWASP ZAP report
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: minitech-store-zap-report
           path: gitIgnoreOwn/runtime/zap/
@@ -96,7 +428,7 @@ jobs:
       - name: Upload Playwright report
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: minitech-store-playwright-report
           path: gitIgnoreOwn/runtime/playwright/
@@ -106,15 +438,79 @@ jobs:
       - name: Upload service logs on failure
         if: failure()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: minitech-store-ci-logs
-          path: gitIgnoreOwn/runtime/ci-*.log
+          path: |
+            gitIgnoreOwn/runtime/ci-*.log
+            gitIgnoreOwn/runtime/k8s-validation/
+            tmp/audit-a34-*/report.json
+            tmp/audit-a34-*/*.log
+            tmp/audit-a34-*/validation/report.json
+            tmp/audit-a34-*/validation/schema.json
+            tmp/audit-a34-*/validation/rendered.yaml
+            tmp/a35-monitoring-*/report.json
+            tmp/a35-monitoring-*/*.log
+            tmp/a35-monitoring-*/webhook-events.json
+            tmp/audit-a36-*/report.json
+            tmp/audit-a36-*/restore-report.json
+            tmp/audit-a36-*/*.log
+            tmp/audit-a38-*/report.json
+            tmp/audit-a38-*/*.log
+            tmp/audit-a42-2-*/report.json
+            tmp/audit-a42-2-*/*.log
+            tmp/customer-list-*/report.json
+            tmp/customer-list-*/*.log
+            tmp/catalog-e2e-*/report.json
+            tmp/catalog-e2e-*/*.log
+            tmp/event-reliability-*/
+            tmp/technical-classification-check.json
+            tmp/classification-postgres-*/report.json
+            tmp/privacy-protocol-*/report.json
+            tmp/privacy-protocol-*/*.log
+            tmp/account-cleanup-*/report.json
+            tmp/account-cleanup-*/*.log
+            tmp/commerce-cleanup-*/report.json
+            tmp/commerce-cleanup-*/*.log
+            tmp/finance-privacy-*/report.json
+            tmp/finance-privacy-*/*.log
+            tmp/export-jobs-*/report.json
+            tmp/export-jobs-*/*.log
+            tmp/export-jobs-*/browser/report.json
+            tmp/export-jobs-*/browser/*.png
+            tmp/payment-replicas-*/report.json
+            tmp/payment-replicas-*/*.log
+            tmp/payment-follow-ups-*/report.json
+            tmp/payment-follow-ups-*/*.log
+            tmp/coupon-reservations-*/report.json
+            tmp/coupon-reservations-*/*.log
+            tmp/order-idempotency-*/report.json
+            tmp/order-idempotency-*/*.log
+            tmp/returns-workflow-*/report.json
+            tmp/returns-workflow-*/*.log
+            tmp/deferred-payments-*/report.json
+            tmp/deferred-payments-*/*.log
+            tmp/cancellations-*/report.json
+            tmp/cancellations-*/*.log
+            tmp/order-lifecycle-*/report.json
+            tmp/order-lifecycle-*/*.log
+            tmp/inventory-receipts-*/report.json
+            tmp/inventory-receipts-*/*.log
+            tmp/invoice-corrections-*/report.json
+            tmp/purchased-lifecycle-*/report.json
+            tmp/purchased-lifecycle-*/*.log
+            tmp/invoice-corrections-*/*.log
+            tmp/stripe-payments-*/report.json
+            tmp/stripe-payments-*/*.log
+            tmp/http-transactions-*/
+            tmp/access-control-e2e-*/quality-gates/
+            gitIgnoreOwn/runtime/qa/
           if-no-files-found: ignore
           retention-days: 1
 
   build-images:
     needs: verify
+    timeout-minutes: 45
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.build_all_images == true))
     runs-on: ubuntu-latest
     permissions:
@@ -123,97 +519,78 @@ jobs:
       id-token: write
     strategy:
       fail-fast: false
-      matrix:
-        service:
-          - api-gateway
-          - product-service
-          - order-service
-          - inventory-service
-          - payment-service
-          - notification-service
-          - customer-service
-          - delivery-service
-          - promotion-service
-          - wishlist-service
-          - review-service
-          - recommendation-service
-          - chat-service
-          - returns-service
-          - billing-service
-          - frontend
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.verify.outputs.image_matrix) }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver-opts: image=moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
 
       - name: Set lower case repository owner
-        run: echo "REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: echo "REPO_OWNER=${REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish service image
-        uses: docker/build-push-action@v6
-        if: matrix.service != 'frontend'
+      - name: Build and scan full release image before publication
+        uses: ./.github/actions/build-scan-image
         with:
-          context: .
-          file: deploy/docker/service.Dockerfile
-          build-args: SERVICE_MODULE=${{ matrix.service }}
-          push: false
-          load: true
-          tags: |
-            ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          service: ${{ matrix.service }}
+          image: ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
+          export-cache: 'true'
 
-      - name: Build and publish frontend image
-        uses: docker/build-push-action@v6
-        if: matrix.service == 'frontend'
-        with:
-          context: .
-          file: deploy/docker/frontend.Dockerfile
-          push: false
-          load: true
-          tags: |
-            ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan image for HIGH and CRITICAL vulnerabilities
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          timeout: '10m'
-
-      - name: Push verified image to GHCR
+      - name: Push verified image to GHCR and capture its registry digest
         if: github.event_name != 'pull_request'
         env:
           IMAGE_REF: ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
-        run: docker push "$IMAGE_REF"
+          A44_SERVICE: ${{ matrix.service }}
+          A44_COMMIT: ${{ github.sha }}
+        run: |
+          python3 scripts/deploy/image-supply-chain.py preflight --image "$IMAGE_REF" \
+            --directory "$RUNNER_TEMP/a44-$A44_SERVICE" --commit "$A44_COMMIT"
+          docker push "$IMAGE_REF"
+          published_image="$(python3 scripts/deploy/image-supply-chain.py published --image "$IMAGE_REF" \
+            --directory "$RUNNER_TEMP/a44-$A44_SERVICE" --commit "$A44_COMMIT")"
+          echo "PUBLISHED_IMAGE=$published_image" >> "$GITHUB_ENV"
 
-      - name: Install Cosign
+      - name: Install SHA256-verified Cosign
         if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v4.1.0
+        run: |
+          python3 scripts/deploy/install-supply-chain-tools.py cosign
+          echo "$PWD/gitIgnoreOwn/tools/supply-chain/bin" >> "$GITHUB_PATH"
 
-      - name: Sign image with GitHub OIDC
+      - name: Sign published digest with GitHub OIDC
+        if: github.event_name != 'pull_request'
+        run: cosign sign --yes "$PUBLISHED_IMAGE"
+
+      - name: Attest exact CycloneDX SBOM for the published digest
         if: github.event_name != 'pull_request'
         env:
-          COSIGN_EXPERIMENTAL: 'true'
-          IMAGE_REF: ghcr.io/${{ env.REPO_OWNER }}/mini-order-platform/${{ matrix.service }}:${{ github.sha }}
-        run: cosign sign --yes "$IMAGE_REF"
+          A44_SERVICE: ${{ matrix.service }}
+        run: cosign attest --yes --type cyclonedx --predicate "$RUNNER_TEMP/a44-$A44_SERVICE/sbom.cdx.json" "$PUBLISHED_IMAGE"
+
+      - name: Upload registry digest and SBOM binding
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: a44-publication-${{ matrix.service }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/a44-${{ matrix.service }}/publication.json
+          if-no-files-found: warn
+          retention-days: 1
 
   deploy-kubernetes:
     needs: build-images
@@ -226,10 +603,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Require closed P1 findings before production
+        run: python3 scripts/qa/audit_readiness.py --release
 
       - name: Configure kubectl
-        uses: azure/setup-kubectl@v4
+        run: |
+          python3 -m venv gitIgnoreOwn/deploy-venv
+          gitIgnoreOwn/deploy-venv/bin/python -m pip install -r scripts/qa/requirements.txt
+          echo "$PWD/gitIgnoreOwn/deploy-venv/bin" >> "$GITHUB_PATH"
+          python3 scripts/deploy/install-validation-tools.py
+          echo "$PWD/gitIgnoreOwn/tools/deploy/bin" >> "$GITHUB_PATH"
 
       - name: Load kubeconfig
         env:
@@ -239,6 +626,7 @@ jobs:
             echo 'Missing production secret KUBE_CONFIG_B64' >&2
             exit 1
           }
+          umask 077
           mkdir -p "$HOME/.kube"
           printf '%s' "$KUBE_CONFIG_B64" | base64 --decode > "$HOME/.kube/config"
           kubectl config current-context
@@ -246,18 +634,22 @@ jobs:
       - name: Verify production secrets exist
         run: kubectl -n minitech-store get secret minitech-store-secrets
 
-      - name: Set image tag and apply Kubernetes manifests
+      - name: Validate release artifact and run server dry-run before apply
         env:
           IMAGE_OWNER: ${{ github.repository_owner }}
           IMAGE_TAG: ${{ github.sha }}
+          DEPLOY_OVERLAY: ${{ vars.PROD_KUSTOMIZE_OVERLAY || 'deploy/k8s/overlays/prod' }}
         run: |
           IMAGE_OWNER="$(printf '%s' "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')"
-          sed -i "s#ghcr.io/replace-me#ghcr.io/${IMAGE_OWNER}#g; s/newTag: latest/newTag: ${IMAGE_TAG}/g" \
-            deploy/k8s/overlays/prod/kustomization.yaml
-          kubectl apply -k deploy/k8s/overlays/prod
+          python3 scripts/deploy/validate-k8s.py --release \
+            --overlay "$DEPLOY_OVERLAY" \
+            --image-prefix "ghcr.io/${IMAGE_OWNER}/mini-order-platform" --image-tag "$IMAGE_TAG" \
+            --output-dir gitIgnoreOwn/runtime/k8s-release
+          kubectl apply --dry-run=server --validate=strict -f gitIgnoreOwn/runtime/k8s-release/rendered.yaml
+          kubectl apply --validate=strict -f gitIgnoreOwn/runtime/k8s-release/rendered.yaml
 
-      - name: Wait for zero-downtime rollout
+      - name: Wait for application rollout
         run: |
-          for deployment in api-gateway product-service order-service inventory-service payment-service notification-service customer-service delivery-service promotion-service wishlist-service review-service recommendation-service chat-service returns-service billing-service frontend; do
+          while IFS= read -r deployment; do
             kubectl -n minitech-store rollout status "deployment/${deployment}" --timeout=5m
-          done
+          done < <(python3 scripts/deploy/components.py)

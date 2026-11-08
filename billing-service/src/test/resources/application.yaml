@@ -16,3 +16,5 @@ messaging:
   consumer:
     enabled: false
 
+
+outbox.publisher.enabled: false

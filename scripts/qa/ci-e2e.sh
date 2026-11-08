@@ -6,6 +6,7 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 MAVEN_WRAPPER="$PROJECT_ROOT/mvnw"
 DB_PASSWORD_VALUE="${CI_DB_PASSWORD:-ci-db-password}"
 JWT_SECRET_VALUE="${CUSTOMER_JWT_SECRET:-c29tZS10ZXN0LWp3dC1zZWNyZXQta2V5LWxvbmcgZW5vdWdo}"
+MFA_KEY_VALUE="${CUSTOMER_MFA_ENCRYPTION_KEY_BASE64:-$(python3 -c 'import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())')}"
 COMPOSE_PROJECT_NAME="${CI_COMPOSE_PROJECT_NAME:-mini-order-platform-ci}"
 RUNTIME_DIRECTORY="$PROJECT_ROOT/gitIgnoreOwn/runtime"
 APP_PIDS=()
@@ -43,6 +44,20 @@ export BILLING_DB_PASSWORD="$DB_PASSWORD_VALUE"
 
 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$PROJECT_ROOT/compose.yaml" up -d --wait
 
+CI_AUTH_FILE="$(mktemp)"
+chmod 600 "$CI_AUTH_FILE"
+python3 "$PROJECT_ROOT/scripts/security/credentials.py" "$CI_AUTH_FILE"
+set -a
+source "$CI_AUTH_FILE"
+set +a
+rm -f -- "$CI_AUTH_FILE"
+source "$PROJECT_ROOT/scripts/control-center/lib/platform-auth.sh"
+# Other QA processes use the operator credential only for their administrative fixtures.
+export QA_OPERATOR_TOKEN="$PLATFORM_OPERATOR_TOKEN"
+if ! find "$PROJECT_ROOT/order-service/target" -maxdepth 1 -name '*-SNAPSHOT.jar' | grep -q .; then
+  bash "$MAVEN_WRAPPER" -B -pl platform-security -am -DskipTests install
+fi
+
 start_service() {
   local project="$1"
   local db_password="${2:-}"
@@ -53,9 +68,11 @@ start_service() {
     printf 'CI E2E: brak zbudowanego JAR-a dla %s — uruchamiam spring-boot:run\n' "$project" >&2
     (
       cd "$PROJECT_ROOT"
+      export CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE"
+      export CUSTOMER_MFA_ENCRYPTION_KEY_BASE64="$MFA_KEY_VALUE"
+      configure_service_auth "$project"
       SPRING_PROFILES_ACTIVE=dev \
       DB_PASSWORD="$db_password" \
-      CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE" \
       MAIL_HOST=127.0.0.1 MAIL_PORT=11025 MAIL_FROM=no-reply@minitech.local \
       bash "$MAVEN_WRAPPER" -q -pl "$project" spring-boot:run
     ) > "$RUNTIME_DIRECTORY/ci-${project}.log" 2>&1 &
@@ -63,9 +80,11 @@ start_service() {
     return
   fi
   (
+    export CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE"
+    export CUSTOMER_MFA_ENCRYPTION_KEY_BASE64="$MFA_KEY_VALUE"
+    configure_service_auth "$project"
     SPRING_PROFILES_ACTIVE=dev \
     DB_PASSWORD="$db_password" \
-    CUSTOMER_JWT_SECRET="$JWT_SECRET_VALUE" \
     MAIL_HOST=127.0.0.1 MAIL_PORT=11025 MAIL_FROM=no-reply@minitech.local \
     java -Xms128m -Xmx256m -XX:TieredStopAtLevel=1 -jar "$jar"
   ) > "$RUNTIME_DIRECTORY/ci-${project}.log" 2>&1 &
@@ -118,9 +137,9 @@ wait_for() {
 wait_for frontend "http://127.0.0.1:18070/index.html"
 wait_for product "http://127.0.0.1:18081/products"
 wait_for inventory "http://127.0.0.1:18083/inventory/items/1"
-wait_for order "http://127.0.0.1:18082/orders"
-wait_for payment "http://127.0.0.1:18084/payments"
-wait_for notification "http://127.0.0.1:18086/notifications"
+wait_for order "http://127.0.0.1:18082/actuator/health"
+wait_for payment "http://127.0.0.1:18084/actuator/health"
+wait_for notification "http://127.0.0.1:18086/actuator/health"
 wait_for customer "http://127.0.0.1:18087/actuator/health"
 wait_for delivery "http://127.0.0.1:18088/deliveries/methods"
 wait_for promotion "http://127.0.0.1:18089/promotions/active"

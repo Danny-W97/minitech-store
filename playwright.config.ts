@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const runtimeRoot = 'gitIgnoreOwn/runtime/playwright';
+const runtimeRoot = process.env.PLAYWRIGHT_OUTPUT_ROOT || 'gitIgnoreOwn/runtime/playwright';
+const frontendURL = `http://127.0.0.1:${process.env.PLAYWRIGHT_FRONTEND_PORT || '18070'}`;
 
 export default defineConfig({
   testDir: './e2e/tests',
@@ -16,7 +17,7 @@ export default defineConfig({
     ['html', { outputFolder: `${runtimeRoot}/report`, open: 'never' }]
   ],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:18070',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || frontendURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -25,8 +26,8 @@ export default defineConfig({
   },
   webServer: {
     command: 'node scripts/qa/frontend-server.mjs',
-    url: 'http://127.0.0.1:18070/index.html',
-    reuseExistingServer: true,
+    url: `${frontendURL}/index.html`,
+    reuseExistingServer: !process.env.PLAYWRIGHT_FRONTEND_PORT,
     timeout: 30_000
   },
   projects: [

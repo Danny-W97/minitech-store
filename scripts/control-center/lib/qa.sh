@@ -10,7 +10,7 @@ run_tests() {
   else
     local project
     project="$(app_project "$alias")" || { printf '%sNieznany projekt: %s%s\n' "$C_RED" "$alias" "$C_RESET" >&2; return 2; }
-    maven -pl "$project" test
+    maven -pl "$project" -am test
   fi
 }
 
@@ -22,7 +22,7 @@ run_package() {
   else
     local project
     project="$(app_project "$alias")" || { printf '%sNieznany projekt: %s%s\n' "$C_RED" "$alias" "$C_RESET" >&2; return 2; }
-    maven -pl "$project" package
+    maven -pl "$project" -am package
   fi
 }
 
@@ -81,14 +81,27 @@ api_docs_urls() {
 }
 
 
-qa_contract_test() {
-  bash "$PROJECT_ROOT/scripts/qa/contract-test.sh"
-}
+qa_authenticated_gate() (
+  local gate_script="$1" configured
+  if [[ -z "${QA_OPERATOR_TOKEN:-}" ]]; then
+    for configured in "${CONTRACT_API_BASE_URL:-http://127.0.0.1:18080}" "${SECURITY_API_BASE_URL:-http://127.0.0.1:18080}" "${LOAD_API_BASE_URL:-http://127.0.0.1:18080}"; do
+      case "${configured%/}" in
+        http://127.0.0.1:18080|http://localhost:18080|http://127.0.0.1:18080/api/v1|http://localhost:18080/api/v1) ;;
+        *) printf 'Custom QA target requires an explicitly supplied QA_OPERATOR_TOKEN.\n' >&2; return 2 ;;
+      esac
+    done
+    case "${LOAD_METRICS_URL:-http://127.0.0.1:18081}" in
+      http://127.0.0.1:18081|http://localhost:18081) ;;
+      *) printf 'Custom metrics target requires an explicitly supplied QA_OPERATOR_TOKEN.\n' >&2; return 2 ;;
+    esac
+    load_profile_secrets "$(active_profile)" || return 1
+    export QA_OPERATOR_TOKEN="$PLATFORM_OPERATOR_TOKEN"
+  fi
+  bash "$PROJECT_ROOT/scripts/qa/$gate_script"
+)
 
-
-qa_security_test() {
-  bash "$PROJECT_ROOT/scripts/qa/security-test.sh"
-}
+qa_contract_test() { qa_authenticated_gate contract-test.sh; }
+qa_security_test() { qa_authenticated_gate security-test.sh; }
 
 
 qa_zap_dast() {
@@ -97,7 +110,7 @@ qa_zap_dast() {
 
 
 qa_load_test() {
-  bash "$PROJECT_ROOT/scripts/qa/load-test.sh"
+  qa_authenticated_gate load-test.sh
 }
 
 
@@ -280,6 +293,12 @@ qa_ui_report() {
     printf '%sBrak raportu. Najpierw uruchom ui-test-smoke albo ui-test.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
   }
+  local stale_pid
+  stale_pid="$(ss -tulpn 2>/dev/null | grep ':19325 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 || true)"
+  if [[ -n "$stale_pid" ]]; then
+    kill "$stale_pid" 2>/dev/null || true
+    sleep 0.5
+  fi
   printf 'Raport: http://127.0.0.1:19325\nZakoncz serwer raportu przez Ctrl+C.\n'
   qa_ui_exec show-report "$report_directory" --host 127.0.0.1 --port 19325
 }
@@ -291,9 +310,10 @@ images_build() {
 
 
 k8s_validate() {
-  require_command kubectl || return 1
-  kubectl kustomize "$PROJECT_ROOT/deploy/k8s/overlays/prod" >/dev/null
-  printf 'Manifesty Kubernetes sa poprawne skladniowo. Nie wykonano wdrozenia.\n'
+  require_command python3 || return 1
+  PATH="$PROJECT_ROOT/gitIgnoreOwn/tools/deploy/bin:$PATH" \
+    python3 "$PROJECT_ROOT/scripts/deploy/validate-k8s.py" || return 1
+  printf 'Renderowanie, scisle schematy i powiazania Kubernetes sa poprawne. Odbior przedprodukcyjny pozostaje otwarty.\n'
 }
 
 
@@ -419,6 +439,8 @@ verify_mvp() {
     mode='auto'
   fi
   local profile gateway timestamp correlation_id product_id quantity recipient
+  local guest_access_token
+  guest_access_token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
   profile="$(active_profile)"
   case "$profile" in
     dev|test) ;;
@@ -432,15 +454,15 @@ verify_mvp() {
   timestamp="$(date +%s)"
   correlation_id="app-verify-${timestamp}-$$"
   if [[ "$mode" == 'auto' || ! -t 0 ]]; then
-    product_id="${2:-${APP_VERIFY_PRODUCT_ID:-4}}"
+    product_id="${2:-${APP_VERIFY_PRODUCT_ID:-1}}"
     quantity="${3:-${APP_VERIFY_QUANTITY:-1}}"
     recipient="${4:-${APP_VERIFY_RECIPIENT:-app-verify-${timestamp}@minitech.local}}"
     printf 'Tryb automatyczny: produkt %s, ilosc %s, odbiorca %s\n' \
       "$product_id" "$quantity" "$recipient"
   else
-    printf 'Produkt ID [4]: '
+    printf 'Produkt ID [1]: '
     read -r product_id || product_id=''
-    product_id="${product_id:-4}"
+    product_id="${product_id:-1}"
     printf 'Ilosc [1]: '
     read -r quantity || quantity=''
     quantity="${quantity:-1}"
@@ -480,8 +502,8 @@ verify_mvp() {
   local order_after reservation_response notification_response mailpit_response
   local active available_before available_after order_id reservation_id
   local order_status payment_status reservation_status notification_status mail_count
-  product_response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" \
+  product_response="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     "$gateway/products/${product_id}")" || {
     printf '%sNie mozna pobrac produktu z API Gateway.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
@@ -492,8 +514,8 @@ verify_mvp() {
     return 1
   }
 
-  stock_before="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" \
+  stock_before="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     "$gateway/inventory/items/${product_id}")" || {
     printf '%sNie mozna pobrac stanu magazynowego.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
@@ -501,10 +523,11 @@ verify_mvp() {
   available_before="$(printf '%s' "$stock_before" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("availableQuantity", -1))' 2>/dev/null || echo 0)"
   if ! [[ "$available_before" =~ ^[0-9]+$ ]] || (( available_before < quantity )); then
     if [[ "$mode" == 'auto' || ! -t 0 ]]; then
-      curl --silent -X PATCH -H 'Content-Type: application/json' \
-        -d '{"availableQuantity": 50}' "$gateway/inventory/items/${product_id}" >/dev/null 2>&1 || true
-      stock_before="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-        -H "X-Correlation-Id: $correlation_id" \
+      local qa_stock_operation
+      qa_stock_operation="$(python3 -c 'import uuid; print(uuid.uuid4())')" || return 1
+      inventory_receive "$product_id" 50 "$qa_stock_operation" >/dev/null || return 1
+      stock_before="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+        -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
         "$gateway/inventory/items/${product_id}")" || true
       available_before="$(printf '%s' "$stock_before" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("availableQuantity", -1))' 2>/dev/null || echo 0)"
     fi
@@ -515,8 +538,8 @@ verify_mvp() {
     return 1
   fi
 
-  delivery_methods="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" \
+  delivery_methods="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     "$gateway/deliveries/methods")" || {
     printf '%sNie mozna pobrac metod dostawy z Delivery Service.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
@@ -530,8 +553,8 @@ verify_mvp() {
   delivery_subtotal="$(UNIT_PRICE="$unit_price" QUANTITY="$quantity" python3 -c 'from decimal import Decimal; import os; print(Decimal(os.environ["UNIT_PRICE"]) * int(os.environ["QUANTITY"]))')"
   delivery_quote_payload="$(DELIVERY_METHOD_CODE="$delivery_method_code" DELIVERY_QUANTITY="$quantity" DELIVERY_SUBTOTAL="$delivery_subtotal" \
     python3 -c 'import json,os; print(json.dumps({"methodCode": os.environ["DELIVERY_METHOD_CODE"], "postalCode": "00-001", "itemCount": int(os.environ["DELIVERY_QUANTITY"]), "subtotal": float(os.environ["DELIVERY_SUBTOTAL"])}))')"
-  delivery_quote="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" -H 'Content-Type: application/json' \
+  delivery_quote="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" -H 'Content-Type: application/json' \
     -X POST "$gateway/deliveries/quote" --data "$delivery_quote_payload")" || {
     printf '%sNie mozna wyliczyc kosztu dostawy w Delivery Service.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
@@ -546,10 +569,10 @@ verify_mvp() {
   order_payload="$(printf '{\n  \"productId\": %s,\n  \"quantity\": %s,\n  \"customerId\": null,\n  \"customerEmail\": \"%s\",\n  \"deliveryAddress\": {\n    \"firstName\": \"MVP\",\n    \"lastName\": \"Verifier\",\n    \"street\": \"Control Center 1\",\n    \"postalCode\": \"00-001\",\n    \"city\": \"Warszawa\",\n    \"country\": \"Polska\"\n  },\n  \"deliveryMethod\": \"%s\",\n  \"deliveryCost\": %s\n}' \
     "$product_id" "$quantity" "$(json_escape "$recipient")" "$delivery_method_code" "$delivery_cost")"
   printf 'Tworze zamowienie testowe...\n'
-  order_response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 15 \
-    -H "X-Correlation-Id: $correlation_id" \
+  order_response="$(operator_curl --silent --show-error --fail-with-body --connect-timeout 3 --max-time 15 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     -H 'Content-Type: application/json' -X POST "$gateway/orders" --data "$order_payload")" || {
-    printf '%sNie udalo sie utworzyc zamowienia testowego.%s\n' "$C_RED" "$C_RESET" >&2
+    printf '%sNie udalo sie utworzyc zamowienia testowego: %s%s\n' "$C_RED" "$order_response" "$C_RESET" >&2
     return 1
   }
   order_id="$(printf '%s' "$order_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
@@ -564,21 +587,21 @@ verify_mvp() {
   payment_payload="$(printf '{\n  \"orderId\": %s,\n  \"paymentMethod\": \"CARD\",\n  \"simulateFailure\": false,\n  \"notificationRecipient\": \"%s\",\n  \"idempotencyKey\": \"mvp-%s\"\n}' \
     "$order_id" "$(json_escape "$recipient")" "$order_id")"
   printf 'Przetwarzam platnosc testowa...\n'
-  payment_response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 15 \
-    -H "X-Correlation-Id: $correlation_id" \
+  payment_response="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 15 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     -H 'Content-Type: application/json' -X POST "$gateway/payments" --data "$payment_payload")" || {
     printf '%sPlatnosc testowa nie powiodla sie dla zamowienia #%s.%s\n' "$C_RED" "$order_id" "$C_RESET" >&2
     return 1
   }
 
-  order_after="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" \
+  order_after="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     "$gateway/orders/${order_id}")" || return 1
-  reservation_response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" \
+  reservation_response="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     "$gateway/inventory/reservations/${reservation_id}")" || return 1
-  stock_after="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
-    -H "X-Correlation-Id: $correlation_id" \
+  stock_after="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
     "$gateway/inventory/items/${product_id}")" || return 1
   order_status="$(printf '%s' "$order_after" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))')"
   payment_status="$(printf '%s' "$payment_response" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))')"
@@ -587,8 +610,8 @@ verify_mvp() {
 
   notification_status='PENDING'
   for attempt in {1..20}; do
-    notification_response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 5 \
-      -H "X-Correlation-Id: $correlation_id" \
+    notification_response="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 5 \
+      -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
       "$gateway/notifications/source/${order_id}" 2>/dev/null || true)"
     if [[ -n "$notification_response" ]]; then
       notification_status="$(printf '%s' "$notification_response" | python3 -c 'import json,sys; print("SENT" if any(item.get("status") == "SENT" for item in json.load(sys.stdin)) else "PENDING")')"
@@ -599,7 +622,7 @@ verify_mvp() {
 
   mail_count='0'
   for attempt in {1..10}; do
-    mailpit_response="$(curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
+    mailpit_response="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 10 \
       --get "http://127.0.0.1:${MAILPIT_WEB_PORT}/api/v1/search" \
       --data-urlencode "query=to:${recipient}" 2>/dev/null || true)"
     if [[ -n "$mailpit_response" ]]; then

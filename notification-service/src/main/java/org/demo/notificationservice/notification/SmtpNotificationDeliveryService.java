@@ -21,6 +21,9 @@ public class SmtpNotificationDeliveryService implements NotificationDeliveryServ
     private final JavaMailSender mailSender;
     private final BillingPdfClient billingPdfClient;
     private final String fromAddress;
+    private final java.util.concurrent.Semaphore sendSlots=new java.util.concurrent.Semaphore(4);
+    private final java.util.Set<Thread> sending=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    @jakarta.annotation.PreDestroy void stopSending() { sending.forEach(Thread::interrupt); }
 
     public SmtpNotificationDeliveryService(
             JavaMailSender mailSender,
@@ -34,6 +37,7 @@ public class SmtpNotificationDeliveryService implements NotificationDeliveryServ
 
     @Override
     public NotificationDeliveryResult deliver(Notification notification, boolean simulateFailure) {
+        notification.requireDeliveryContent();
         if (simulateFailure) {
             return NotificationDeliveryResult.failed(
                     "Notification delivery declined by the simulation"
@@ -57,14 +61,44 @@ public class SmtpNotificationDeliveryService implements NotificationDeliveryServ
                 byte[] pdf = billingPdfClient.download(notification.getInvoiceId());
                 helper.addAttachment("faktura-order-" + notification.getSourceId() + ".pdf", new ByteArrayResource(pdf));
             }
-            mailSender.send(message);
+            org.demo.platformsecurity.RequestBudget.check();
+            sendWithinBudget(message);
             return NotificationDeliveryResult.sent(
                     "SMTP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()
             );
+        } catch (UncertainDeliveryException uncertain) {
+            return NotificationDeliveryResult.uncertain("SMTP outcome unknown; manual review required: "+uncertain.getMessage());
         } catch (MessagingException | RuntimeException exception) {
             return NotificationDeliveryResult.failed(
                     "SMTP delivery failed: " + exception.getMessage()
             );
+        }
+    }
+
+    private static final class UncertainDeliveryException extends RuntimeException {
+        UncertainDeliveryException(String message,Throwable cause) { super(message,cause); }
+    }
+    private void sendWithinBudget(jakarta.mail.internet.MimeMessage message) {
+        var limit=org.demo.platformsecurity.RequestBudget.forCall(8000);
+        if(!sendSlots.tryAcquire()) throw new IllegalStateException("SMTP delivery capacity exhausted");
+        var task=new java.util.concurrent.FutureTask<Void>(() -> {
+            try(var ignored=org.demo.platformsecurity.RequestBudget.open(8000,Long.toString(limit.epochMillis()))) {
+                org.demo.platformsecurity.RequestBudget.check(); mailSender.send(message); return null;
+            }
+        });
+        Thread thread;
+        try {
+            thread=Thread.ofVirtual().name("smtp-delivery").start(() -> {
+                var current=Thread.currentThread(); sending.add(current);
+                try { task.run(); } finally { sending.remove(current); sendSlots.release(); }
+            });
+        } catch(RuntimeException | Error failure) { sendSlots.release(); throw failure; }
+        try { task.get(limit.remainingMillis(),java.util.concurrent.TimeUnit.MILLISECONDS); }
+        catch(java.util.concurrent.ExecutionException failure) { throw new UncertainDeliveryException("SMTP send failed",failure.getCause()); }
+        catch(java.util.concurrent.TimeoutException | org.demo.platformsecurity.RequestBudget.Exceeded expired) {
+            task.cancel(true); thread.interrupt(); throw new UncertainDeliveryException("SMTP delivery time budget exhausted",expired);
+        } catch(InterruptedException interrupted) {
+            task.cancel(true); thread.interrupt(); Thread.currentThread().interrupt(); throw new UncertainDeliveryException("SMTP delivery interrupted",interrupted);
         }
     }
 }

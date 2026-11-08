@@ -75,6 +75,15 @@ public class InventoryReservation {
         this.status = status;
     }
 
+    public void extendForCheckout(Instant newExpiry, Instant now) {
+        if (status != ReservationStatus.RESERVED || !expiresAt.isAfter(now)) {
+            throw new InventoryReservationConflictException("Only an active reservation can be extended for checkout");
+        }
+        if (newExpiry == null || !newExpiry.isAfter(now))
+            throw new InventoryReservationConflictException("Checkout expiry must be in the future");
+        if (newExpiry.isAfter(expiresAt)) expiresAt = newExpiry;
+    }
+
     public Long getId() {
         return id;
     }

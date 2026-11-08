@@ -9,9 +9,10 @@ public class BillingPdfClient {
     private final RestClient restClient;
 
     public BillingPdfClient(
+            RestClient.Builder builder,
             @Value("${services.billing.base-url:${BILLING_SERVICE_URL:http://localhost:18095}}") String baseUrl
     ) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.restClient = builder.clone().baseUrl(baseUrl).build();
     }
 
     public byte[] download(Long invoiceId) {

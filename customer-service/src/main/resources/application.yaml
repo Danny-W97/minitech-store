@@ -63,6 +63,7 @@ services:
 
 resilience:
   http:
+    request-budget-ms: ${RESILIENCE_HTTP_REQUEST_BUDGET_MS:15000}
     connect-timeout-ms: ${RESILIENCE_HTTP_CONNECT_TIMEOUT_MS:1000}
     read-timeout-ms: ${RESILIENCE_HTTP_READ_TIMEOUT_MS:3000}
   retry:
@@ -80,6 +81,21 @@ resilience:
     max-wait-duration-ms: ${RESILIENCE_BULKHEAD_MAX_WAIT_DURATION_MS:0}
 
 customer:
+  audit-retention:
+    # Observe only until an operator explicitly selects the audit policy and purge mode.
+    mode: ${CUSTOMER_AUDIT_RETENTION_MODE:observe}
+    retention: ${CUSTOMER_AUDIT_RETENTION_AGE:90d}
+    batch-size: ${CUSTOMER_AUDIT_RETENTION_BATCH_SIZE:500}
+    max-batches: ${CUSTOMER_AUDIT_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${CUSTOMER_AUDIT_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${CUSTOMER_AUDIT_RETENTION_INITIAL_DELAY_MS:60000}
+  security-retention:
+    enabled: ${CUSTOMER_SECURITY_RETENTION_ENABLED:true}
+    retention: ${CUSTOMER_SECURITY_RETENTION_AGE:7d}
+    batch-size: ${CUSTOMER_SECURITY_RETENTION_BATCH_SIZE:100}
+    max-batches-per-store: ${CUSTOMER_SECURITY_RETENTION_MAX_BATCHES_PER_STORE:4}
+    interval-ms: ${CUSTOMER_SECURITY_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${CUSTOMER_SECURITY_RETENTION_INITIAL_DELAY_MS:60000}
   webauthn:
     # WebAuthn is tested from localhost because browsers allow passkeys on localhost.
     # Production values must match the HTTPS public hostname exactly.
@@ -104,9 +120,11 @@ customer:
     # The cookie must work for both the legacy /api and versioned /api/v1 routes.
     refresh-cookie-path: ${CUSTOMER_REFRESH_COOKIE_PATH:/}
     refresh-cookie-secure: ${CUSTOMER_REFRESH_COOKIE_SECURE:false}
-    # In dev/test this may derive from the JWT material. Prod must provide a
-    # dedicated key through OpenBao as CUSTOMER_MFA_ENCRYPTION_KEY_BASE64.
+    # Independent AES-256 key in every profile. Legacy decryption is explicit.
     mfa-encryption-key-material: ${CUSTOMER_MFA_ENCRYPTION_KEY_BASE64:}
+    mfa-active-kid: ${CUSTOMER_MFA_ACTIVE_KID:mfa-v1}
+    mfa-previous-keys-json: ${CUSTOMER_MFA_PREVIOUS_KEYS_JSON:}
+    mfa-legacy-key-base64: ${CUSTOMER_MFA_LEGACY_KEY_BASE64:}
   password-reset:
     link-base-url: ${CUSTOMER_PASSWORD_RESET_LINK_BASE_URL:http://127.0.0.1:18070/?reset=}
     ttl-seconds: ${CUSTOMER_PASSWORD_RESET_TTL_SECONDS:900}
@@ -114,3 +132,7 @@ customer:
     max-failed-attempts: ${CUSTOMER_LOGIN_MAX_FAILED_ATTEMPTS:5}
     failure-window-seconds: ${CUSTOMER_LOGIN_FAILURE_WINDOW_SECONDS:900}
     lock-seconds: ${CUSTOMER_LOGIN_LOCK_SECONDS:900}
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

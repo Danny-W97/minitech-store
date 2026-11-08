@@ -47,7 +47,7 @@ public class RegistrationNotificationClient {
                         "EMAIL",
                         subject,
                         message,
-                        false
+                        false,customer.getId()
                 ))
                 .retrieve()
                 .toBodilessEntity());
@@ -60,7 +60,7 @@ public class RegistrationNotificationClient {
             String channel,
             String subject,
             String message,
-            boolean simulateFailure
+            boolean simulateFailure,Long customerId
     ) {
     }
 }

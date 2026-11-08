@@ -11,6 +11,7 @@ async function login(page: import('@playwright/test').Page) {
   await page.locator('#auth-password').fill('Playwright1!');
   await page.locator('#auth-submit').click();
   await expect(page.locator('#auth-toggle')).toContainText(`Konto: ${CUSTOMER.email}`);
+  await expect(page.locator('#auth-modal')).toBeHidden();
 }
 
 test.describe('Koszyk i sesja klienta', () => {
@@ -68,8 +69,8 @@ test.describe('Koszyk i sesja klienta', () => {
     await page.locator('#auth-toggle').click();
     await page.locator('#account-menu-logout').click();
     await expect(page.locator('#auth-toggle')).toHaveText('Zaloguj się');
-    await expect(page.locator('#cart-count')).toHaveText('0');
-    expect(await page.evaluate(() => localStorage.getItem('minitech-cart:guest'))).toBeNull();
+    await expect(page.locator('#cart-count')).toHaveText('1');
+    expect(await page.evaluate(() => localStorage.getItem('minitech-cart:guest'))).toContain('Kingston Fury');
 
     await login(page);
     await expect(page.locator('#cart-count')).toHaveText('1');
@@ -82,6 +83,23 @@ test.describe('Koszyk i sesja klienta', () => {
     await waitForCatalog(page);
     await expect(page.locator('#auth-toggle')).toContainText(CUSTOMER.email);
     await expect(page.locator('#cart-count')).toHaveText('1');
+  });
+
+  test('wylogowanie czyści dane konta przed odpowiedzią serwera i zachowuje niezależny koszyk gościa',async({page})=>{
+    await addRam(page);await login(page);
+    await page.evaluate(()=>{
+      (document.querySelector('#auth-profile-first-name') as HTMLInputElement).value='Private fixture name';
+      (document.querySelector('#billing-tax-id') as HTMLInputElement).value='1234567890';
+      const qr=document.querySelector('#auth-totp-qr');qr?.setAttribute('src','data:image/png;base64,private-fixture');
+    });
+    let release!:()=>void;const held=new Promise<void>(resolve=>release=resolve);
+    await page.route('**/api/customers/logout',async route=>{await held;await route.fallback();});
+    await page.locator('#auth-toggle').click();await page.locator('#account-menu-logout').click();
+    await expect(page.locator('#auth-toggle')).toHaveText('Zaloguj się');
+    expect(await page.locator('#auth-profile-first-name').inputValue()).toBe('');
+    expect(await page.locator('#billing-tax-id').inputValue()).toBe('');
+    expect(await page.locator('#auth-totp-qr').getAttribute('src')).toBeNull();
+    await expect(page.locator('#cart-count')).toHaveText('1');release();
   });
 
   test('sesja starsza niż 30 minut jest unieważniana po ponownym otwarciu sklepu', async ({ page, mockStore }) => {

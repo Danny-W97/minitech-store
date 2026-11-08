@@ -1,12 +1,13 @@
 package org.demo.recommendationservice.recommendation;
 
-import org.demo.recommendationservice.recommendation.OrderHistoryClient.OrderSnapshot;
 import org.demo.recommendationservice.recommendation.ProductCatalogClient.ProductSnapshot;
 import org.demo.recommendationservice.web.RecommendationException;
 import org.demo.recommendationservice.web.RecommendationResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.demo.recommendationservice.telemetry.RecommendationTelemetry;
+import static org.demo.recommendationservice.telemetry.RecommendationTelemetry.Strategy.CUSTOMER_HISTORY;
+import static org.demo.recommendationservice.telemetry.RecommendationTelemetry.Strategy.PRODUCT_SIMILARITY;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -18,17 +19,16 @@ import java.util.Set;
 public class RecommendationService {
     private final ProductCatalogClient productCatalogClient;
     private final OrderHistoryClient orderHistoryClient;
-    private final RecommendationRequestRepository requestRepository;
+    private final RecommendationTelemetry telemetry;
 
     public RecommendationService(ProductCatalogClient productCatalogClient,
                                  OrderHistoryClient orderHistoryClient,
-                                 RecommendationRequestRepository requestRepository) {
+                                 RecommendationTelemetry telemetry) {
         this.productCatalogClient = productCatalogClient;
         this.orderHistoryClient = orderHistoryClient;
-        this.requestRepository = requestRepository;
+        this.telemetry = telemetry;
     }
 
-    @Transactional
     public List<RecommendationResponse> forProduct(Long productId, int limit) {
         List<ProductSnapshot> catalog = productCatalogClient.getActiveProducts();
         ProductSnapshot source = catalog.stream()
@@ -37,26 +37,18 @@ public class RecommendationService {
                 .orElseThrow(() -> new RecommendationException(HttpStatus.NOT_FOUND, "Nie znaleziono aktywnego produktu."));
 
         List<RecommendationResponse> result = rankForProduct(catalog, source, limit);
-        requestRepository.save(new RecommendationRequest(null, productId, "PRODUCT_SIMILARITY", result.size()));
+        telemetry.record(PRODUCT_SIMILARITY, null, productId, result.size());
         return result;
     }
 
-    @Transactional
     public List<RecommendationResponse> forCustomer(Long customerId, int limit) {
         List<ProductSnapshot> catalog = productCatalogClient.getActiveProducts();
-        List<OrderSnapshot> orders = orderHistoryClient.getCustomerOrders(customerId);
-        Set<Long> purchasedIds = orders.stream()
-                .filter(order -> "PAID".equalsIgnoreCase(order.status()))
-                .filter(order -> order.items() != null)
-                .flatMap(order -> order.items().stream())
-                .map(OrderHistoryClient.OrderItemSnapshot::productId)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toSet());
+        Set<Long> purchasedIds = orderHistoryClient.purchasedProducts(customerId, catalog.stream().map(ProductSnapshot::id).toList());
 
         List<RecommendationResponse> result = purchasedIds.isEmpty()
                 ? rankFallback(catalog, limit)
                 : rankForHistory(catalog, purchasedIds, limit);
-        requestRepository.save(new RecommendationRequest(customerId, null, "CUSTOMER_HISTORY", result.size()));
+        telemetry.record(CUSTOMER_HISTORY, customerId, null, result.size());
         return result;
     }
 

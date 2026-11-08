@@ -25,6 +25,21 @@ class BillingServiceApplicationTests {
     @Autowired
     private BillingService billingService;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private org.demo.billingservice.billing.BillingOrderClient orders;
+
+    private org.demo.billingservice.web.InvoiceResponse issueFromPaidOrder(IssueInvoiceRequest request) {
+        org.mockito.Mockito.when(orders.get(request.orderId())).thenReturn(paidOrder(request, "PAID"));
+        return billingService.issue(request);
+    }
+
+    private org.demo.billingservice.billing.BillingOrderClient.PaidOrder paidOrder(IssueInvoiceRequest request, String status) {
+        return new org.demo.billingservice.billing.BillingOrderClient.PaidOrder(request.orderId(), request.customerId(),
+                request.customerEmail(), status, request.grossAmount(), request.deliveryCost(), request.discountAmount(),
+                request.items().stream().map(item -> new org.demo.billingservice.billing.BillingOrderClient.Item(
+                        item.productId(), item.sku(), item.productName(), item.quantity(), item.unitPrice(), item.totalPrice())).toList());
+    }
+
     @Autowired
     private InvoiceRepository invoiceRepository;
 
@@ -33,6 +48,11 @@ class BillingServiceApplicationTests {
 
     @Autowired
     private Validator validator;
+
+    @Autowired private org.demo.billingservice.billing.InvoiceExportReader exportReader;
+    @Autowired private org.demo.billingservice.billing.PdfDocumentCache documentCache;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired private jakarta.persistence.EntityManagerFactory entityManagerFactory;
 
     @BeforeEach
     void setUp() {
@@ -43,6 +63,44 @@ class BillingServiceApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void rejectedVerificationDoesNotPersistAnInvoice() {
+        var request = new IssueInvoiceRequest(9001L, null, "verify@example.test", new BigDecimal("12.00"), "PLN",
+                BigDecimal.ZERO, BigDecimal.ZERO,
+                List.of(new InvoiceItemRequest(1L, "VERIFY", "Produkt", 1, new BigDecimal("12.00"), new BigDecimal("12.00"))),
+                new BillingData(false, "Test", null, null, "Ulica 1", "00-001", "Miasto", "Polska"));
+        for (String status : List.of("CONFIRMED", "CANCELLED")) {
+            org.mockito.Mockito.when(orders.get(9001L)).thenReturn(paidOrder(request, status));
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> billingService.issue(request)).hasMessageContaining("409");
+            assertThat(invoiceRepository.count()).isZero();
+        }
+        var forged = new IssueInvoiceRequest(request.orderId(), request.customerId(), request.customerEmail(),
+                new BigDecimal("0.01"), "PLN", BigDecimal.ZERO, BigDecimal.ZERO, request.items(), request.billingData());
+        org.mockito.Mockito.when(orders.get(9001L)).thenReturn(paidOrder(request, "PAID"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> billingService.issue(forged)).hasMessageContaining("400");
+        assertThat(invoiceRepository.count()).isZero();
+    }
+
+    @Test
+    void concurrentRetriesReturnOneInvoice() throws Exception {
+        var request = new IssueInvoiceRequest(9002L, null, "retry@example.test", new BigDecimal("12.00"), "PLN",
+                BigDecimal.ZERO, BigDecimal.ZERO,
+                List.of(new InvoiceItemRequest(1L, "RETRY", "Produkt", 1, new BigDecimal("12.00"), new BigDecimal("12.00"))),
+                new BillingData(false, "Test", null, null, "Ulica 1", "00-001", "Miasto", "Polska"));
+        var barrier = new java.util.concurrent.CyclicBarrier(2);
+        org.mockito.Mockito.when(orders.get(9002L)).thenAnswer(invocation -> {
+            barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            return paidOrder(request, "PAID");
+        });
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> billingService.issue(request));
+            var second = executor.submit(() -> billingService.issue(request));
+            assertThat(first.get(15, java.util.concurrent.TimeUnit.SECONDS).id())
+                    .isEqualTo(second.get(15, java.util.concurrent.TimeUnit.SECONDS).id());
+        }
+        assertThat(invoiceRepository.count()).isEqualTo(1);
     }
 
     @Test
@@ -69,8 +127,8 @@ class BillingServiceApplicationTests {
                 )
         );
 
-        var first = billingService.issue(request);
-        var repeated = billingService.issue(request);
+        var first = issueFromPaidOrder(request);
+        var repeated = issueFromPaidOrder(request);
 
         assertThat(first.id()).isEqualTo(repeated.id());
         assertThat(first.grossAmount()).isEqualByComparingTo("123.00");
@@ -95,7 +153,7 @@ class BillingServiceApplicationTests {
                 new BigDecimal("11.99"),
                 BigDecimal.ZERO,
                 List.of(new InvoiceItemRequest(2L, "POLSKI-2", "Żółta mysz Łódź", 2,
-                        new BigDecimal("44.00"), new BigDecimal("88.00"))),
+                        new BigDecimal("6208.78"), new BigDecimal("12417.56"))),
                 new BillingData(
                         false,
                         "Łukasz Żółć",
@@ -108,7 +166,7 @@ class BillingServiceApplicationTests {
                 )
         );
 
-        var invoice = billingService.issue(request);
+        var invoice = issueFromPaidOrder(request);
         var pdf = billingService.pdf(invoice.id());
 
         assertThat(pdf).startsWith(new byte[]{'%','P','D','F','-'});
@@ -126,8 +184,8 @@ class BillingServiceApplicationTests {
                     "ZAKUPIONE PRODUKTY",
                     "Żółta mysz Łódź",
                     "ILOŚĆ",
-                    "44,00 PLN",
-                    "88,00 PLN",
+                    "6 208,78 PLN",
+                    "12 417,56 PLN",
                     "Dostawa: 11,99 PLN",
                     "Do zapłaty brutto",
                     "12 429,55 PLN"
@@ -199,7 +257,7 @@ class BillingServiceApplicationTests {
                         "Polska"
                 )
         );
-        billingService.issue(request);
+        issueFromPaidOrder(request);
 
         var all = billingService.list(null, 0, 50);
         assertThat(all).isNotEmpty();
@@ -238,13 +296,13 @@ class BillingServiceApplicationTests {
                         "Polska"
                 )
         );
-        var invoice = billingService.issue(request);
+        var invoice = issueFromPaidOrder(request);
 
         byte[] firstCall = billingService.pdf(invoice.id());
         byte[] secondCall = billingService.pdf(invoice.id());
 
         // Should return exact same cached array reference
-        assertThat(secondCall).isSameAs(firstCall);
+        assertThat(secondCall).containsExactly(firstCall).isNotSameAs(firstCall);
     }
 
     @Test
@@ -262,8 +320,8 @@ class BillingServiceApplicationTests {
                 new BillingData(false, "Klient 2", null, null, "Ulica 2", "00-002", "Miasto", "Polska")
         );
 
-        var inv1 = billingService.issue(request1);
-        var inv2 = billingService.issue(request2);
+        var inv1 = issueFromPaidOrder(request1);
+        var inv2 = issueFromPaidOrder(request2);
 
         assertThat(inv1.invoiceNumber()).matches("FV/\\d{4}/\\d{6}");
         assertThat(inv2.invoiceNumber()).matches("FV/\\d{4}/\\d{6}");
@@ -278,11 +336,11 @@ class BillingServiceApplicationTests {
                 List.of(new InvoiceItemRequest(1L, "ITEM-C", "Produkt A", 2, new BigDecimal("123.00"), new BigDecimal("246.00"))),
                 new BillingData(true, "Firma ABC", "ABC Sp. z o.o.", "1234567890", "Biznesowa 10", "01-001", "Warszawa", "Polska")
         );
-        var invoice = billingService.issue(invoiceReq);
+        var invoice = issueFromPaidOrder(invoiceReq);
 
         var corrReq = new org.demo.billingservice.web.IssueCorrectionRequest(
                 "Zwrot 1 szt. towaru uszkodzonego",
-                new BigDecimal("-123.00")
+                new BigDecimal("-123.00"),"correction-test-803",0L
         );
 
         var correction = billingService.issueCorrection(invoice.id(), corrReq);
@@ -318,7 +376,7 @@ class BillingServiceApplicationTests {
                 List.of(new InvoiceItemRequest(1L, "ZIP-1", "Kabel USB", 1, new BigDecimal("50.00"), new BigDecimal("50.00"))),
                 new BillingData(false, "Zip Tester", null, null, "Zipowa 1", "00-001", "Miasto", "Polska")
         );
-        billingService.issue(invoiceReq);
+        issueFromPaidOrder(invoiceReq);
 
         var out = new java.io.ByteArrayOutputStream();
         billingService.exportZip(null, null, out);
@@ -337,5 +395,34 @@ class BillingServiceApplicationTests {
             }
         }
         assertThat(entriesCount).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void exportFiltersDatesInDatabaseKeepsTheInteractiveCacheAndLoadsOnlyItsWindow() throws Exception {
+        var ids = new java.util.ArrayList<Long>();
+        for (long orderId=6000; orderId<6004; orderId++) {
+            var request = new IssueInvoiceRequest(orderId, null, "export@example.test", new BigDecimal("50"), "PLN",
+                    BigDecimal.ZERO, BigDecimal.ZERO, List.of(new InvoiceItemRequest(1L,"EXPORT","Export",1,new BigDecimal("50"),new BigDecimal("50"))),
+                    new BillingData(false,"Export",null,null,"Street","00-001","City","PL"));
+            ids.add(issueFromPaidOrder(request).id());
+        }
+        var from = java.time.Instant.parse("2026-01-01T00:00:00Z");
+        var to = java.time.Instant.parse("2026-01-02T00:00:00Z");
+        for (int i=0;i<ids.size();i++) jdbc.update("update invoices set created_at=? where id=?", java.sql.Timestamp.from(from.plusSeconds((i-1)*86400L)), ids.get(i));
+        billingService.pdf(ids.getFirst()); long cachedBytes = documentCache.bytes();
+        var stats=entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics(); stats.setStatisticsEnabled(true); stats.clear();
+        var output=new java.io.ByteArrayOutputStream(); billingService.exportZip(from,to,output);
+        assertThat(documentCache.bytes()).isEqualTo(cachedBytes);
+        assertThat(stats.getEntityLoadCount()).isEqualTo(4); // two invoices plus two line items
+        int count=0;
+        try (var zip=new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(output.toByteArray()))) {
+            while (zip.getNextEntry()!=null) { assertThat(zip.readAllBytes()).startsWith("%PDF".getBytes()); count++; }
+        }
+        assertThat(count).isEqualTo(2);
+        assertThat(exportReader.plan(from,to,2).count()).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> exportReader.plan(from,to,1)).hasMessageContaining("413");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> exportReader.plan(to,from,10)).hasMessageContaining("400");
+        assertThat(exportReader.plan(to.plusSeconds(100000), null,10).count()).isZero();
+        stats.setStatisticsEnabled(false);
     }
 }

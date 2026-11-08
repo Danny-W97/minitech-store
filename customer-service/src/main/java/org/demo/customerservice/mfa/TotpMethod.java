@@ -31,6 +31,9 @@ public class TotpMethod {
     @Column(name = "last_used_time_step")
     private Long lastUsedTimeStep;
 
+    @Column(name = "enrollment_expires_at")
+    private Instant enrollmentExpiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -48,6 +51,7 @@ public class TotpMethod {
 
     public void enable() {
         enabled = true;
+        enrollmentExpiresAt = null;
     }
 
     public void disable() {
@@ -61,12 +65,19 @@ public class TotpMethod {
         this.lastUsedTimeStep = null;
     }
 
+    public void enrollmentExpiresAt(Instant expiresAt) { this.enrollmentExpiresAt = expiresAt; }
+    public Instant getEnrollmentExpiresAt() { return enrollmentExpiresAt; }
+
     public boolean canUseTimeStep(long timeStep) {
         return lastUsedTimeStep == null || timeStep > lastUsedTimeStep;
     }
 
     public void markUsed(long timeStep) {
         lastUsedTimeStep = timeStep;
+    }
+
+    public void reencryptSecret(String ciphertext) {
+        this.secretCiphertext = ciphertext;
     }
 
     @PrePersist

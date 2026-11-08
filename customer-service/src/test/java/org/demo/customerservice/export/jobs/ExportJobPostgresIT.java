@@ -1,0 +1,60 @@
+package org.demo.customerservice.export.jobs;
+
+import org.demo.customerservice.auth.CustomerPrincipal;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.*;
+import org.springframework.transaction.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.*;
+import static org.assertj.core.api.Assertions.*;
+
+@DataJpaTest(properties={"spring.flyway.enabled=true","spring.jpa.hibernate.ddl-auto=validate"})
+@ActiveProfiles("test") @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
+@Import({ExportJobStore.class,ExportJson.class}) @Transactional(propagation=Propagation.NOT_SUPPORTED) @Testcontainers
+class ExportJobPostgresIT {
+    @Container static final PostgreSQLContainer<?> DB=new PostgreSQLContainer<>("postgres:16-alpine").withDatabaseName("export_job_fixture").withUsername("fixture").withPassword("fixture-only");
+    @DynamicPropertySource static void database(DynamicPropertyRegistry p){p.add("spring.datasource.url",DB::getJdbcUrl);p.add("spring.datasource.username",DB::getUsername);p.add("spring.datasource.password",DB::getPassword);p.add("spring.datasource.driver-class-name",()->"org.postgresql.Driver");}
+    @Autowired ExportJobStore store;@Autowired ExportJson json;@Autowired JdbcTemplate jdbc;
+    final CustomerPrincipal owner=new CustomerPrincipal(1L,"owner@fixture.example"),other=new CustomerPrincipal(2L,"other@fixture.example");
+    @BeforeEach void setup(){jdbc.execute("TRUNCATE account_export_chunks,account_export_tasks,account_export_jobs,customers CASCADE");jdbc.update("INSERT INTO customers(id,email,password_hash,first_name,last_name,street,postal_code,city,country,enabled,created_at,updated_at) SELECT n,CASE n WHEN 1 THEN 'owner@fixture.example' ELSE 'other@fixture.example' END,'private-hash','Jan','Test','Testowa','00-001','Warszawa','PL',true,now(),now() FROM generate_series(1,2) n");}
+    ExportJobStore.Job create(){return store.create(owner,UUID.randomUUID(),"a".repeat(64));}
+    ExportTask.Result data(){return new ExportTask.Result("{\"business\":true}",Instant.now(),Instant.now(),false);}
+    void gone(Runnable action){assertThatThrownBy(action::run).isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(410));}
+    @Test void creationIsIdempotentAndOneHourIsNotExtended(){UUID key=UUID.randomUUID();var a=store.create(owner,key,"a".repeat(64));var b=store.create(owner,key,"b".repeat(64));assertThat(b.id()).isEqualTo(a.id());assertThat(a.expiresAt()).isEqualTo(a.createdAt().plusSeconds(3600));assertThat(b.expiresAt()).isEqualTo(a.expiresAt());assertThat(store.counts(a.id()).pending()).isEqualTo(10);assertThatThrownBy(this::create).isInstanceOf(ResponseStatusException.class);}
+    @Test void ownershipAndFreshIdentityProtectEveryStoredPart(){var job=create();var task=store.claim(job.id(),owner,UUID.randomUUID());store.commit(task,owner,data(),List.of(),json);assertThat(store.parts(job.id(),owner,0,1)).hasSize(1);assertThatThrownBy(()->store.parts(job.id(),other,0,1)).isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(404));jdbc.update("UPDATE customers SET email='changed@fixture.example' WHERE id=1");assertThatThrownBy(()->store.get(job.id(),owner)).isInstanceOf(ResponseStatusException.class);}
+    @Test void replayDoesNotAppendAnotherPageAndChildrenAreUnique(){var job=create();UUID key=UUID.randomUUID();var task=store.claim(job.id(),owner,key);var plan=new ExportTask.Plan(ExportKind.WISHLIST,0,0,10);store.commit(task,owner,data(),List.of(plan,plan),json);assertThat(store.claim(job.id(),owner,key)).isNull();assertThat(store.get(job.id(),owner).partCount()).isEqualTo(1);assertThat(store.counts(job.id()).pending()).isEqualTo(10);assertThat(store.parts(job.id(),owner,0,1)).isEqualTo(store.parts(job.id(),owner,0,1));}
+    @Test void leaseSerializesClaimsAndFencesLateResponse(){var job=create();var first=store.claim(job.id(),owner,UUID.randomUUID());assertThatThrownBy(()->store.claim(job.id(),owner,UUID.randomUUID())).isInstanceOf(ResponseStatusException.class);jdbc.update("UPDATE account_export_jobs SET run_until=now()-interval '1 second' WHERE id=?",job.id());var next=store.claim(job.id(),owner,UUID.randomUUID());store.commit(first,owner,data(),List.of(),json);assertThat(store.get(job.id(),owner).partCount()).isZero();store.commit(next,owner,data(),List.of(),json);assertThat(store.get(job.id(),owner).partCount()).isEqualTo(1);}
+    @Test void cancellationRevokesChunksAndInFlightCommit(){var job=create();var first=store.claim(job.id(),owner,UUID.randomUUID());store.commit(first,owner,data(),List.of(),json);var second=store.claim(job.id(),owner,UUID.randomUUID());store.cancel(job.id(),owner);store.commit(second,owner,data(),List.of(),json);gone(()->store.parts(job.id(),owner,0,1));assertThat(store.get(job.id(),owner).partCount()).isEqualTo(1);store.cleanup();assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_chunks",Long.class)).isZero();assertThat(store.get(job.id(),owner).state()).isEqualTo("CANCELLED");}
+    @Test void expiryImmediatelyRevokesAccessAndDoesNotBlockANewJob(){var job=create();var task=store.claim(job.id(),owner,UUID.randomUUID());store.commit(task,owner,data(),List.of(),json);jdbc.update("UPDATE account_export_jobs SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=?",job.id());gone(()->store.get(job.id(),owner));gone(()->store.parts(job.id(),owner,0,1));assertThat(create().id()).isNotEqualTo(job.id());store.cleanup();assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_chunks",Long.class)).isZero();}
+    @Test void failuresRemainPartialAndRetriesAreBounded(){var job=create();for(int n=0;n<10;n++){var task=store.claim(job.id(),owner,UUID.randomUUID());store.fail(task,owner,"SOURCE_UNAVAILABLE");}assertThat(store.get(job.id(),owner).state()).isEqualTo("PARTIAL");store.retry(job.id(),owner);assertThat(store.counts(job.id()).pending()).isEqualTo(10);jdbc.update("UPDATE account_export_tasks SET attempts=8,state='RUNNING' WHERE job_id=?",job.id());assertThat(store.claim(job.id(),owner,UUID.randomUUID())).isNull();assertThat(store.get(job.id(),owner).state()).isEqualTo("PARTIAL");assertThat(store.counts(job.id()).failed()).isEqualTo(10);}
+    @Test void jobByteLimitRollsBackPartAndPlans(){var job=create();var task=store.claim(job.id(),owner,UUID.randomUUID());jdbc.update("UPDATE account_export_jobs SET recorded_bytes=? WHERE id=?",ExportJobStore.MAX_BYTES,job.id());assertThatThrownBy(()->store.commit(task,owner,data(),List.of(new ExportTask.Plan(ExportKind.INVOICE,10,0,0)),json)).isInstanceOf(ExportFailure.class);assertThat(store.get(job.id(),owner).partCount()).isZero();assertThat(store.counts(job.id()).pending()).isEqualTo(10);store.fail(task,owner,"JOB_LIMIT");assertThat(store.get(job.id(),owner).state()).isEqualTo("LIMIT_REACHED");}
+    @Test void concurrentCreateWithSameKeyReturnsOneJob()throws Exception{UUID key=UUID.randomUUID();try(var workers=Executors.newFixedThreadPool(2)){var latch=new CountDownLatch(1);Callable<UUID> call=()->{latch.await();return store.create(owner,key,"a".repeat(64)).id();};var a=workers.submit(call);var b=workers.submit(call);latch.countDown();assertThat(a.get(10,TimeUnit.SECONDS)).isEqualTo(b.get(10,TimeUnit.SECONDS));}assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_jobs",Long.class)).isEqualTo(1);}
+    @Test void quotaSurvivesCancellation(){for(int i=0;i<3;i++)store.cancel(create().id(),owner);assertThatThrownBy(this::create).isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(429));}
+    @Test void cleanupUsesBoundedBatchesAndDoesNotTouchBusinessTables(){var job=create();String before=jdbc.queryForObject("SELECT json_agg(c ORDER BY id)::text FROM customers c",String.class);jdbc.update("INSERT INTO account_export_tasks(id,job_id,kind,parent_id,state) SELECT gen_random_uuid(),?,'INVOICE',n,'PENDING' FROM generate_series(1,200) n",job.id());store.cancel(job.id(),owner);store.cleanup();assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_tasks",Long.class)).isEqualTo(110);assertThat(jdbc.queryForObject("SELECT json_agg(c ORDER BY id)::text FROM customers c",String.class)).isEqualTo(before);}
+    @Test void expiredChunksDisappearInFiftyRowBatchesWithoutTouchingAnotherAccountsExport(){
+        var expired=create();var active=store.create(other,UUID.randomUUID(),"a".repeat(64));
+        var task=store.claim(active.id(),other,UUID.randomUUID());store.commit(task,other,data(),List.of(),json);
+        jdbc.update("INSERT INTO account_export_tasks(id,job_id,kind,parent_id,state) SELECT gen_random_uuid(),?,'INVOICE',n,'DONE' FROM generate_series(1,120)n",expired.id());
+        jdbc.update("INSERT INTO account_export_chunks(job_id,sequence_no,task_id,data_json,byte_count,sha256,read_started_at,read_finished_at) SELECT job_id,row_number() OVER(ORDER BY id),id,'{}',2,?,now(),now() FROM account_export_tasks WHERE job_id=? AND parent_id>0",org.demo.platformsecurity.Access.hash("{}"),expired.id());
+        jdbc.update("UPDATE account_export_jobs SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=?",expired.id());
+        gone(()->store.parts(expired.id(),owner,0,1));store.cleanup();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_chunks WHERE job_id=?",Long.class,expired.id())).isEqualTo(70);
+        for(int i=0;i<10;i++)store.cleanup();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_chunks WHERE job_id=?",Long.class,expired.id())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_jobs WHERE id=?",Long.class,expired.id())).isZero();
+        assertThat(store.parts(active.id(),other,0,1)).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM customers",Long.class)).isEqualTo(2);
+    }
+    @Test void exactFinalSuccessIsReadyAndDigestMatches(){var job=create();for(int i=0;i<10;i++){var task=store.claim(job.id(),owner,UUID.randomUUID());store.commit(task,owner,data(),List.of(),json);}assertThat(store.get(job.id(),owner).state()).isEqualTo("READY");assertThat(store.claim(job.id(),owner,UUID.randomUUID())).isNull();var part=store.parts(job.id(),owner,0,1).getFirst();assertThat(part.sha256()).isEqualTo(org.demo.platformsecurity.Access.hash(part.data()));assertThat(part.bytes()).isEqualTo(json.bytes(part.data()));}
+    @Test void taskLimitRollsBackFanoutWithoutDeletingCompletedParts(){var job=create();jdbc.update("INSERT INTO account_export_tasks(id,job_id,kind,parent_id,state) SELECT gen_random_uuid(),?,'INVOICE',n,'PENDING' FROM generate_series(1,4086) n",job.id());var task=store.claim(job.id(),owner,UUID.randomUUID());assertThatThrownBy(()->store.commit(task,owner,data(),List.of(new ExportTask.Plan(ExportKind.INVOICE,99999,0,0)),json)).isInstanceOf(ExportFailure.class);assertThat(store.get(job.id(),owner).partCount()).isZero();assertThat(store.counts(job.id()).pending()).isEqualTo(4096);}
+    @Test void lateCommitAfterOneHourCannotWriteAChunk(){var job=create();var task=store.claim(job.id(),owner,UUID.randomUUID());jdbc.update("UPDATE account_export_jobs SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=?",job.id());gone(()->store.commit(task,owner,data(),List.of(),json));assertThat(jdbc.queryForObject("SELECT count(*) FROM account_export_chunks",Long.class)).isZero();}
+}

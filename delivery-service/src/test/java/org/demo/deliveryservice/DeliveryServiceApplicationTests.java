@@ -3,6 +3,8 @@ package org.demo.deliveryservice;
 import org.demo.deliveryservice.delivery.DeliveryService;
 import org.demo.deliveryservice.delivery.DeliveryMethod;
 import org.demo.deliveryservice.delivery.DeliveryMethodRepository;
+import org.demo.deliveryservice.delivery.PickupLocation;
+import org.demo.deliveryservice.delivery.PickupLocationRepository;
 import org.demo.deliveryservice.web.DeliveryQuoteRequest;
 import org.demo.deliveryservice.web.DeliveryQuoteResponse;
 import org.demo.deliveryservice.web.ShipmentResponse;
@@ -23,6 +25,9 @@ class DeliveryServiceApplicationTests {
     @Autowired
     private DeliveryMethodRepository deliveryMethodRepository;
 
+    @Autowired
+    private PickupLocationRepository pickupLocationRepository;
+
     @Test
     void contextLoads() {
     }
@@ -40,6 +45,8 @@ class DeliveryServiceApplicationTests {
 
     @Test
     void returnsAvailablePickupDatesAndValidatesSelectedDate() {
+        pickupLocationRepository.save(new PickupLocation("WARSAW_STORE", "MiniTech Store — Warszawa", true));
+        pickupLocationRepository.save(new PickupLocation("CLOSED_STORE", "Closed store", false));
         deliveryMethodRepository.save(new DeliveryMethod(
                 "STORE_PICKUP", "Odbiór osobisty", "Punkt MiniTech Store",
                 BigDecimal.ZERO, null, 0, 1, true
@@ -50,6 +57,10 @@ class DeliveryServiceApplicationTests {
         ));
 
         assertThat(quote.fulfillmentType()).isEqualTo("STORE_PICKUP");
+        assertThat(quote.pickupLocationCode()).isEqualTo("WARSAW_STORE");
+        assertThat(quote.pickupLocation()).isEqualTo("MiniTech Store — Warszawa");
+        assertThat(deliveryService.getPickupLocations()).extracting(point -> point.code())
+                .contains("WARSAW_STORE").doesNotContain("CLOSED_STORE");
         assertThat(quote.availableDates()).isNotEmpty();
         assertThat(quote.selectedDate()).isEqualTo(quote.availableDates().getFirst());
         assertThat(quote.availableDates()).doesNotContain(java.time.LocalDate.now().plusDays(8));

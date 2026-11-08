@@ -24,7 +24,10 @@ public class BillingClient {
     }
     public Long issue(CreatePaymentRequest request, OrderResponse order) {
         if (!Boolean.TRUE.equals(request.invoiceRequested()) || request.billingData() == null) return null;
-        BillingDataRequest data = request.billingData();
+        return issue(request.billingData(),order);
+    }
+    public Long issue(BillingDataRequest data,OrderResponse order) {
+        if(data==null) throw new BillingServiceException("Invoice data is missing",null);
         List<InvoiceItemPayload> items = order.items() == null ? List.of() : order.items().stream()
                 .map(item -> new InvoiceItemPayload(item.productId(), item.sku(), item.productName(), item.quantity(),
                         item.unitPrice(), item.totalPrice()))
@@ -33,10 +36,11 @@ public class BillingClient {
         try {
             InvoiceResponse invoice = resilientHttpExecutor.execute("billing", () -> restClient.post().uri("/invoices")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new IssueInvoicePayload(order.id(), request.customerId(), request.notificationRecipient(), order.totalPrice(), "PLN",
+                    .body(new IssueInvoicePayload(order.id(), order.customerId(), order.customerEmail(), order.totalPrice(), "PLN",
                             amount(order.deliveryCost()), amount(order.discountAmount()), items, data))
                     .retrieve().body(InvoiceResponse.class));
-            return invoice == null ? null : invoice.id();
+            if(invoice==null || invoice.id()==null || invoice.id()<1) throw new BillingServiceException("Billing Service returned no invoice ID",null);
+            return invoice.id();
         } catch (RestClientResponseException exception) {
             throw new BillingServiceException("Billing Service returned HTTP " + exception.getStatusCode(), exception);
         } catch (RestClientException exception) {

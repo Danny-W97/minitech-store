@@ -26,15 +26,66 @@ management.metrics.tags.application: ${spring.application.name}
 logging.pattern.console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [corr=%X{correlationId}] %logger{36} - %msg%n"
 billing:
   pdf:
+    cache:
+      max-bytes: ${BILLING_PDF_CACHE_MAX_BYTES:33554432}
+      max-entries: ${BILLING_PDF_CACHE_MAX_ENTRIES:512}
+      ttl: ${BILLING_PDF_CACHE_TTL:PT15M}
     font:
       regular: ${BILLING_PDF_FONT_REGULAR:}
       bold: ${BILLING_PDF_FONT_BOLD:}
+  export:
+    page-size: ${BILLING_EXPORT_PAGE_SIZE:25}
+    max-documents: ${BILLING_EXPORT_MAX_DOCUMENTS:10000}
+    max-concurrent: ${BILLING_EXPORT_MAX_CONCURRENT:2}
+    max-duration: ${BILLING_EXPORT_MAX_DURATION:PT5M}
 
 messaging:
+  invoice-stream-retention:
+    mode: "${BILLING_INVOICE_STREAM_RETENTION_MODE:observe}"
+    retention: "${BILLING_INVOICE_STREAM_RETENTION_AGE:30d}"
+    batch-size: "${BILLING_INVOICE_STREAM_RETENTION_BATCH_SIZE:500}"
+    max-batches: "${BILLING_INVOICE_STREAM_RETENTION_MAX_BATCHES:4}"
+    interval-ms: "${BILLING_INVOICE_STREAM_RETENTION_INTERVAL_MS:600000}"
+    initial-delay-ms: "${BILLING_INVOICE_STREAM_RETENTION_INITIAL_DELAY_MS:60000}"
+    required-groups: "${BILLING_INVOICE_STREAM_RETENTION_REQUIRED_GROUPS:}"
+    allow-no-groups: "${BILLING_INVOICE_STREAM_RETENTION_ALLOW_NO_GROUPS:false}"
+  rejected-inbox-retention:
+    mode: ${BILLING_REJECTED_INBOX_RETENTION_MODE:observe}
+    retention: ${BILLING_REJECTED_INBOX_RETENTION_AGE:30d}
+    batch-size: ${BILLING_REJECTED_INBOX_RETENTION_BATCH_SIZE:500}
+    max-batches: ${BILLING_REJECTED_INBOX_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${BILLING_REJECTED_INBOX_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${BILLING_REJECTED_INBOX_RETENTION_INITIAL_DELAY_MS:60000}
   payment-stream: ${PAYMENT_EVENT_STREAM:payment-events}
   invoice-stream: ${INVOICE_EVENT_STREAM:invoice-events}
+  retention:
+    age-ms: ${PAYMENT_STREAM_RETENTION_AGE_MS:604800000}
+    required-groups: ${PAYMENT_STREAM_REQUIRED_GROUPS:notification-service,billing-service}
   consumer:
+    claim-idle-ms: ${EVENT_CONSUMER_CLAIM_IDLE_MS:60000}
     enabled: ${BILLING_CONSUMER_ENABLED:true}
     fixed-delay-ms: ${BILLING_CONSUMER_FIXED_DELAY_MS:1000}
     group: ${BILLING_CONSUMER_GROUP:billing-service}
     name: ${BILLING_CONSUMER_NAME:billing-service}
+
+outbox:
+  retention:
+    mode: ${BILLING_OUTBOX_RETENTION_MODE:observe}
+    retention: ${BILLING_OUTBOX_RETENTION_AGE:30d}
+    batch-size: ${BILLING_OUTBOX_RETENTION_BATCH_SIZE:500}
+    max-batches: ${BILLING_OUTBOX_RETENTION_MAX_BATCHES:4}
+    interval-ms: ${BILLING_OUTBOX_RETENTION_INTERVAL_MS:600000}
+    initial-delay-ms: ${BILLING_OUTBOX_RETENTION_INITIAL_DELAY_MS:60000}
+  publisher:
+    enabled: ${OUTBOX_PUBLISHER_ENABLED:true}
+    fixed-delay-ms: ${OUTBOX_PUBLISHER_FIXED_DELAY_MS:5000}
+    lease-ms: ${OUTBOX_PUBLISHER_LEASE_MS:30000}
+
+# Bound broker calls independently of request/worker budgets.
+spring.data.redis.connect-timeout: ${EVENT_REDIS_CONNECT_TIMEOUT:1000ms}
+spring.data.redis.timeout: ${EVENT_REDIS_TIMEOUT:1000ms}
+spring.task.scheduling.pool.size: 4
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

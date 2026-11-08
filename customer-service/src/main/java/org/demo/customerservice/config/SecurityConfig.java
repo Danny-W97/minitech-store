@@ -38,8 +38,11 @@ public class SecurityConfig {
                         (request, response, exception) -> response.sendError(401, "Authentication required")
                 ))
                 .authorizeHttpRequests(authorize -> authorize
+                        .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus",
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        .requestMatchers("/internal/auth/introspect").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,"/customers/privacy-requests/*/status").permitAll()
                         .requestMatchers("/customers/register", "/customers/login", "/customers/refresh",
                                 "/customers/logout", "/customers/verify", "/customers/verification/resend",
                                 "/customers/password-reset/request", "/customers/password-reset/confirm",

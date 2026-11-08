@@ -1,0 +1,43 @@
+
+
+export const state = { profile: 'dev', language: 'pl', actions: [], health: [], jobs: [], secretProfiles: {}, secretFields: [], secretSetupFields: [], selectedJob: null, selectedJobData: null, selectedChat: null, terminalId: null, terminalTimer: null, aiConfig: {} };
+
+export const runtime = {
+commandPalette: null,
+jobMonitor: null,
+assistantConversation: null,
+isHealthLoading: false,
+dynamicPollTimer: null,
+currentExternalAppUrl: '',
+currentReportMarkdown: '',
+dataSubTab: 'orders',
+cachedOrders: [],
+cachedInvoices: [],
+cachedDispatchHistory: [],
+cachedInventory: [],
+cachedCustomers: [],
+customersLoaded: false,
+customersLoading: false,
+customersError: '',
+customersRequestGeneration: 0,
+ordersStatusFilter: 'ALL',
+dispatchFilter: 'ALL',
+dataViewSetupDone: false,
+ordersSortField: 'date',
+ordersSortDir: 'desc',
+invoicesSortField: 'date',
+invoicesSortDir: 'desc',
+inventorySortField: 'id',
+inventorySortDir: 'asc',
+customersSortField: 'id',
+customersSortDir: 'asc',
+dispatchInvoices: [],
+dispatchCorrections: [],
+eventSubTab: 'stream',
+activeRedisStream: 'payment-events',
+cachedStream: [],
+cachedOutbox: [],
+cachedDlq: [],
+eventsViewSetupDone: false,
+chaosViewSetupDone: false
+};

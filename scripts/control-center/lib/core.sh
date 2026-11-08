@@ -24,6 +24,7 @@ MAILPIT_SERVICE="mailpit"
 MAILPIT_SMTP_PORT="11025"
 MAILPIT_WEB_PORT="18025"
 PROMETHEUS_PORT="19090"
+ALERTMANAGER_PORT="19093"
 GRAFANA_PORT="13000"
 OPENBAO_ADDR="${OPENBAO_ADDR:-https://127.0.0.1:18200}"
 OPENBAO_CACERT="${OPENBAO_CACERT:-}"
@@ -42,6 +43,7 @@ SECRET_KEY_DIRECTORY="$SECRET_ROOT_DIRECTORY/keys"
 SECRET_FILE_DIRECTORY="$SECRET_ROOT_DIRECTORY/secrets"
 BACKUP_ROOT_DIRECTORY="${MINI_ORDER_PLATFORM_BACKUP_DIR:-$PRIVATE_DIRECTORY/backups}"
 BACKUP_RETENTION_DAYS="${MINI_ORDER_PLATFORM_BACKUP_RETENTION_DAYS:-14}"
+BACKUP_RETENTION_MODE="${MINI_ORDER_PLATFORM_BACKUP_RETENTION_MODE:-observe}"
 BACKUP_SCHEDULE_MARKER="# MINI_ORDER_PLATFORM_DB_BACKUP"
 
 UI_LANGUAGE="${CONTROL_CENTER_LANGUAGE:-}"
@@ -198,6 +200,7 @@ prod_status() {
   printf '%sProfil prod: NIEDOSTĘPNY lokalnie.%s\n' "$C_RED" "$C_RESET"
   printf 'Dostępne profile uruchomieniowe: dev, test.\n'
   printf 'Konfiguracja prod pozostaje w szablonach Kubernetes/OpenBao/TLS do późniejszego wdrożenia.\n'
+  printf 'A34.1: walidacja 16 komponentów jest dostępna przez k8s-validate; konfiguracja docelowa i odbiór przedprodukcyjny pozostają otwarte.\n'
 }
 
 

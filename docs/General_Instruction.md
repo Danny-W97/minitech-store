@@ -11,6 +11,12 @@ umieszczać w katalogu `gitIgnoreOwn/`. Katalog jest ignorowany przez Git.
 
 ## Spis treści
 
+- [🚀 Szybki start: Od zera do działającego sklepu w 3 krokach](#-szybki-start-od-zera-do-działającego-sklepu-w-3-krokach)
+  - [Krok 1: Weryfikacja środowiska i uruchomienie Control Center](#krok-1-weryfikacja-środowiska-i-uruchomienie-control-center)
+  - [Krok 2: Pierwsza konfiguracja sekretów DEV (Co wpisać w formularzu)](#krok-2-pierwsza-konfiguracja-sekretów-dev-co-wpisać-w-formularzu)
+  - [Krok 3: Pełny start jednym kliknięciem (🚀 1-Click Fresh Start)](#krok-3-pełny-start-jednym-kliknięciem--1-click-fresh-start)
+  - [Krok 4: Zasilenie danymi demonstracyjnymi (📦 Seed Demo Data)](#krok-4-zasilenie-danymi-demonstracyjnymi--seed-demo-data)
+  - [Autonaprawa w razie problemów (🚑 Auto-Healing Doctor)](#autonaprawa-w-razie-problemów--auto-healing-doctor)
 - [Zacznij tutaj: Control Center](#zacznij-tutaj-control-center)
 - [Wymagane serwisy i uruchamianie z Centrali](#wymagane-serwisy-i-uruchamianie-z-centrali)
 - [Wymagania przed pierwszym startem](#wymagania-przed-pierwszym-startem)
@@ -89,6 +95,106 @@ umieszczać w katalogu `gitIgnoreOwn/`. Katalog jest ignorowany przez Git.
     - [OpenBao i TLS dla profilu prod — szczegóły infrastruktury](#openbao-i-tls-dla-profilu-prod--szczegóły-infrastruktury)
     - [Historyczne notatki HashiCorp Vault](#historyczne-notatki-hashicorp-vault)
     - [Polityki Vault](#polityki-vault)
+
+## 🚀 Szybki start: Od zera do działającego sklepu w 3 krokach
+
+Nowo sklonowane repozytorium **nie zawiera lokalnych sekretów ani uruchomionych baz danych** (ze względów bezpieczeństwa pliki `.env` i klucze są ignorowane przez Git i znajdują się poza repozytorium). Poniższy przewodnik pozwala nowemu programiście przejść od pustego repozytorium do w pełni działającego sklepu w 3 prostych krokach.
+
+```mermaid
+flowchart LR
+    A["1. Start panelu<br/>(bash ./scripts/start.sh)"] --> B["2. Utwórz sekrety DEV<br/>(wypełnij formularz w panelu)"]
+    B --> C["3. 🚀 Pełny start (1-Click)<br/>(akcja: fresh-start)"]
+    C --> D["4. 📦 Zasil danymi demo<br/>(akcja: seed-demo-data)"]
+```
+
+---
+
+### Krok 1: Weryfikacja środowiska i uruchomienie Control Center
+
+Przed pierwszym startem upewnij się, że masz uruchomiony silnik Docker (daemon Dockera działa w tle) oraz zainstalowane narzędzia: `sops`, `age`, `python3` i `curl` (na Windowsie w środowisku WSL2).
+
+Uruchom panel Control Center z katalogu głównego projektu:
+
+* **W Linux / WSL / macOS:**
+  ```bash
+  bash ./scripts/start.sh
+  ```
+* **W Windows PowerShell (otwiera most do WSL):**
+  ```powershell
+  .\scripts\start.ps1
+  ```
+
+Panel otworzy się automatycznie w przeglądarce pod adresem:  
+👉 **`http://127.0.0.1:18100`**
+
+> [!TIP]
+> Jeśli chcesz sprawdzić, czy Twój system spełnia wszystkie wymagania (Docker daemon, JDK 25, SOPS, age), w panelu wybierz kafelek **`Kontrola przed startem`** (`environment-check`).
+
+---
+
+### Krok 2: Pierwsza konfiguracja sekretów DEV (Co wpisać w formularzu)
+
+> [!IMPORTANT]
+> **Dlaczego konfiguracja sekretów jest bezwzględnie wymagana przed startem?**  
+> Repozytorium zawiera wyłącznie plik przykładowy `.env.dev.example`. Kontenery 14 baz danych PostgreSQL przy pierwszym uruchomieniu potrzebują haseł do zainicjalizowania użytkowników, a mikroserwisy potrzebują ich do nawiązania połączeń. **Jeśli spróbujesz uruchomić bazy lub mikroserwisy bez wcześniejszego utworzenia pliku sekretów, kontenery zakończą działanie z błędem braku pliku `dev.env.sops`.**
+
+#### Jak otworzyć kreator:
+W panelu webowym przejdź do:  
+**`Operacje` → sekcja `Profile i sekrety` → kafelek `Utwórz sekrety DEV`**  
+*(lub na głównym pulpicie Dashboard kliknij kafelek `Sekrety DEV`)*.
+
+Pojawi się bezpieczny formularz tworzenia skarbca. Poniższa ściągawka wyjaśnia dokładnie, co należy wpisać w poszczególnych sekcjach:
+
+| Sekcja w formularzu | Pole | Co wpisać dla lokalnego profilu DEV? | Czy pole jest wymagane? |
+|---|---|---|---|
+| **Bazy danych** (14 pól) | `Product DB — hasło`, `Order DB — hasło`, `Inventory DB — hasło`, `Payment DB — hasło`, `Notification DB — hasło`, `Customer DB — hasło`, `Delivery DB — hasło`, `Promotion DB — hasło`, `Wishlist DB — hasło`, `Review DB — hasło`, `Recommendation DB — hasło`, `Chat DB — hasło`, `Returns DB — hasło`, `Billing DB — hasło` | Wpisz dowolne bezpieczne hasło deweloperskie (np. `devpass123` powtórzone w każdym polu) lub skorzystaj z wartości z pliku `.env.dev.example`. Kontenery PostgreSQL zostaną zainicjalizowane z tymi hasłami. | **TAK (wymagane)** |
+| **Usługi lokalne** | `Grafana — hasło administratora` | Wpisz dowolne hasło lokalnego admina (np. `admin123`). | **TAK (wymagane)** |
+| **Usługi lokalne** | `Grafana — użytkownik administratora` | Pozostaw domyślne `admin`. | Opcjonalne (domyślnie `admin`) |
+| **Mailpit / SMTP** | `SMTP — host`<br/>`SMTP — port`<br/>`SMTP — użytkownik`<br/>`SMTP — hasło`<br/>`SMTP — adres nadawcy`<br/>`SMTP — uwierzytelnianie` | **Pozostaw wartości domyślne lub puste!**<br/>Projekt lokalnie korzysta z wbudowanego serwera **Mailpit** (symulator poczty z podglądem pod adresem `http://127.0.0.1:18025`). Mailpit **nie wymaga hasła ani loginu**. Domyślny host to `127.0.0.1`, port `11025`, a uwierzytelnianie `false`. **Nie musisz podawać prywatnego konta pocztowego.** | **NIE (pozostaw domyślne/puste)** |
+| **Kontakt** | `Czat — adres wsparcia` | Pozostaw puste lub wpisz `support@minitech.local`. Służy do kierowania powiadomień czatu z klientem. | **NIE (opcjonalne)** |
+| **Bezpieczeństwo** *(w oknie tworzenia)* / **Zaawansowane** *(w oknie edycji)* | `Legacy JWT secret (Base64)` / `Legacy JWT secret` | **Klucz autoryzacji sesji klientów i operatorów.**<br/>• **W oknie TWORZENIA (`Utwórz sekrety DEV`):** Pole jest **bezwzględnie wymagane** przez formularz (nie przejdzie puste). Wklej wygenerowany losowy Base64 (w WSL: `openssl rand -base64 48`) lub gotowy przykład: `MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZg==`.<br/>• **W oknie EDYCJI (`Edytuj sekrety DEV` — widok ze screena):** Pole posiada placeholder `Nowa wartość · puste = bez zmiany`. **MOŻNA (i należy) zostawić je puste**, ponieważ system zachowa wcześniej ustawiony klucz.<br/>• **Operacja `Uzupełnij sekret JWT` (`secrets-ensure-auth`):** Służy do automatycznego wygenerowania i dopisania klucza do *już istniejącego* skarbca (uruchamiana automatycznie jako Krok 1 w `🚀 Pełny start (1-Click)`). Po utworzeniu sekretów można też użyć kafelka `Rotuj klucze JWT` (`jwt-rotate dev`), aby wygenerować nowoczesną parę asymetryczną RSA. | **TAK w oknie Tworzenia**<br/>*(NIE w oknie Edycji)* |
+
+Po uzupełnieniu formularza zaznacz pole wyboru potwierdzenia i kliknij **Utwórz sekrety**. Formularz automatycznie utworzy klucz `dev.agekey`, zaszyfruje sekrety SOPS-em i zapisze je w chronionym katalogu `~/.config/mini-order-platform/secrets/dev.env.sops`.
+
+---
+
+### Krok 3: Pełny start jednym kliknięciem (🚀 1-Click Fresh Start)
+
+Gdy plik sekretów `dev.env.sops` już istnieje, przejdź do głównego widoku (Dashboard) w Control Center i kliknij:  
+👉 **`🚀 Pełny start (1-Click)`** *(akcja `fresh-start`)*.
+
+Centrala automatycznie uruchomi i zweryfikuje całe środowisko w 4 krokach:
+1. **Weryfikacja autoryzacji:** Sprawdza i w razie potrzeby dopełnia klucze JWT (`secrets-ensure-auth`),
+2. **Infrastruktura:** Uruchamia 14 baz PostgreSQL, Redis Event Broker i serwer poczty Mailpit,
+3. **Aplikacje Docker:** Uruchamia w kontenerach wszystkie 15 mikroserwisów oraz frontend sklepu,
+4. **Smoke Check:** Przeprowadza automatyczną kontrolę dostępności HTTP wszystkich serwisów.
+
+Po zakończeniu zadania (zwykle 1–2 minuty) wszystkie usługi są aktywne:
+* 🛒 **Sklep internetowy (Frontend):** [`http://127.0.0.1:18070`](http://127.0.0.1:18070)
+* 🌐 **API Gateway (Swagger & Routing):** [`http://127.0.0.1:18080`](http://127.0.0.1:18080)
+* ✉️ **Skrzynka pocztowa Mailpit:** [`http://127.0.0.1:18025`](http://127.0.0.1:18025)
+* 🛠️ **Panel operatora Control Center:** [`http://127.0.0.1:18100`](http://127.0.0.1:18100)
+
+---
+
+### Krok 4: Zasilenie danymi demonstracyjnymi (📦 Seed Demo Data)
+
+Świeża instalacja posiada czyste bazy danych. Aby od razu przetestować sklep, zamówienia i panel operatora:
+* Na pulpicie Dashboard kliknij kafelek **`📦 Zasil danymi demo`** *(akcja `seed-demo-data`)*.
+* Spowoduje to automatyczne dodanie:
+  * Przykładowych wątków czatu od klientów (widocznych w zakładce *Czat*),
+  * Opinii klientów i ocen produktów,
+  * Aktywnych kodów rabatowych.
+
+---
+
+### Autonaprawa w razie problemów (🚑 Auto-Healing Doctor)
+
+Jeśli po restarcie komputera lub uśpieniu systemu któryś kontener nie odpowiada:
+* Kliknij przycisk **`🚑 Skanuj i napraw`** *(akcja `doctor-fix`)*.
+* Narzędzie przeprowadzi 5-etapowy audyt (klucze JWT, bazy danych, Redis, Mailpit, mikroserwisy) i automatycznie podniesie brakujące kontenery bez utraty danych.
+
+---
 
 ## Zacznij tutaj: Control Center
 
@@ -244,7 +350,15 @@ można go włączyć przez `Menu główne → 5. Monitoring i Dead Letter Queue 
 
 ### Zalecana kolejność w panelu
 
-1. `Menu główne → 4` — ustaw `dev` albo `test` i sprawdź sekrety.
+#### Ścieżka zalecana: Szybki start w panelu Web (1-Click)
+1. **Pulpit Dashboard** → upewnij się, że sekrety profilu są skonfigurowane (kafelek `Sekrety DEV`).
+2. Kliknij **`🚀 Pełny start (1-Click)`** (`fresh-start`) — automatycznie stawia bazy, brokera, pocztę, mikroserwisy i sklep.
+3. Kliknij **`📦 Zasil danymi demo`** (`seed-demo-data`) — dodaje przykładowe czaty, opinie i rabaty.
+4. Sprawdź statusy w zakładce **`Usługi`** lub uruchom **`🚑 Skanuj i napraw`** (`doctor-fix`).
+
+#### Ścieżka granularna: Krok po kroku w panelu Web lub klasycznym menu CLI (`--cli`)
+
+1. `Operacje → Profile i sekrety` (lub `Menu główne → 4`) — sprawdź profil i sekrety.
 2. `Menu główne → 9` — wykonaj kontrolę wymagań przed startem.
 3. `Menu główne → 1 → 2` — uruchom wszystkie bazy.
 4. `Menu główne → 3 → 1` — uruchom Redis Event Broker.
@@ -624,10 +738,10 @@ bash scripts/control-center/control-center.sh app-verify
 ```
 
 W Centrali: `Projekty i aplikacje → 2. Testy i jakość API → 4. App Verify`. Domyślnie test używa
-produktu `4` w ilości `1`. Można podać inne wartości:
+produktu `1` w ilości `1` (poniżej limitu 1000 PLN dla zakupu gościa). Można podać inne wartości:
 
 ```bash
-APP_VERIFY_PRODUCT_ID=4 APP_VERIFY_QUANTITY=1 \
+APP_VERIFY_PRODUCT_ID=1 APP_VERIFY_QUANTITY=1 \
   bash scripts/control-center/control-center.sh app-verify
 ```
 
@@ -1849,11 +1963,11 @@ z wybraną dostawą i sprawdza kolejno: płatność, potwierdzenie magazynu,
 zmniejszenie dostępnej ilości, zapis kosztu dostawy, powiadomienie i Mailpit. Do żądań
 dodawany jest `X-Correlation-Id`, który można odszukać w logach.
 
-Domyślnie używany jest produkt `4` w ilości `1`. Można zmienić te wartości bez
+Domyślnie używany jest produkt `1` w ilości `1`. Można zmienić te wartości bez
 interakcji:
 
 ```bash
-APP_VERIFY_PRODUCT_ID=4 APP_VERIFY_QUANTITY=1 \
+APP_VERIFY_PRODUCT_ID=1 APP_VERIFY_QUANTITY=1 \
   bash scripts/control-center/control-center.sh app-verify
 ```
 

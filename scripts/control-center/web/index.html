@@ -51,6 +51,7 @@
           <a id="mailpit-link" class="ghost-button" href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">✉ Otwórz Mailpit ↗</a>
           <button id="copy-report-btn" class="ghost-button" title="Raport diagnostyczny stanu platformy">📋 Raport</button>
           <button id="refresh-button" class="icon-button" title="Odśwież dane" aria-label="Odśwież dane">↻</button>
+          <button id="panel-logout" class="ghost-button" type="button">Zakończ sesję</button>
           <span class="profile-pill">Profil <strong id="profile-value">…</strong></span>
           <button id="lang-switch-button" class="ghost-button lang-pill" title="Zmień język / Switch language" aria-label="Zmień język / Switch language">🌐 <strong id="lang-value">PL</strong></button>
         </div>
@@ -60,7 +61,7 @@
         <div class="hero-panel">
           <div>
             <p class="eyebrow accent">LOKALNE ŚRODOWISKO DEV / TEST</p>
-            <h2>Wszystko pod kontrolą.<br><span>Bez wychodzenia z WSL.</span></h2>
+            <h2>Wszystko pod kontrolą.<br><span>Wszystko w jednym miejscu.</span></h2>
             <p>Uruchamiaj mikroserwisy, odpowiadaj klientom, sprawdzaj testy i analizuj logi w jednym, lokalnym panelu.</p>
             <div class="hero-actions">
               <button class="primary-button quick-action" data-action="fresh-start">🚀 Pełny start (1-Click)</button>
@@ -169,9 +170,31 @@
       </section>
 
       <section id="view-chat" class="view">
-        <div class="section-intro"><div><p class="eyebrow accent">OBSŁUGA KLIENTA</p><h2>Wiadomości ze sklepu</h2><p>Odpowiedź pojawi się w widżecie klienta i zostanie przekazana do Notification Service jako e-mail.</p></div><button class="primary-button" id="chat-refresh">Odśwież rozmowy</button></div>
+        <div class="section-intro">
+          <div>
+            <p class="eyebrow accent">OBSŁUGA KLIENTA</p>
+            <h2>Wiadomości ze sklepu</h2>
+            <p>Odpowiedź pojawi się w widżecie klienta i zostanie przekazana do Notification Service jako e-mail.</p>
+          </div>
+          <button class="primary-button" id="chat-refresh">Odśwież rozmowy</button>
+        </div>
         <div class="chat-layout">
-          <aside id="conversation-list" class="conversation-list"><div class="empty-state">Pobieram rozmowy…</div></aside>
+          <aside class="chat-sidebar">
+            <div id="chat-list-filters" class="chat-filters">
+              <div class="chat-search-wrap">
+                <span class="chat-search-icon">⌕</span>
+                <input id="chat-page-search" class="chat-search-input" aria-label="Search messages" placeholder="Szukaj / Search">
+              </div>
+              <div class="chat-filter-actions">
+                <select id="chat-page-status" class="chat-status-select" aria-label="Message status">
+                  <option value="ALL">Wszystkie / All</option>
+                  <option value="NEW">Nowe / New</option>
+                  <option value="ANSWERED">Odpowiedziano / Answered</option>
+                </select>
+              </div>
+            </div>
+            <div id="conversation-list" class="conversation-list"><div class="empty-state">Pobieram rozmowy…</div></div>
+          </aside>
           <section id="conversation-detail" class="conversation-detail"><div class="empty-state tall">Wybierz rozmowę z listy.</div></section>
         </div>
       </section>
@@ -299,7 +322,7 @@
                 </select>
               </div>
             </div>
-            <input type="search" id="orders-search-input" class="search-input" placeholder="Szukaj po ID zamówienia lub klienta...">
+            <input type="search" id="orders-search-input" class="search-input" maxlength="200" placeholder="ID zamówienia lub e-mail klienta...">
           </div>
           <div class="table-container">
             <table class="data-table" id="orders-table">
@@ -348,7 +371,9 @@
                   <option value="number_desc">📄 Numer faktury (Z → A)</option>
                 </select>
               </div>
-              <button id="invoices-export-zip-btn" class="secondary-button" style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer;" title="Pobierz wszystkie faktury PDF spakowane w archiwum ZIP">📦 Eksportuj ZIP</button>
+              <label>Od / From <input type="datetime-local" id="invoices-export-from"></label>
+              <label>Do / To <input type="datetime-local" id="invoices-export-to"></label>
+              <button id="invoices-export-zip-btn" class="secondary-button" style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer;" title="Pobierz faktury PDF z wybranego zakresu dat jako ZIP">📦 Eksportuj ZIP</button>
             </div>
             <span class="toolbar-badge" id="invoices-count-badge">Ładowanie...</span>
           </div>
@@ -443,7 +468,7 @@
         <div id="data-pane-inventory" class="subpane">
           <div class="data-toolbar">
             <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-              <input type="search" id="inventory-search-input" class="search-input" placeholder="Filtruj produkty po nazwie, SKU lub kategorii...">
+              <input type="search" id="inventory-search-input" class="search-input" maxlength="19" placeholder="ID produktu...">
               <div class="sort-filter-group">
                 <span class="toolbar-label" id="inventory-sort-label">Sortuj:</span>
                 <select id="inventory-sort-select" class="toolbar-select">
@@ -486,36 +511,37 @@
         <div id="data-pane-customers" class="subpane">
           <div class="data-toolbar">
             <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-              <input type="search" id="customers-search-input" class="search-input" placeholder="Szukaj po nazwie użytkownika lub adresie e-mail...">
+              <input type="search" id="customers-search-input" class="search-input" maxlength="200" placeholder="E-mail, imię lub nazwisko...">
               <div class="sort-filter-group">
                 <span class="toolbar-label" id="customers-sort-label">Sortuj:</span>
                 <select id="customers-sort-select" class="toolbar-select">
                   <option value="id_asc">🔢 ID (rosnąco)</option>
                   <option value="id_desc">🔢 ID (malejąco)</option>
-                  <option value="username_asc">👤 Użytkownik (A → Z)</option>
-                  <option value="username_desc">👤 Użytkownik (Z → A)</option>
                   <option value="email_asc">✉ Email (A → Z)</option>
                   <option value="name_asc">🔤 Imię i nazwisko (A → Z)</option>
-                  <option value="balance_desc">💰 Saldo (najwyższe)</option>
+                  <option value="city_asc">Miasto (A → Z)</option>
                   <option value="date_desc">📅 Rejestracja (najnowsze)</option>
                 </select>
               </div>
             </div>
           </div>
+          <div id="customers-error" class="customer-list-error" role="alert" hidden>
+            <p id="customers-error-message"></p>
+            <button id="customers-retry" type="button" class="ghost-button">Ponów odczyt</button>
+          </div>
           <div class="table-container">
-            <table class="data-table" id="customers-table">
+            <table class="data-table" id="customers-table" aria-busy="false">
               <thead>
                 <tr>
                   <th class="th-sortable sorted-asc" data-sort="id" title="Kliknij, aby posortować po ID">ID <span class="sort-indicator">▲</span></th>
-                  <th class="th-sortable" data-sort="username" title="Kliknij, aby posortować po użytkowniku">Użytkownik <span class="sort-indicator">⇅</span></th>
                   <th class="th-sortable" data-sort="email" title="Kliknij, aby posortować po e-mailu">Email <span class="sort-indicator">⇅</span></th>
                   <th class="th-sortable" data-sort="name" title="Kliknij, aby posortować po imieniu i nazwisku">Imię i nazwisko <span class="sort-indicator">⇅</span></th>
-                  <th class="th-sortable" data-sort="balance" title="Kliknij, aby posortować po saldzie">Saldo <span class="sort-indicator">⇅</span></th>
+                  <th class="th-sortable" data-sort="city" title="Kliknij, aby posortować po mieście">Miasto <span class="sort-indicator">⇅</span></th>
                   <th class="th-sortable" data-sort="date" title="Kliknij, aby posortować po dacie rejestracji">Data rejestracji <span class="sort-indicator">⇅</span></th>
                 </tr>
               </thead>
               <tbody id="customers-tbody">
-                <tr><td colspan="6" class="table-empty">Ładowanie kont klientów...</td></tr>
+                <tr><td colspan="5" class="table-empty">Ładowanie kont klientów...</td></tr>
               </tbody>
             </table>
           </div>
@@ -951,6 +977,19 @@
     </form>
   </dialog>
 
+  <dialog id="ai-delivery-review" class="modal ai-delivery-review" aria-labelledby="ai-delivery-review-title" aria-describedby="ai-delivery-review-note">
+    <div class="ai-delivery-review-body">
+    <h2 id="ai-delivery-review-title" data-ai-review-title>Sprawdź wysyłkę AI</h2>
+    <p id="ai-delivery-review-note" class="muted" data-ai-review-note></p>
+    <pre data-ai-review-target></pre>
+    <pre data-ai-review-payload tabindex="0"></pre>
+    <div class="modal-actions">
+      <button type="button" class="secondary-button" data-ai-review-cancel>Anuluj</button>
+      <button type="button" class="primary-button" data-ai-review-confirm>Potwierdzam i wysyłam tę turę</button>
+    </div>
+    </div>
+  </dialog>
+
   <dialog id="ai-settings-dialog" class="modal">
     <form id="ai-settings-form" method="dialog">
       <button type="button" class="modal-close" aria-label="Zamknij">×</button>
@@ -976,7 +1015,13 @@
         </label>
         <label class="field-label" id="ai-key-field">
           <span id="ai-label-key">Klucz API (opcjonalny dla wbudowanego Antigravity / lokalnego Ollama)</span>
-          <input type="password" id="ai-key-input" name="apiKey" placeholder="Wklej klucz API lub pozostaw puste">
+          <input type="password" id="ai-key-input" name="apiKey" autocomplete="new-password" placeholder="Puste pole zachowuje obecny klucz" aria-describedby="ai-key-status ai-key-help">
+        </label>
+        <p class="muted" id="ai-key-status" role="status"></p>
+        <p class="muted" id="ai-key-help">Puste pole zachowuje klucz. Nowy klucz jest zapisywany w zaszyfrowanym skarbcu aktywnego profilu. Klucze ze zmiennych środowiskowych pozostają tylko w pamięci.</p>
+        <label class="danger-confirm">
+          <input type="checkbox" id="ai-remove-key" name="removeApiKey">
+          <span id="ai-remove-key-label">Usuń zapisany klucz wybranego dostawcy ze skarbca</span>
         </label>
         <label class="danger-confirm" style="color:var(--text); background:var(--surface-2); border-color:var(--line);">
           <input type="checkbox" id="ai-context-checkbox" name="includeContext" checked>
@@ -1020,7 +1065,7 @@
       <div class="form-fields">
         <label class="field-label">
           <span>Przyczyna korekty *</span>
-          <input type="text" id="correction-reason" required placeholder="np. Zwrot uszkodzonego towaru, rabat potransakcyjny, reklamacja">
+          <input type="text" id="correction-reason" maxlength="255" required placeholder="np. Zwrot uszkodzonego towaru, rabat potransakcyjny, reklamacja">
         </label>
         <label class="field-label">
           <span>Kwota zmiany brutto (PLN) *</span>
@@ -1029,7 +1074,7 @@
         </label>
         
         <div id="correction-calc-box" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; font-size:13px; margin-top:10px;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Kwota pierwotna:</span> <strong id="calc-orig-text">0.00 PLN</strong></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Saldo przed korektą:</span> <strong id="calc-orig-text">0.00 PLN</strong></div>
           <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span class="muted">Wartość korekty (brutto):</span> <strong id="calc-delta-text" style="color:#f87171;">0.00 PLN</strong></div>
           <div style="border-top:1px solid rgba(255,255,255,0.08); margin:6px 0;"></div>
           <div style="display:flex; justify-content:space-between;"><span style="font-weight:600;">Kwota końcowa po korekcie:</span> <strong id="calc-final-text" style="color:#4ade80;">0.00 PLN</strong></div>
@@ -1146,6 +1191,6 @@
     <button id="drawer-open">Pokaż log</button>
   </aside>
   <div id="toast" class="toast" role="status"></div>
-  <script src="app.js?v=20260909-v2" defer></script>
+  <script type="module" src="app.js?v=20261027-a42-complete"></script>
 </body>
 </html>
