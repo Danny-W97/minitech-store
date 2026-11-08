@@ -540,6 +540,10 @@ returns_show() {
   require_command python3 || return 1
   local response
   response="$(operator_curl --silent --show-error --fail --connect-timeout 3 --max-time 15 "http://127.0.0.1:18080/api/returns/$1")" || return $?
+  if [[ ! -t 1 || "${2:-}" == "--raw" || "${2:-}" == "--json" ]]; then
+    printf '%s\n' "$response"
+    return 0
+  fi
   printf '%s' "$response" | python3 -c '
 import json, sys, textwrap
 

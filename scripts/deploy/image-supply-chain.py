@@ -43,6 +43,7 @@ def scan(image,image_id,directory,commit,runner=subprocess.run):
     version=json.loads(command([str(trivy),'version','--format','json']))
     if version.get('Version')!=lock['tools']['trivy']['version'].removeprefix('v'):raise ValueError('Unexpected scanner version')
     common=[str(trivy),'image','--cache-dir',str(ROOT/'gitIgnoreOwn/tools/supply-chain/trivy-cache'),'--skip-version-check','--timeout','10m']
+    if (ROOT/'.trivyignore').is_file():common+=['--ignorefile',str(ROOT/'.trivyignore')]
     scan_command=common+['--scanners','vuln','--pkg-types','os,library','--severity','HIGH,CRITICAL','--ignore-unfixed','--exit-code','1','--format','json','--output',str(directory/'scan.json'),image_id]
     result=runner(scan_command,timeout=660,check=False)
     sbom_result=runner(common+['--format','cyclonedx','--scanners','vuln','--exit-code','0','--output',str(directory/'sbom.cdx.json'),image_id],timeout=660,check=False)

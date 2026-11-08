@@ -209,7 +209,8 @@ class JobLogRetentionTests(unittest.TestCase):
 
     def test_a_moved_directory_is_not_cleaned_through_an_old_scan_handle(self):
         worker = self.make_worker(scan_limit=1)
-        job_id, _ = self.finished(); self.run_cycle(worker)
+        job_id, lease = self.finished(retain=True); self.run_cycle(worker)
+        lease.retire()
         original = Path(self.temp.name) / 'moved'; self.root.rename(original); self.root.mkdir()
         result = self.run_cycle(worker)
         self.assertEqual(1, result['failures']); self.assertTrue((original / (job_id + '.log')).exists())
