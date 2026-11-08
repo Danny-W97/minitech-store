@@ -4361,12 +4361,12 @@
     "billing-service/src/main/java/org/demo/billingservice/export/InvoiceItemDataExportPage.java": "648276953125403642a496f66950aa99e9a9e622bf1c5a43e9d806254f462ab1",
     "chat-service/src/main/java/org/demo/chatservice/export/ChatDataExport.java": "e92227759c5f21563ee8626579a64380ac935157ba05f36f243e79ad64599fde",
     "chat-service/src/main/java/org/demo/chatservice/export/ChatDataExportController.java": "435622b1b7fbdb24c6aebaa5fc2609db5a78ba7e0a57e4c815b3f169968e31b2",
-    "chat-service/src/main/java/org/demo/chatservice/export/ChatDataExportService.java": "c6fc20686e00e82788dba5f96b5e404b697067c16e352528e4c6614c167a093f",
+    "chat-service/src/main/java/org/demo/chatservice/export/ChatDataExportService.java": "9dac6c552f4febc55431703f31796f2a44bf1260ee051d7933a0a0afd3a71034",
     "chat-service/src/main/java/org/demo/chatservice/export/ChatEntryDataExportPage.java": "b87864e5f57703fed8383f06e99ac0eac6e339dac2ee2a521e39d702fc4cfbad",
     "chat-service/src/main/java/org/demo/chatservice/export/ChatNotificationSourceController.java": "ab70a235bac120744fa2af83e6d928c5dfe368c5a4dc96b8568df941f065d025",
     "customer-service/src/main/java/org/demo/customerservice/export/AccountDataExport.java": "433a7e97b6095bc6e3fdee78276befc492d23da10603dc2d6780879ba372d8ad",
-    "customer-service/src/main/java/org/demo/customerservice/export/AccountDataExportController.java": "b75e11b310e529c8b15e22519a1350d12f0a959e7f33c92bddea482d7b68b7b1",
-    "customer-service/src/main/java/org/demo/customerservice/export/AccountDataExportService.java": "8204ada863b8584df44ca448dbdf3131b47001d313175c7c46f09af7c3ede320",
+    "customer-service/src/main/java/org/demo/customerservice/export/AccountDataExportController.java": "926b7cadd57000a84015c0e50a802bac7ce6d91d3b37289168f754ac19d9ec5e",
+    "customer-service/src/main/java/org/demo/customerservice/export/AccountDataExportService.java": "7aa282da4142787561966a580dd2a3e0ab78f69d36273a5d9e717c8e24bca2c4",
     "customer-service/src/main/java/org/demo/customerservice/export/jobs/ExportCleanup.java": "9759adc5546bb88f889bceaffc95c443b361e6f54e3835e05fe7c644d3d96541",
     "customer-service/src/main/java/org/demo/customerservice/export/jobs/ExportCoordinator.java": "2d1f0f548e2dd542ae4dea1f6289d9f1f485fa15b9e68f7d1ea0caad43594d8e",
     "customer-service/src/main/java/org/demo/customerservice/export/jobs/ExportDocumentGuard.java": "716c45a66b8a248790bb64867ff23b022ae7c54af4d514e8f33cc041746b2b57",
@@ -4409,12 +4409,12 @@
     "recommendation-service/src/main/java/org/demo/recommendationservice/export/RecommendationDataExportService.java": "6026e7a86f18720a04b4bdbe2273491c5ff1bd78267e38b058738470295af075",
     "returns-service/src/main/java/org/demo/returnsservice/export/ReturnDataExportController.java": "dc2f14813915773bd0ff188b475551107bf933f40de60bc82be23e8677327a24",
     "returns-service/src/main/java/org/demo/returnsservice/export/ReturnDataExportPage.java": "7f2ebc65e086d790c573669bcc39923aa5a0ce6baf86e2cc0dc68cf7efb050ac",
-    "returns-service/src/main/java/org/demo/returnsservice/export/ReturnDataExportService.java": "be3a537f3c414f75464f07c9b3a198748902976d7693e7eff89395b195ce23fa",
+    "returns-service/src/main/java/org/demo/returnsservice/export/ReturnDataExportService.java": "6c01950bc6c6858959dd47af9dd090fded21d1d2cb3a17a3e98848645855fc7d",
     "returns-service/src/main/java/org/demo/returnsservice/export/ReturnEventDataExportPage.java": "6a7d71bbc42af9839cf29ffde25ab3d4775b9e2c43ca4b49cd00077a9be26d14",
     "returns-service/src/main/java/org/demo/returnsservice/export/ReturnItemDataExportPage.java": "9d05204e172def1d9a0f300ec9db2e470fcb19a958ecd475cbf128fc42cfebf5",
     "review-service/src/main/java/org/demo/reviewservice/export/ReviewDataExportController.java": "b47cd59b22098071cb7b76785f09bec38b3fd9e6fd5944898b9688366d587f76",
     "review-service/src/main/java/org/demo/reviewservice/export/ReviewDataExportPage.java": "484c165a559ba8747f0ed0b7c27f7ae785c8216b09338f99f6485955e5d308f2",
-    "review-service/src/main/java/org/demo/reviewservice/export/ReviewDataExportService.java": "d3950c210b1d5518d025c7e6d342510b39de8c26edd42d18a983e64634931a34",
+    "review-service/src/main/java/org/demo/reviewservice/export/ReviewDataExportService.java": "b444e0a1680e857f2e85ba174976cfb73c361f7939765fe31bc8d3e690cf64fd",
     "wishlist-service/src/main/java/org/demo/wishlistservice/export/WishlistDataExportController.java": "c943a466b38fa87d1a2285900a449aff42af3b5ef2b47f8d8a493c1854bec168",
     "wishlist-service/src/main/java/org/demo/wishlistservice/export/WishlistDataExportPage.java": "1d3e5217402fc388db6bdf35635595e4c096d85aff7fd013773c61d1cfc4161d",
     "wishlist-service/src/main/java/org/demo/wishlistservice/export/WishlistDataExportService.java": "da38b3ff61a6069b0f1fe0ab4c3e80250b1eb5226ff52b9657ca7c67cd8e4d30"
@@ -4801,11 +4801,11 @@
     }
   },
   "identitySources": {
-    "platform-security/src/main/java/org/demo/platformevents/EventIdentity.java": "89ae8af5187bf6315ba2c15546936fa21506705c1d2a3c7c44ca91d7e8b2a3f6",
-    "payment-service/src/main/java/org/demo/paymentservice/outbox/PaymentOutboxEvent.java": "9a7938e9ac66f3454377b99c607dc40fa5beda0547467dd0eca74bef90c72ed6",
-    "payment-service/src/main/java/org/demo/paymentservice/outbox/PaymentEventPublisher.java": "ca231d60678965fea6978af017087bdd116740d31f35b0526329960496e8fb6e",
-    "billing-service/src/main/java/org/demo/billingservice/messaging/PaymentEventInbox.java": "1d50412dfb5db61b931f7639b079bc0aa4d4a0698922987c6d15657f44826fe5",
-    "notification-service/src/main/java/org/demo/notificationservice/messaging/NotificationEventInbox.java": "23a53734e755c4c4480ca088bb7af754bab8c7a13e3ac4ece333cd6dcc66966e"
+    "platform-security/src/main/java/org/demo/platformevents/EventIdentity.java": "ece6102a44570f5666f3d1d97dd539ab4bc39b93ca2f704a39caced698d6c62c",
+    "payment-service/src/main/java/org/demo/paymentservice/outbox/PaymentOutboxEvent.java": "abeab972e945834be0f63655c729221b3cbab378896fa26b01b92f6953403aa4",
+    "payment-service/src/main/java/org/demo/paymentservice/outbox/PaymentEventPublisher.java": "26541c355dc715fb3a3103ac3eda90f78211481fad2206ec49db240d26874882",
+    "billing-service/src/main/java/org/demo/billingservice/messaging/PaymentEventInbox.java": "e0def8fb1ba5a8508a42f4281ddc275cfa584c12cfb4cabceeb86bbb1b8eca26",
+    "notification-service/src/main/java/org/demo/notificationservice/messaging/NotificationEventInbox.java": "5b4ce8b9e8cb82db752d2d13a6b677cf30ca5ed19259067a15a320ba6dd27f7b"
   },
   "deduplicationExpressions": {
     "payment-service/payment_outbox_events": {
@@ -4826,18 +4826,18 @@
     "releaseAllowed": false,
     "retentionDefault": "observe",
     "sources": {
-      "scripts/backup/privacy-journal.py": "c69160f811f1ae9be24e379f1922f452da9fe6b04a6bf401ade2a833ddeb2f34",
-      "scripts/backup/privacy-restore.py": "2634c48a256faf5190b1d30aa3ed4847a7d1a96803e486688c68fc2f114f583b",
-      "platform-security/src/main/java/org/demo/platformsecurity/privacy/JournalReceiptVerifier.java": "c64cba6563d9846f20f5ce83363bf5fbd27bc20560822bb62fccc8e09830312e",
-      "platform-security/src/main/java/org/demo/platformsecurity/privacy/ErasurePolicies.java": "64b24bb5a0dab6d524fe5d3ddbc14f35353673241cd8968450e687b097decad0",
+      "scripts/backup/privacy-journal.py": "da6cfa393a377d347fdc6bd1906174437e13694815d89941781ba25f5def9d73",
+      "scripts/backup/privacy-restore.py": "bf301fc7f8e548f23c6bd159e89f8cf99dbecdebc4b67d6994c39cdf2c785135",
+      "platform-security/src/main/java/org/demo/platformsecurity/privacy/JournalReceiptVerifier.java": "b454522a5b3344140a5695e5538aa8f3efedb5fea43faa746e2ba6bb80534dcf",
+      "platform-security/src/main/java/org/demo/platformsecurity/privacy/ErasurePolicies.java": "964f16b58e5c7075f54d2b7174fa157976efa1cc20108d0d281d4967ea97270a",
       "platform-security/src/main/java/org/demo/platformsecurity/privacy/CoreCleanupSql.java": "a6ea05c1994056457a232f114d12eebc138c942731a25939bc114a3542dfe127",
-      "customer-service/src/main/java/org/demo/customerservice/auth/RestoreEpochStore.java": "ecf46b75b8dfb0d64a8d632be62bfc29bdac95557bf975ad2d8039169100fc72",
-      "customer-service/src/main/java/org/demo/customerservice/auth/JwtAuthenticationFilter.java": "61114d4761ffb93b13bd20352dc67fe2d40a7689fcc795698f377c21bbd9997f",
-      "customer-service/src/main/java/org/demo/customerservice/auth/JwtService.java": "407a6a883fd0bc275d09fb464672f5e89a43bf7e8db5e1ee44290251fa31ac9e",
-      "platform-security/src/main/resources/privacy/customer-cleanup.json": "7ec00a99d0f03de7c82d55c3db76739776ad3a5fe8c5919aadb06900100c7ad6",
-      "platform-security/src/main/resources/privacy/recommendation-cleanup.sql": "e8a8a4e120e1687acf95396c7bc7455b2cc8eb40a9baf380fb1dd0ba7a3b07b4",
-      "platform-security/src/main/resources/privacy/review-cleanup.sql": "8627e786316419ea9610b199c8c6ce616324b678d55e88d72ead7e8de3e44a87",
-      "platform-security/src/main/resources/privacy/wishlist-cleanup.sql": "d1e8661ac90b0e8a9d009b1b843d806ba1c81b0faa35e22cfd0999019de3ca13"
+      "customer-service/src/main/java/org/demo/customerservice/auth/RestoreEpochStore.java": "5552e8cd4d29fb82a3f6021e83b7ce37b7eccbf361f55c31bcd3684a47bce24a",
+      "customer-service/src/main/java/org/demo/customerservice/auth/JwtAuthenticationFilter.java": "62b7acaff5e6fc12602c9c96f21d2418f81a61e64e3bd10a6b1eac55eb21bb51",
+      "customer-service/src/main/java/org/demo/customerservice/auth/JwtService.java": "9d7b4bb666485ce66555d990d0c2322b30d3139ec9d8ee011ab8b5e0641202ad",
+      "platform-security/src/main/resources/privacy/customer-cleanup.json": "798516efc8388c967792ccb2601bb661025500fd8c408aab05d8b4ec161afa70",
+      "platform-security/src/main/resources/privacy/recommendation-cleanup.sql": "e40113e15261236b519ff71b9738d8bff187b01f8e7113b4221ca4dcc9d1ec83",
+      "platform-security/src/main/resources/privacy/review-cleanup.sql": "b1c6e5f0450f8893be863a627ad6b3c0ead6b0d82408402b8581601ad560b11e",
+      "platform-security/src/main/resources/privacy/wishlist-cleanup.sql": "d884b73616a04cab68b28a2023f9022776b5291e5feb48e32e887b4cae25d6b5"
     }
   }
 }

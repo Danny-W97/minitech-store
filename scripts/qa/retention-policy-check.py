@@ -210,7 +210,7 @@ def check(root=ROOT):
         required_sources.update(policy['sources'])
     require(required_sources <= hashes.keys(), 'Missing reviewed source fingerprint')
     for source, expected in hashes.items():
-        require(hashlib.sha256(lifecycle.source(root, source).read_bytes()).hexdigest() == expected, 'Unreviewed retention source change: ' + source)
+        require(hashlib.sha256(lifecycle.source(root, source).read_bytes().replace(b'\r\n', b'\n')).hexdigest() == expected, 'Unreviewed retention source change: ' + source)
     require(doc.get('environmentEvidence') == {'dev': 'pending', 'test': 'pending', 'prod': 'pending'}, 'Runtime evidence has not been supplied')
     commerce_plan = commerce.check(root, actual)
     require(len(doc.get('activationPrerequisites', [])) >= 8, 'Missing activation prerequisites')
@@ -221,7 +221,7 @@ def check(root=ROOT):
     blocked += ['decision-plan:' + key for key in receipt['blockers']]
     blocked += ['commerce:' + key for key in commerce_plan['blockers']]
     return {'stage': 'A43.40', 'status': 'PASS', 'policyVersion': doc['policyVersion'],
-            'policySha256': hashlib.sha256(lifecycle.source(root, CONTRACT).read_bytes()).hexdigest(),
+            'policySha256': hashlib.sha256(lifecycle.source(root, CONTRACT).read_bytes().replace(b'\r\n', b'\n')).hexdigest(),
             'tables': len(tables), 'columns': field_count, 'redisStores': len(doc['redis']), 'copyStores': len(doc['copies']),
             'policies': len(policies), 'decisionReceipt': receipt, 'commerceAssessment': commerce_plan,
             'policyReady': False, 'stageComplete': False, 'activationAllowed': False,

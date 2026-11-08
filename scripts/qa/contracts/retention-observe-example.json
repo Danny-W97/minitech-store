@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyVersion": "a43.40-2026-11-02.8",
-  "policySha256": "b369a73bd13fd82de6008161ee82c25ada5cc39383c5349f929171254f2f1d92",
+  "policySha256": "a4e59f1818c02ea018221924e18644c7efe52907bf0f9cc87b40965f908f5845",
   "environment": "qa",
   "intent": "observe",
   "settings": {

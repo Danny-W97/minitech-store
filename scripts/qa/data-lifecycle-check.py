@@ -27,7 +27,7 @@ def source(root,name):
     require(result.stat().st_size<=MAX_BYTES,'Source exceeds review budget: '+name)
     return result
 
-def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+def digest(path):return hashlib.sha256(path.read_bytes().replace(b'\r\n',b'\n')).hexdigest()
 
 def document(path):
     def unique(pairs):

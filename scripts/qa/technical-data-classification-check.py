@@ -128,7 +128,7 @@ def omissions(root):
     return result
 
 def projection_sources(root):
-    return {p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
+    return {p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest()
             for folder in sorted(root.glob('*-service/src/main/java')) for p in sorted(folder.rglob('*.java')) if '/export/' in p.as_posix()}
 
 def check(root=ROOT,contract_path=CONTRACT):
@@ -198,14 +198,14 @@ def check(root=ROOT,contract_path=CONTRACT):
     if migration['implemented']:
         for table in ('payment-service/payment_outbox_events','notification-service/notifications'):
             if table in actual:require(table in expressions,'Missing compatible identity expression obligation')
-    for name,digest in contract.get('identitySources',{}).items():require(hashlib.sha256(lifecycle.source(root,name).read_bytes()).hexdigest()==digest,'Unreviewed deduplication identity change: '+name)
+    for name,digest in contract.get('identitySources',{}).items():require(hashlib.sha256(lifecycle.source(root,name).read_bytes().replace(b'\r\n',b'\n')).hexdigest()==digest,'Unreviewed deduplication identity change: '+name)
     require(len(contract.get('identitySources',{}))>=4,'Missing identity compatibility evidence')
     replay=contract.get('restoreReplay')
     if (root/'scripts/backup/privacy-restore.py').is_file():require(replay is not None,'Missing restore replay evidence')
     if replay is not None:
         require(replay.get('stage')=='A43.37' and replay.get('releaseAllowed') is False and replay.get('retentionDefault')=='observe','Premature restore release or retention activation')
         require(isinstance(replay.get('sources'),dict) and replay['sources'],'Missing reviewed restore policy sources')
-        for name,digest in replay['sources'].items():require(hashlib.sha256(lifecycle.source(root,name).read_bytes()).hexdigest()==digest,'Unreviewed restore policy change: '+name)
+        for name,digest in replay['sources'].items():require(hashlib.sha256(lifecycle.source(root,name).read_bytes().replace(b'\r\n',b'\n')).hexdigest()==digest,'Unreviewed restore policy change: '+name)
     return {'status':'PASS','tables':len(actual),'columns':sum(map(len,actual.values())),'decisions':dict(sorted(counter.items())),
             'redisStores':len(contract['redis']),'copyStores':len(contract['copies']),'omissionSources':len(found),'omissions':omission_count,
             'migrationsReviewed':base['migrationsReviewed'],'executedDataOperations':0,'identityMigrationImplemented':migration['implemented'],'fullA43Complete':False}

@@ -81,7 +81,8 @@ class ControlHttpHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         if path.startswith("/api/data/") or path.startswith("/api/chat/"):
-            lang = self.headers.get("Accept-Language", "").split(",")[0].strip().lower()
+            headers = getattr(self, "headers", None)
+            lang = headers.get("Accept-Language", "").split(",")[0].strip().lower() if headers else ""
             if not lang:
                 lang = self.services.active_language()
             is_en = lang.startswith("en")

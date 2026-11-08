@@ -29,7 +29,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
 
 
 def verify_readiness(root: Path = ROOT) -> dict:

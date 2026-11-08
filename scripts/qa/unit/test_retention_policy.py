@@ -527,7 +527,7 @@ class RetentionPolicyTests(unittest.TestCase):
         root,parent=self.fixture()
         path=gate.commerce.FIELD_SCOPE_PATHS['definition'];target=root/path
         target.write_bytes(target.read_bytes().replace(b'delivery_date',b'unreviewed_field'))
-        child=gate.load(root,gate.commerce.CONTRACT);child['sourceHashes'][path]=hashlib.sha256(target.read_bytes()).hexdigest()
+        child=gate.load(root,gate.commerce.CONTRACT);child['sourceHashes'][path]=hashlib.sha256(target.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         parent['sourceHashes'][path]=child['sourceHashes'][path];self.write_commerce(root,parent,child)
         with self.assertRaisesRegex(ValueError,'Packaged field scope'):gate.check(root)
 

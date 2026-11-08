@@ -24,7 +24,7 @@ def check(root=ROOT):
     for source in sorted(sources):
         path=Path(source);target=(root/path).resolve()
         if path.is_absolute() or ':' in source or '\\' in source or '..' in path.parts or not target.is_relative_to(root) or not target.is_file():raise ValueError('Missing/unsafe source evidence')
-        hashes.append({'source':source,'sha256':hashlib.sha256(target.read_bytes()).hexdigest()})
+        hashes.append({'source':source,'sha256':hashlib.sha256(target.read_bytes().replace(b'\r\n', b'\n')).hexdigest()})
     inventory=json.loads((root/'scripts/qa/contracts/data-lifecycle.json').read_text(encoding='utf-8'))
     copies={row['id']:row for row in inventory['copies']}
     if {key for key,row in copies.items() if row['kind']=='external'}!={'assistant-provider-copy','mail-payment-providers'}:

@@ -887,7 +887,7 @@ def check(root=ROOT, actual=None):
     required |= set(GLOBAL_GUARD_PATHS.values()) | set(SOURCE_GUARD_PATHS.values()) | set(OBSERVATION_RECEIPT_PATHS.values()) | set(INTENT_PATHS.values())
     require(required <= hashes.keys(), 'Missing reviewed D02 source fingerprint')
     for path, digest in hashes.items():
-        require(hashlib.sha256(source(root, path).read_bytes()).hexdigest() == digest, 'Unreviewed D02 source change: ' + path)
+        require(hashlib.sha256(source(root, path).read_bytes().replace(b'\r\n', b'\n')).hexdigest() == digest, 'Unreviewed D02 source change: ' + path)
     return {'status': 'PASS', 'tables': len(tables), 'columns': sum(counts.values()), 'fields': counts,
             'financialTablesExcluded': len(FINANCIAL_TABLES), 'participantsRequired': len(PARTICIPANTS),
             'mode': 'assessment-only', 'durableMetadataTables': len(STORE_TABLES),
