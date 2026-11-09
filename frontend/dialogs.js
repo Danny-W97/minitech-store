@@ -37,12 +37,12 @@
         });
     }
 
-    function open(dialog, target) {
+    function open(dialog, target, opener) {
         if (!dialog) return;
         const entry = bindings.get(dialog);
         if (!entry) throw new Error('Dialog must be bound before opening');
         if (!dialog.open) {
-            entry.opener = document.activeElement;
+            entry.opener = opener || document.activeElement;
             dialog.hidden = false;
             dialog.showModal();
             syncScroll();

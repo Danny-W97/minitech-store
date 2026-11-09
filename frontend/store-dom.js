@@ -104,6 +104,8 @@ export const cartTotal = document.querySelector('#cart-total');
 
 export const cartCheckout = document.querySelector('#cart-checkout');
 
+export const cartPanel = document.querySelector('#cart-panel');
+
 export const cartArea = document.querySelector('#cart-area');
 
 export const cartToggle = document.querySelector('#cart-toggle');

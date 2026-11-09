@@ -8,7 +8,7 @@ import {
     renderPriceSummary, syncBillingUi, syncGuestContactFields, validatePromotionCode,
 } from './store-delivery.js?v=20261028-a43-32';
 import {
-    catalogMessage, checkoutChoiceModal, checkoutForm, checkoutLayout, checkoutModeText,
+    cartCheckout, cartPanel, catalogMessage, checkoutChoiceModal, checkoutForm, checkoutLayout, checkoutModeText,
     checkoutProgressSteps, checkoutSection, checkoutStatus, checkoutSubmit, checkoutSummaryAddress,
     checkoutSummaryDelivery, checkoutSummaryEmail, checkoutSummaryItems, checkoutSummaryPayment,
     checkoutSummaryStep, checkoutSummarySubmit, checkoutToSummary, deliveryDate, deliveryEmailInput,
@@ -267,10 +267,12 @@ export function openCheckoutChoice() {
     if (cartSubtotal() > LOGIN_REQUIRED_THRESHOLD) {
         runtime.pendingPurchaseMode = 'account';
         showToast('Dla zamówień powyżej 1 000 zł wymagane jest konto.');
-        openAuthModal();
+        cartCheckout?.focus({ preventScroll: true });
+        openAuthModal(cartCheckout);
         return;
     }
-    dialogs.open(checkoutChoiceModal);
+    cartCheckout?.focus({ preventScroll: true });
+    dialogs.open(checkoutChoiceModal, undefined, cartCheckout);
 }
 
 export function closeCheckoutChoice() {
@@ -282,13 +284,15 @@ export function choosePurchaseMode(mode) {
     if (mode === 'guest' && cartSubtotal() > LOGIN_REQUIRED_THRESHOLD) {
         runtime.pendingPurchaseMode = 'account';
         showToast('Dla zamówień powyżej 1 000 zł wymagane jest konto.');
-        openAuthModal();
+        cartCheckout?.focus({ preventScroll: true });
+        openAuthModal(cartCheckout);
         return;
     }
     runtime.purchaseMode = mode;
     if (mode === 'account' && !state.customer) {
         runtime.pendingPurchaseMode = mode;
-        openAuthModal();
+        cartCheckout?.focus({ preventScroll: true });
+        openAuthModal(cartCheckout);
         return;
     }
     showCheckoutPage();
@@ -344,8 +348,9 @@ export function setCheckoutStep(step) {
     if (checkoutToSummary) checkoutToSummary.hidden = step !== 'delivery';
     if (checkoutSubmit) checkoutSubmit.hidden = step !== 'summary';
     if (!document.querySelector('dialog[open]')) {
-        const target = document.querySelector(step === 'summary' ? '#checkout-summary-step-title'
-            : step === 'delivery' ? '#checkout-title' : '#cart-title');
+        const target = step === 'summary' ? document.querySelector('#checkout-summary-step-title')
+            : step === 'delivery' ? document.querySelector('#checkout-title')
+            : ((cartPanel?.contains(document.activeElement) || document.activeElement === cartCheckout) ? null : document.querySelector('#cart-title'));
         if (target?.getClientRects().length) target.focus({ preventScroll: true });
     }
 }

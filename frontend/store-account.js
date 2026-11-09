@@ -51,7 +51,7 @@ export async function toggleWishlist(productId, button = null) {
     }
 }
 
-export function openAuthModal() {
+export function openAuthModal(opener) {
     const isEn = i18n && i18n.getLanguage() === 'en';
     if (state.customer) {
         accountMenu.hidden = !accountMenu.hidden;
@@ -59,7 +59,7 @@ export function openAuthModal() {
         return;
     }
     closeAccountMenu();
-    dialogs.open(authModal);
+    dialogs.open(authModal, undefined, opener);
     runtime.passwordResetMode = false;
     authMfaPanel.hidden = true;
     authSecurityPanel.hidden = true;
