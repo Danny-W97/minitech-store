@@ -1,11 +1,14 @@
 package org.demo.customerservice.audit;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AuditSubjectTest {
+    @AfterEach void clear() { MDC.clear(); }
     @Test void explicitSubjectIsSeparateFromActorAndNeverInferredFromText(){
         var repository=mock(AuditEventRepository.class);var service=new AuditService(repository);
         service.recordForCustomer(7L,"LOGIN_SUCCESS","other@fixture.example","CUSTOMER","SUCCESS","private-other-person");

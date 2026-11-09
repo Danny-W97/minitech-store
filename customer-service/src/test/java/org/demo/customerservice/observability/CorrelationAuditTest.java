@@ -3,6 +3,7 @@ package org.demo.customerservice.observability;
 import jakarta.servlet.ServletException;
 import org.demo.platformobservability.CorrelationIdContext;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -11,6 +12,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CorrelationAuditTest {
+    @BeforeEach
     @AfterEach void clear() { MDC.clear(); }
     @Test void customerAuditMetadataWrapsTheSharedCorrelationFilter() throws Exception {
         var request=new MockHttpServletRequest();request.setRemoteAddr("192.0.2.42");
