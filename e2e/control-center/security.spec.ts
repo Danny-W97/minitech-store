@@ -161,7 +161,7 @@ test('chat panel UI elements are ordered within sidebar without breaking layout 
   await expect(page.locator('#conversation-detail .empty-state')).toContainText('Wybierz rozmowę z listy');
   await sidebar.locator('[data-chat="101"]').click();
   await expect(page.locator('#conversation-detail h3')).toContainText('Pytanie o zamówienie');
-  await page.screenshot({ path: '/mnt/c/Users/dancy/.gemini/antigravity/brain/9b5e300a-0122-4580-ae0d-dc71ecb21ad3/chat_ordered.png' });
+  await page.screenshot({ path: test.info().outputPath('chat_ordered.png') });
 });
 
 test('customers show real fields, a persistent failure, retry and a genuine empty result', async ({ page, ccUrl }) => {
