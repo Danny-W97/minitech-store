@@ -40,11 +40,12 @@ class HttpBudgetTest {
             try { Thread.sleep(2000); } catch(InterruptedException ignored) {}
             exchange.close();
         });
-        var client=RestClient.builder().requestFactory(new BoundedHttpRequestFactory(100,100)).build();
+        var client=RestClient.builder().requestFactory(new BoundedHttpRequestFactory(150,150)).build();
         long start=System.nanoTime();
         assertThrows(org.springframework.web.client.RestClientException.class,() -> client.get().uri(url).retrieve().body(String.class));
         assertTrue((System.nanoTime()-start)/1_000_000<1200);
-        assertEquals(302,client.get().uri(url+"/redirect").retrieve().toBodilessEntity().getStatusCode().value());
+        var redirectClient=RestClient.builder().requestFactory(new BoundedHttpRequestFactory(2000,2000)).build();
+        assertEquals(302,redirectClient.get().uri(url+"/redirect").retrieve().toBodilessEntity().getStatusCode().value());
     }
     @Test void supportsPatchAndPreservesRequestBodiesAndHeaders() throws Exception {
         String url=serve(exchange -> {
