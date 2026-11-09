@@ -116,7 +116,7 @@ class InvoiceStreamRetentionRedisIT {
         var publisher=new InvoiceStreamPublisher(redis,KEY);long removed;
         try(var pool=Executors.newFixedThreadPool(3)) {
             var a=pool.submit(()->{start.await();return run(true,2,List.of(),true).removed();});var b=pool.submit(()->{start.await();return run(true,2,List.of(),true).removed();});
-            var fresh=pool.submit(()->{start.await();return publisher.publish(new InvoiceOutboxEvent("fixture-published",Map.of("eventType","INVOICE_ISSUED","invoiceId","1")));});
+            var fresh=pool.submit(()->{start.await();return publisher.publish(new InvoiceOutboxEvent("fixture-published",Map.of("eventType","INVOICE_ISSUED","invoiceId","1","orderId","1")));});
             start.countDown();removed=a.get(5,TimeUnit.SECONDS)+b.get(5,TimeUnit.SECONDS);assertThat(fresh.get(5,TimeUnit.SECONDS)).isTrue();
         }
         assertThat(removed).isEqualTo(4);assertThat(ids()).hasSize(17);for(int i=0;i<10;i++)run(true,3,List.of(),true);
