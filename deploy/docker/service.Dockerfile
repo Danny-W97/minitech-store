@@ -35,8 +35,8 @@ COPY scripts/qa/contracts/technical-data-classification.json scripts/qa/contract
 
 RUN --mount=type=cache,target=/root/.m2/repository \
     chmod +x mvnw \
-    && mvn --batch-mode -pl "${SERVICE_MODULE}" -am \
-       -DskipTests -DskipITs -Dmaven.test.skip=true package \
+    && for attempt in 1 2 3 4; do mvn --batch-mode -pl "${SERVICE_MODULE}" -am \
+       -DskipTests -DskipITs -Dmaven.test.skip=true package && break; if [ "$attempt" -eq 4 ]; then exit 1; fi; sleep $((attempt * 5)); done \
     && find "/workspace/${SERVICE_MODULE}/target" -maxdepth 1 -type f \
        -name '*-SNAPSHOT.jar' ! -name '*.original' -exec cp {} /tmp/app.jar \; \
     && test -s /tmp/app.jar
