@@ -66,8 +66,8 @@ class NotificationDataExportPostgresIT {
         var export=new NotificationDataExportService(restricted,orders,mock(NotificationChatAccess.class));assertThat(export.order(7,0,50).items()).hasSize(1);
     }
     private void insert(long sourceId,String type,int count){jdbc.update("""
-            INSERT INTO notifications(event_type,source_id,recipient,channel,subject,message,status,created_at,updated_at)
-            SELECT ?,?,concat('same',g,'@fixture.example'),'EMAIL','Temat Żółć','Wiadomość Żółć','SENT',now(),now()
+            INSERT INTO notifications(event_type,source_id,subject_customer_id,recipient,channel,subject,message,status,created_at,updated_at)
+            SELECT ?,?,CASE WHEN ?='PASSWORD_RESET_REQUESTED' THEN ? ELSE NULL END,concat('same',g,'@fixture.example'),'EMAIL','Temat Żółć','Wiadomość Żółć','SENT',now(),now()
             FROM generate_series(1,?) g
-            """,type,sourceId,count);}
+            """,type,sourceId,type,sourceId,count);}
 }
