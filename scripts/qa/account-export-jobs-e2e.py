@@ -178,7 +178,7 @@ def main():
                 assert p['dataJson']==saved and 'data' not in p and isinstance(p['parentId'],str) and isinstance(p['detailId'],str)
                 assert hashlib.sha256(p['dataJson'].encode()).hexdigest()==p['sha256']
             after=page['nextSequence']
-        manifest=request('/'+jid+'/manifest');assert len(manifest['serviceClassification'])==14 and len(manifest['copyBoundaries'])==17
+        manifest=request('/'+jid+'/manifest');assert len(manifest['serviceClassification'])==14 and len(manifest['copyBoundaries'])==20
         assert len(manifest['separateProofRequired'])==2 and manifest['manualReviewRequired'] and not manifest['complete']
         assert '/internal/orders/7/access' in calls
         checks.append('all automatic source shapes from production DTOs, nested order/return/invoice/correction/PDF fanout, 51 wishlist rows, optional absence proof, transient failure/retry, exact digests and 14-owner partial manifest')
