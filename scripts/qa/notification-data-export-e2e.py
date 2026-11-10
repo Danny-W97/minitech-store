@@ -19,12 +19,17 @@ ROOT=Path(__file__).resolve().parents[2]
 import sys
 
 def command(*args):
-    try:
-        return subprocess.run(args,cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
-    except subprocess.CalledProcessError as e:
-        if e.stderr:
-            print(f"COMMAND FAILED: {args}\nSTDERR:\n{e.stderr}", file=sys.stderr, flush=True)
-        raise
+    deadline = time.time() + 60
+    while True:
+        try:
+            return subprocess.run(args, cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
+        except subprocess.CalledProcessError as e:
+            if len(args) > 3 and args[3] == 'createdb' and time.time() < deadline:
+                time.sleep(0.5)
+                continue
+            if e.stderr:
+                print(f"COMMAND FAILED: {args}\nSTDERR:\n{e.stderr}", file=sys.stderr, flush=True)
+            raise
 
 def port():
     with socket.socket() as listener:

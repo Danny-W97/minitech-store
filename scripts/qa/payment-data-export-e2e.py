@@ -19,10 +19,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def command(*args):
-    result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, timeout=60)
-    if result.returncode:
+    deadline = time.time() + 60
+    while True:
+        result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            return result.stdout.strip()
+        if len(args) > 3 and args[3] == 'createdb' and time.time() < deadline:
+            time.sleep(0.5)
+            continue
+        if result.stderr:
+            print(result.stderr, flush=True)
         raise RuntimeError(f'Fixture command failed: {args[0]} {args[1] if len(args)>1 else ""}')
-    return result.stdout.strip()
 
 
 def port():

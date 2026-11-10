@@ -6,7 +6,16 @@ from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 import quality_gates as qa
 
 ROOT=Path(__file__).resolve().parents[2]
-def command(*args):return subprocess.run(args,cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
+def command(*args):
+    deadline = time.time() + 60
+    while True:
+        try:
+            return subprocess.run(args, cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
+        except subprocess.CalledProcessError as e:
+            if len(args) > 3 and args[3] == 'createdb' and time.time() < deadline:
+                time.sleep(0.5)
+                continue
+            raise
 def port():
     with socket.socket() as listener:listener.bind(('127.0.0.1',0));return listener.getsockname()[1]
 
