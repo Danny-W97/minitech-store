@@ -397,7 +397,7 @@
     "returns-service/src/main/resources/db/migration/V4__account_privacy_fences.sql": "b2d53181d04c3244c1236fee30f2d26f63f05ad67ce19ff4de49c3e0e48c675e",
     "returns-service/src/main/resources/db/migration/V5__commerce_privacy_guards.sql": "f2de42222089784321f66f0d78b3d3c8eff5a513aed6e8712e989aed47c96cb6",
     "scripts/qa/contracts/retention-decisions.json": "86c5aa4cd1bf904b06cf32cdba868e00ec8a2ca5204692616eeb3475bcf345bc",
-    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionJobs.java": "0a59c1653e5c920fae03b77bb1c4c326aeb3234e411aaa7053dc6c8c63944952",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionJobs.java": "91d2638a36db438dfd5f908299c45eeb85e07793111519417c2c911a02fbbbf0",
     "order-service/src/main/resources/db/migration/V27__commerce_retention_assessment.sql": "dbffef3978371450b5002f328aa071624da4b8c5b55002caad59915afc48d097",
     "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionInvalidationController.java": "843272ad9c2d45e5d844c06d6e1585fd8dece4f1d2f8c928887ad5faa691fb28",
     "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionInvalidationClient.java": "4d61e2d7bd9abde1d58067658fbd6933385a80e7bdd3b52aa2f830b663b83535",

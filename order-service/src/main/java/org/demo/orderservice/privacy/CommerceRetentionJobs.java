@@ -249,6 +249,7 @@ public final class CommerceRetentionJobs {
                 ORDER BY x.customer_hold_revision,x.next_attempt_at,x.order_id LIMIT 16
               ) w WHERE h.scope_type='CUSTOMER' AND h.revision>0
             ) changed ON changed.order_id=j.order_id AND changed.generation=j.generation
+            WHERE (j.run_until IS NULL OR j.run_until<=statement_timestamp())
             ORDER BY j.next_attempt_at,j.order_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
           ) customer_changed
           UNION ALL SELECT * FROM (
@@ -264,6 +265,7 @@ public final class CommerceRetentionJobs {
                 OFFSET 0
               ) w WHERE h.scope_type='ORDER' AND h.revision>0
             ) changed ON changed.order_id=j.order_id AND changed.generation=j.generation
+            WHERE (j.run_until IS NULL OR j.run_until<=statement_timestamp())
             ORDER BY j.next_attempt_at,j.order_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
           ) order_changed
           UNION ALL SELECT * FROM (
@@ -277,6 +279,7 @@ public final class CommerceRetentionJobs {
         )
         SELECT j.* FROM commerce_retention_jobs j
         JOIN candidates c ON c.order_id=j.order_id AND c.generation=j.generation
+        WHERE (j.run_until IS NULL OR j.run_until<=statement_timestamp())
         ORDER BY c.next_attempt_at,c.order_id LIMIT 1
         """;
 
