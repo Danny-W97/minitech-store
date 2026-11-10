@@ -89,7 +89,7 @@ def main():
         return container, port
     try:
         postgres, db_port = docker('postgres:16-alpine', 5432, '-e', 'POSTGRES_USER=audit', '-e', 'POSTGRES_PASSWORD=' + password,
-                                  command_args=('-c', 'shared_preload_libraries=pg_stat_statements') if args.pagination else ())
+                                  command_args=('-c', 'shared_preload_libraries=pg_stat_statements', '-c', 'max_locks_per_transaction=2048') if args.pagination else ())
         redis, redis_port = docker('redis:7-alpine', 6379)
         mail, mail_port = docker('axllent/mailpit:latest', 1025)
         for _ in range(60):

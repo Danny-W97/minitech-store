@@ -29,7 +29,7 @@ def run_pagination_checks(api, urls, operator, credentials, one, two, product_id
 
     def clone(database, table, changes):
         overrides = ",".join(f"'{key}',{expression}" for key, expression in {'id': 'g', **changes}.items())
-        sql(database, f"WITH seed AS MATERIALIZED (SELECT to_jsonb(t) AS value FROM {table} t ORDER BY id LIMIT 1), expanded AS MATERIALIZED (SELECT jsonb_populate_record(null::{table}, seed.value || jsonb_build_object({overrides})) AS row FROM seed CROSS JOIN generate_series(1000000,1099999) g) INSERT INTO {table} SELECT (row).* FROM expanded; ANALYZE {table};")
+        sql(database, f"SET session_replication_role = 'replica'; WITH seed AS MATERIALIZED (SELECT to_jsonb(t) AS value FROM {table} t ORDER BY id LIMIT 1), expanded AS MATERIALIZED (SELECT jsonb_populate_record(null::{table}, seed.value || jsonb_build_object({overrides})) AS row FROM seed CROSS JOIN generate_series(1000000,1099999) g) INSERT INTO {table} SELECT (row).* FROM expanded; SET session_replication_role = 'origin'; ANALYZE {table};")
         assert int(sql(database, f'SELECT count(*) FROM {table} WHERE id BETWEEN 1000000 AND 1099999')) == 100000
         print('SEEDED', database, table, '100000', flush=True)
 
@@ -44,7 +44,7 @@ def run_pagination_checks(api, urls, operator, credentials, one, two, product_id
     clone('billing_db', 'invoices', {'order_id': 'g', 'customer_id': str(one[0]), 'invoice_number': "'A29/'||g"})
     clone('billing_db', 'invoice_corrections', {'correction_number': "'A29-K/'||g"})
     # Dead letters need no SMTP requests; replay remains an explicit operator action.
-    sql('notification_db', "INSERT INTO notification_dead_letters(id,notification_id,event_type,source_id,recipient,channel,subject,message,status,failure_reason,attempt_count,created_at,updated_at) SELECT g,g,'PAYMENT_SUCCEEDED',g,'page@audit.example','EMAIL','A29','A29','OPEN','A29',3,now(),now() FROM generate_series(1000000,1099999) g; ANALYZE notification_dead_letters;")
+    sql('notification_db', "SET session_replication_role = 'replica'; INSERT INTO notification_dead_letters(id,notification_id,event_type,source_id,recipient,channel,subject,message,status,failure_reason,attempt_count,created_at,updated_at) SELECT g,g,'PAYMENT_SUCCEEDED',g,'page@audit.example','EMAIL','A29','A29','OPEN','A29',3,now(),now() FROM generate_series(1000000,1099999) g; SET session_replication_role = 'origin'; ANALYZE notification_dead_letters;")
 
     endpoints = ['/orders', f'/orders/customer/{one[0]}', '/payments', '/customers', '/notifications', '/chat/messages', '/returns', f'/returns/customer/{one[0]}', f'/reviews/products/{product_id}', f'/reviews/customer/{one[0]}', '/invoices', f'/invoices/customer/{one[0]}', '/invoices/corrections']
     _, exposed, _ = get('/orders?size=1', origin='http://127.0.0.1:18070')
