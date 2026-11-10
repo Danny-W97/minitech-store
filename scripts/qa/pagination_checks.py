@@ -42,7 +42,7 @@ def run_pagination_checks(api, urls, operator, credentials, one, two, product_id
     clone('returns_db', 'return_requests', {'order_id': 'g', 'customer_id': str(one[0])})
     clone('review_db', 'reviews', {'order_id': 'g', 'customer_id': str(one[0]), 'product_id': str(product_id), 'status': "'PUBLISHED'", 'rating': '(g%5)+1'})
     clone('billing_db', 'invoices', {'order_id': 'g', 'customer_id': str(one[0]), 'invoice_number': "'A29/'||g"})
-    clone('billing_db', 'invoice_corrections', {'correction_number': "'A29-K/'||g"})
+    clone('billing_db', 'invoice_corrections', {'invoice_id': 'g', 'order_id': 'g', 'correction_number': "'A29-K/'||g", 'idempotency_key': "'page-'||g", 'ledger_version': '1'})
     # Dead letters need no SMTP requests; replay remains an explicit operator action.
     sql('notification_db', "SET session_replication_role = 'replica'; INSERT INTO notification_dead_letters(id,notification_id,event_type,source_id,recipient,channel,subject,message,status,failure_reason,attempt_count,created_at,updated_at) SELECT g,g,'PAYMENT_SUCCEEDED',g,'page@audit.example','EMAIL','A29','A29','OPEN','A29',3,now(),now() FROM generate_series(1000000,1099999) g; SET session_replication_role = 'origin'; ANALYZE notification_dead_letters;")
 

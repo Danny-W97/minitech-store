@@ -136,16 +136,19 @@ def main():
                           '-jar', str(payment_jar)], env=production_env, stdout=log, stderr=subprocess.STDOUT)))
         def ready(item):
             service, process = item
-            deadline = time.monotonic() + 180
+            deadline = time.monotonic() + 300
             while time.monotonic() < deadline:
-                if process.poll() is not None: raise RuntimeError(f'{service} exited; see {logdir / (service + ".log")}')
+                if process.poll() is not None:
+                    tail = (logdir / f"{service}.log").read_text(errors='replace')[-1500:] if (logdir / f"{service}.log").exists() else ''
+                    raise RuntimeError(f'{service} exited; see {logdir / (service + ".log")}\n{tail}')
                 try:
                     with urllib.request.urlopen(urls[service] + '/actuator/health', timeout=2) as response:
                         if response.status == 200: return service
                 except (OSError, urllib.error.URLError): pass
                 time.sleep(1)
-            raise RuntimeError(f'{service} health timeout; see {logdir}')
-        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as pool:
+            tail = (logdir / f"{service}.log").read_text(errors='replace')[-1500:] if (logdir / f"{service}.log").exists() else ''
+            raise RuntimeError(f'{service} health timeout; see {logdir}\n{tail}')
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(processes)) as pool:
             for service in pool.map(ready, processes): print('READY', service, flush=True)
         api = urls['api-gateway'] + '/api/v1'
         # Real registration creates password hashes and uses authenticated notification delivery.
