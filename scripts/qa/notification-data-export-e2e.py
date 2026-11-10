@@ -16,8 +16,15 @@ import quality_gates as qa
 
 ROOT=Path(__file__).resolve().parents[2]
 
+import sys
+
 def command(*args):
-    return subprocess.run(args,cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
+    try:
+        return subprocess.run(args,cwd=ROOT,check=True,capture_output=True,text=True).stdout.strip()
+    except subprocess.CalledProcessError as e:
+        if e.stderr:
+            print(f"COMMAND FAILED: {args}\nSTDERR:\n{e.stderr}", file=sys.stderr, flush=True)
+        raise
 
 def port():
     with socket.socket() as listener:
@@ -102,8 +109,8 @@ def main():
         sql('notification_db',"""
             INSERT INTO notifications(event_type,source_id,recipient,channel,subject,message,status,created_at,updated_at,sent_at,provider_reference,failure_reason)
             SELECT 'PAYMENT_SUCCEEDED',1,'same'||n||'@fixture.example','EMAIL','Temat Żółć','Wiadomość Żółć','SENT',now(),now(),now(),'fixture-private-provider',null FROM generate_series(1,105) n;
-            INSERT INTO notifications(event_type,source_id,recipient,channel,subject,message,status,created_at,updated_at,sent_at)
-            SELECT type,source,CASE WHEN type IN ('CHAT_REPLY_SENT','CHAT_ENTRY_REPLIED') THEN 'same@fixture.example' ELSE 'same1@fixture.example' END,'EMAIL','Temat Żółć',CASE WHEN type='PASSWORD_RESET_REQUESTED' THEN 'fixture-private-reset-secret' ELSE 'Wiadomość Żółć' END,'SENT',now(),now(),now()
+            INSERT INTO notifications(event_type,source_id,subject_customer_id,recipient,channel,subject,message,status,created_at,updated_at,sent_at)
+            SELECT type,source,CASE WHEN type='PASSWORD_RESET_REQUESTED' THEN source ELSE NULL END,CASE WHEN type IN ('CHAT_REPLY_SENT','CHAT_ENTRY_REPLIED') THEN 'same@fixture.example' ELSE 'same1@fixture.example' END,'EMAIL','Temat Żółć',CASE WHEN type='PASSWORD_RESET_REQUESTED' THEN 'fixture-private-reset-secret' ELSE 'Wiadomość Żółć' END,'SENT',now(),now(),now()
             FROM (VALUES ('PAYMENT_SUCCEEDED',2),('ORDER_CREATED',3),('CUSTOMER_REGISTERED',1),('PASSWORD_RESET_REQUESTED',1),
               ('CHAT_REPLY_SENT',1),('CHAT_MESSAGE_RECEIVED',1),('CHAT_ENTRY_REPLIED',1),('CHAT_ENTRY_RECEIVED',2),('CHAT_ENTRY_REPLIED',3),('UNKNOWN',1)) v(type,source);
             INSERT INTO notifications(event_type,source_id,recipient,channel,subject,message,status,created_at,updated_at)
