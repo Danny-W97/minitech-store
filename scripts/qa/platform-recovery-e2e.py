@@ -16,6 +16,41 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('platform_recovery', ROOT / 'scripts/backup/platform-recovery.py')
 recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
 
+def _safe_enter(self):
+    try:
+        env = dict(os.environ, POSTGRES_PASSWORD=secrets.token_urlsafe(32))
+        self.postgres = self.container(recovery.POSTGRES_IMAGE, '-e', 'POSTGRES_PASSWORD', env=env)
+        for attempt in range(60):
+            result = subprocess.run(['docker', 'exec', self.postgres, 'pg_isready', '-U', 'postgres'], capture_output=True, timeout=10)
+            if result.returncode == 0:
+                test_query = subprocess.run(['docker', 'exec', self.postgres, 'psql', '-U', 'postgres', '-c', 'SELECT 1'], capture_output=True)
+                if test_query.returncode == 0: break
+            time.sleep(.5)
+        else: raise RuntimeError('Isolated PostgreSQL did not become ready')
+        for alias in recovery.aliases():
+            for retry in range(20):
+                res = subprocess.run(['docker', 'exec', self.postgres, 'createdb', '-U', 'postgres', '-T', 'template0', alias + '_db'], capture_output=True)
+                if res.returncode == 0: break
+                time.sleep(1)
+            else:
+                raise RuntimeError('Command failed: createdb ' + alias + '_db: ' + res.stderr.decode().strip())
+            recovery.stream(['age', '-d', '-i', str(self.identity), str(self.bundle / self.manifest['artifacts'][alias]['file'])],
+                   ['docker', 'exec', '-i', self.postgres, 'pg_restore', '--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges', '-U', 'postgres', '-d', alias + '_db'])
+        self.redis = self.container_with_sleep()
+        recovery.stream(['age', '-d', '-i', str(self.identity), str(self.bundle / 'redis.rdb.age')],
+               ['docker', 'exec', '-i', self.redis, 'sh', '-c', 'umask 077; cat > /data/dump.rdb'])
+        recovery.run('docker', 'exec', self.redis, 'redis-check-rdb', '/data/dump.rdb')
+        recovery.run('docker', 'exec', '-d', self.redis, 'redis-server', '--appendonly', 'no', '--save', '')
+        for attempt in range(40):
+            result = subprocess.run(['docker', 'exec', self.redis, 'redis-cli', 'PING'], capture_output=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip() == b'PONG': break
+            time.sleep(.25)
+        else: raise RuntimeError('Restored Redis did not become ready')
+        return self
+    except BaseException:
+        self.close(); raise
+recovery.Restored.__enter__ = _safe_enter
+
 
 def main():
     directory = recovery.private_directory(ROOT / 'tmp' / ('audit-a36-' + secrets.token_hex(4)))
