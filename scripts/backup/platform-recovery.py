@@ -225,11 +225,18 @@ class Restored:
             self.postgres = self.container(POSTGRES_IMAGE, '-e', 'POSTGRES_PASSWORD', env=env)
             for attempt in range(60):
                 result = subprocess.run(['docker', 'exec', self.postgres, 'pg_isready', '-U', 'postgres'], capture_output=True, timeout=10)
-                if result.returncode == 0: break
+                if result.returncode == 0:
+                    test_query = subprocess.run(['docker', 'exec', self.postgres, 'psql', '-U', 'postgres', '-c', 'SELECT 1'], capture_output=True)
+                    if test_query.returncode == 0: break
                 time.sleep(.5)
             else: raise RuntimeError('Isolated PostgreSQL did not become ready')
             for alias in aliases():
-                run('docker', 'exec', self.postgres, 'createdb', '-U', 'postgres', '-T', 'template0', alias + '_db')
+                for retry in range(20):
+                    res = subprocess.run(['docker', 'exec', self.postgres, 'createdb', '-U', 'postgres', '-T', 'template0', alias + '_db'], capture_output=True)
+                    if res.returncode == 0: break
+                    time.sleep(1)
+                else:
+                    raise RuntimeError('Command failed: createdb ' + alias + '_db: ' + res.stderr.decode().strip())
                 stream(['age', '-d', '-i', str(self.identity), str(self.bundle / self.manifest['artifacts'][alias]['file'])],
                        ['docker', 'exec', '-i', self.postgres, 'pg_restore', '--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges', '-U', 'postgres', '-d', alias + '_db'])
             self.redis = self.container_with_sleep()

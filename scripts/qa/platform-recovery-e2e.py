@@ -55,7 +55,9 @@ def main():
         broker = container(recovery.REDIS_IMAGE)
         for _ in range(60):
             result = subprocess.run(['docker', 'exec', postgres, 'pg_isready', '-U', 'audit'], capture_output=True)
-            if result.returncode == 0: break
+            if result.returncode == 0:
+                test_query = subprocess.run(['docker', 'exec', postgres, 'psql', '-U', 'audit', '-d', 'postgres', '-c', 'SELECT 1'], capture_output=True)
+                if test_query.returncode == 0: break
             time.sleep(.5)
         else: raise AssertionError('Fixture PostgreSQL startup timeout')
         for _ in range(40):
@@ -65,7 +67,11 @@ def main():
         else: raise AssertionError('Fixture Redis startup timeout')
         sources = {'databases': {}, 'redis': {'container': broker}}
         for alias in recovery.aliases():
-            run('docker', 'exec', postgres, 'createdb', '-U', 'audit', alias + '_db')
+            for retry in range(20):
+                res = subprocess.run(['docker', 'exec', postgres, 'createdb', '-U', 'audit', alias + '_db'], capture_output=True)
+                if res.returncode == 0: break
+                time.sleep(1)
+            else: raise RuntimeError('Fixture createdb failed for ' + alias + ': ' + res.stderr.decode().strip())
             migrations = sorted((ROOT / (alias + '-service') / 'src/main/resources/db/migration').glob('V*__*.sql'), key=lambda p: int(p.name.split('__')[0][1:]))
             assert migrations, alias
             # Match Flyway's transaction boundary (including migrations using LOCK TABLE).
