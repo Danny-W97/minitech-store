@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-30",
+  "actions": {
+    "actions/checkout": {
+      "tag": "v4",
+      "sha": "11d5960a326750d5838078e36cf38b85af677262",
+      "source": "https://github.com/actions/checkout/tree/11d5960a326750d5838078e36cf38b85af677262"
+    },
+    "pnpm/action-setup": {
+      "tag": "v4",
+      "sha": "b906affcce14559ad1aafd4ab0e942779e9f58b1",
+      "source": "https://github.com/pnpm/action-setup/tree/b906affcce14559ad1aafd4ab0e942779e9f58b1"
+    },
+    "actions/setup-node": {
+      "tag": "v4",
+      "sha": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "source": "https://github.com/actions/setup-node/tree/49933ea5288caeca8642d1e84afbd3f7d6820020"
+    },
+    "actions/setup-java": {
+      "tag": "v4",
+      "sha": "cf277c60eb25467037889841efdb72551f06f6c3",
+      "source": "https://github.com/actions/setup-java/tree/cf277c60eb25467037889841efdb72551f06f6c3"
+    },
+    "actions/upload-artifact": {
+      "tag": "v4",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "source": "https://github.com/actions/upload-artifact/tree/ea165f8d65b6e75b540449e92b4886f43607fa02"
+    },
+    "docker/setup-buildx-action": {
+      "tag": "v3",
+      "sha": "8d2750c68a42422c14e847fe6c8ac0403b4cbd6f",
+      "source": "https://github.com/docker/setup-buildx-action/tree/8d2750c68a42422c14e847fe6c8ac0403b4cbd6f"
+    },
+    "docker/login-action": {
+      "tag": "v3",
+      "sha": "c94ce9fb468520275223c153574b00df6fe4bcc9",
+      "source": "https://github.com/docker/login-action/tree/c94ce9fb468520275223c153574b00df6fe4bcc9"
+    },
+    "docker/build-push-action": {
+      "tag": "v6",
+      "sha": "10e90e3645eae34f1e60eeb005ba3a3d33f178e8",
+      "source": "https://github.com/docker/build-push-action/tree/10e90e3645eae34f1e60eeb005ba3a3d33f178e8"
+    }
+  },
+  "images": {
+    "jvmBuild": {
+      "reference": "maven:3.9-eclipse-temurin-25@sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976",
+      "digest": "sha256:93b8a14ea2f412782e4e842651273b4d903e35cc496284f178fbbe2d67d00976",
+      "source": "https://registry-1.docker.io/v2/library/maven/manifests/3.9-eclipse-temurin-25"
+    },
+    "jvmRuntime": {
+      "reference": "eclipse-temurin:25-jre@sha256:ecdc0adb37bde1a281c4d245a3cd535004b1fc8322d560f5b09463b248c81df0",
+      "digest": "sha256:ecdc0adb37bde1a281c4d245a3cd535004b1fc8322d560f5b09463b248c81df0",
+      "source": "https://registry-1.docker.io/v2/library/eclipse-temurin/manifests/25-jre"
+    },
+    "frontend": {
+      "reference": "nginx:stable-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949",
+      "digest": "sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949",
+      "source": "https://registry-1.docker.io/v2/library/nginx/manifests/stable-alpine"
+    },
+    "buildkit": {
+      "reference": "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      "digest": "sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      "source": "https://registry-1.docker.io/v2/moby/buildkit/manifests/buildx-stable-1"
+    }
+  },
+  "tools": {
+    "trivy": {
+      "version": "v0.76.1",
+      "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz",
+      "sha256": "c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0",
+      "checksumSource": "https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_checksums.txt",
+      "member": "trivy"
+    },
+    "cosign": {
+      "version": "v3.1.4",
+      "url": "https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign-linux-amd64",
+      "sha256": "424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa",
+      "checksumSource": "https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign_checksums.txt"
+    }
+  },
+  "mavenWrapper": {
+    "url": "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip",
+    "sha256": "5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce",
+    "sha512Source": "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip.sha512"
+  },
+  "frontendPackages": {
+    "brotli-libs": {
+      "version": "1.2.1-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/brotli-libs-1.2.1-r0.apk",
+      "sha256": "62a7e37e43bbfc1f8525a00ad2125fd5897135dc93b849733884cb78ffd8e26c",
+      "indexSource": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz"
+    },
+    "curl": {
+      "version": "8.23.0-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/curl-8.23.0-r0.apk",
+      "sha256": "531ae298451a4c1c44f563fc3b2eedc2c1d7e0a26a33bdfc0efe6faaff6a5942",
+      "indexSource": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz"
+    },
+    "libcurl": {
+      "version": "8.23.0-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/libcurl-8.23.0-r0.apk",
+      "sha256": "1f70ca404818805a6465b615bbfe84ef861488a963d7e630108ebd7fbaa51665",
+      "indexSource": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz"
+    }
+  }
+}

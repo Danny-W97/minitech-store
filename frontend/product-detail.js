@@ -1,10 +1,11 @@
+import { i18n } from './i18n.js?v=20261028-a43-32';
+import { createCustomerSession, canRefreshCustomerPath as canRefresh } from './customer-session.js?v=20261027-1';
+import { createStoreClient } from './store-client.js?v=20261026-2';
+import { createCartStorage } from './cart-storage.js?v=20261026-1';
+
 const API_BASE = getApiBase();
-const GUEST_CART_STORAGE_KEY = 'minitech-cart:guest';
-const CUSTOMER_CART_STORAGE_PREFIX = 'minitech-cart:customer:';
-const CART_STORAGE_SCHEMA_KEY = 'minitech-cart:schema-version';
-const CART_STORAGE_SCHEMA_VERSION = '2';
+const cartStore = createCartStorage({ storage: () => localStorage });
 const sessionGuard = window.MiniTechSession;
-let authenticatedSessionExpected = hasAuthenticationMarker();
 const productQuery = new URLSearchParams(window.location.search);
 const productId = productQuery.get('id');
 const reviewOrderId = productQuery.get('reviewOrder');
@@ -35,8 +36,20 @@ let availableQuantity = null;
 let lowestPrice30Days = null;
 let accessToken = null;
 let customer = null;
+const customerSession = createCustomerSession({baseUrl: API_BASE, guard: sessionGuard, expire: expireProductSession,
+    onSession(session) {
+        accessToken = session.accessToken; customer = session.customer;
+        sessionGuard?.start(() => expireProductSession(true)); sessionGuard?.touch();
+    },
+    onFailure() {accessToken = null; customer = null;},
+});
+const storeClient = createStoreClient({
+    baseUrl: API_BASE, getAccessToken: () => accessToken,
+    refreshSession, canRefresh
+});
+const request = (...args) => storeClient.request(...args);
 
-migrateCartStorageScope();
+cartStore.initialize();
 loadProduct();
 
 async function loadProduct() {
@@ -45,6 +58,7 @@ async function loadProduct() {
         return;
     }
     try {
+        await restoreSession();
         product = await request(`/products/${encodeURIComponent(productId)}`);
         try {
             const stock = await request(`/inventory/items/${encodeURIComponent(productId)}`);
@@ -54,10 +68,8 @@ async function loadProduct() {
         }
         renderProduct();
         rememberRecentlyViewed(product);
-        await Promise.all([loadLowestPrice(), loadReviews(), loadRecommendations()]);
+        await Promise.all([loadLowestPrice(), loadReviews(), loadRecommendations(), loadReviewEligibility()]);
         renderProduct();
-        await restoreSession();
-        await loadReviewEligibility();
     } catch (error) {
         showError(error.message);
     }
@@ -66,8 +78,8 @@ async function loadProduct() {
 async function loadLowestPrice() {
     try {
         const response = await request(`/promotions/history/${encodeURIComponent(productId)}/lowest?days=30`);
-        const value = Number(response?.lowestPrice);
-        lowestPrice30Days = Number.isFinite(value) ? value : null;
+        const value = response?.lowestPrice == null ? NaN : Number(response.lowestPrice);
+        lowestPrice30Days = response?.historyComplete === true && Number.isFinite(value) ? value : null;
     } catch {
         lowestPrice30Days = null;
     }
@@ -102,9 +114,9 @@ function renderRecommendation(item) {
 }
 
 function renderProduct() {
-    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    const isEn = i18n && i18n.getLanguage() === 'en';
     const category = product.category || 'TECH';
-    const translatedCategory = window.MiniTechI18n ? window.MiniTechI18n.translateCategory(category) : category;
+    const translatedCategory = i18n ? i18n.translateCategory(category) : category;
     document.title = `${product.name} — MiniTech Store`;
     document.querySelector('#product-category').textContent = translatedCategory;
     productSymbol.textContent = category.slice(0, 3).toUpperCase();
@@ -133,10 +145,11 @@ function renderProduct() {
         ? (isEn ? `Daily deal: -${Number(product.discountPercent)}%. Rotates every 24 hours.` : `Promocja dnia: -${Number(product.discountPercent)}%. Oferta rotuje co 24 godziny.`)
         : (product.newProduct ? (isEn ? 'New arrival in today\'s rotation.' : 'Nowość w dzisiejszej rotacji katalogu.') : '');
     if (lowestPriceElement) {
-        lowestPriceElement.hidden = !Number.isFinite(lowestPrice30Days);
+        lowestPriceElement.hidden = false;
         lowestPriceElement.textContent = Number.isFinite(lowestPrice30Days)
-            ? (isEn ? `Lowest price in last 30 days: ${formatMoney(lowestPrice30Days)}` : `Najniższa cena z ostatnich 30 dni: ${formatMoney(lowestPrice30Days)}`)
-            : '';
+            ? `${i18n?.t('lowestPrice30DaysPrefix', isEn ? 'Lowest price in the last 30 days:' : 'Najniższa cena z ostatnich 30 dni:')} ${formatMoney(lowestPrice30Days)}`
+            : i18n?.t('priceHistoryIncomplete', isEn ? 'Full 30-day price history is not available yet.' : 'Brak pełnej historii cen z 30 dni.')
+                || (isEn ? 'Full 30-day price history is not available yet.' : 'Brak pełnej historii cen z 30 dni.');
     }
     const soldOut = availableQuantity === 0;
     const stock = document.querySelector('#product-stock');
@@ -149,7 +162,7 @@ function renderProduct() {
     const paramEntries = Object.entries(product.technicalParameters || {});
     document.querySelector('#product-specs').innerHTML = paramEntries
         .map(([key, value]) => {
-            const label = window.MiniTechI18n ? window.MiniTechI18n.translateParamKey(key) : key;
+            const label = i18n ? i18n.translateParamKey(key) : key;
             return `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`;
         })
         .join('') || (isEn ? '<dt>Information</dt><dd>No additional parameters.</dd>' : '<dt>Informacja</dt><dd>Brak dodatkowych parametrów.</dd>');
@@ -204,85 +217,19 @@ reviewForm.addEventListener('submit', async event => {
     }
 });
 
-async function request(path, options = {}, retryAfterRefresh = true) {
-    const headers = new Headers(options.headers || {});
-    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-    const response = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers,
-        credentials: 'include',
-        cache: 'no-store'
-    });
-    if (response.status === 401 && retryAfterRefresh && canRefresh(path) && await refreshSession()) {
-        return request(path, options, false);
-    }
-    const raw = await response.text();
-    let data = raw;
-    try { data = raw ? JSON.parse(raw) : null; } catch { /* Keep plain error text. */ }
-    if (!response.ok) {
-        throw new Error(data && typeof data === 'object' ? (data.message || data.error || `HTTP ${response.status}`) : raw || `HTTP ${response.status}`);
-    }
-    return data;
-}
 
-function canRefresh(path) {
-    return !['/customers/login', '/customers/register', '/customers/refresh', '/customers/logout'].some(publicPath => path.startsWith(publicPath));
-}
-
-async function refreshSession() {
-    if (!sessionGuard?.isFresh()) {
-        await expireProductSession(false);
-        return false;
-    }
-    try {
-        const response = await fetch(`${API_BASE}/customers/refresh`, {
-            method: 'POST', credentials: 'include', cache: 'no-store'
-        });
-        if (!response.ok) {
-            accessToken = null;
-            customer = null;
-            if (response.status === 401 || response.status === 403) sessionGuard?.clear();
-            return false;
-        }
-        const session = await response.json();
-        accessToken = session.accessToken || null;
-        customer = session.customer || null;
-        if (accessToken && customer) {
-            clearGuestCartStorage();
-            authenticatedSessionExpected = true;
-            sessionGuard?.start(() => expireProductSession(true));
-            sessionGuard?.touch();
-        }
-        return Boolean(accessToken && customer);
-    } catch {
-        accessToken = null;
-        customer = null;
-        return false;
-    }
-}
-
-async function restoreSession() {
-    if (!sessionGuard?.isFresh()) {
-        await expireProductSession(false);
-        return false;
-    }
-    return refreshSession();
-}
+function refreshSession() { return customerSession.refresh(); }
+function restoreSession() { return customerSession.restore(); }
 
 async function expireProductSession(showMessage) {
-    const resetGuestCart = authenticatedSessionExpected || Boolean(customer || accessToken);
-    try {
-        await fetch(`${API_BASE}/customers/logout`, {
-            method: 'POST', credentials: 'include', cache: 'no-store'
-        });
-    } catch {
-        // The browser state is cleared even if Customer Service is unavailable.
-    }
+    customerSession.invalidate();
+    storeClient.invalidate();
+    const revocation = fetch(`${API_BASE}/customers/logout`, {
+        method: 'POST', credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(5000)
+    }).catch(() => {});
     sessionGuard?.clear();
     accessToken = null;
     customer = null;
-    if (resetGuestCart) clearGuestCartStorage();
-    authenticatedSessionExpected = false;
     if (reviewForm) reviewForm.hidden = true;
     if (reviewLoginHint) {
         reviewLoginHint.hidden = false;
@@ -290,57 +237,72 @@ async function expireProductSession(showMessage) {
             ? 'Sesja wygasła po 30 minutach bezczynności. Zaloguj się ponownie w sklepie.'
             : 'Zaloguj się, aby wystawić opinię o kupionym produkcie.';
     }
+    await revocation;
+}
+
+function pageMoreButton(id, parent, label, action) {
+    let button = document.getElementById(id);
+    if (!button) {
+        button = document.createElement('button'); button.id = id; button.type = 'button';
+        button.className = 'secondary-button'; parent.after(button);
+    }
+    button.textContent = label; button.hidden = !action; button.disabled = false;
+    button.onclick = action;
+    return button;
 }
 
 async function loadReviews() {
     reviewsSection.hidden = false;
-    try {
-        const [reviews, summary] = await Promise.all([
-            request(`/reviews/products/${encodeURIComponent(productId)}`),
-            request(`/reviews/products/${encodeURIComponent(productId)}/summary`)
-        ]);
-        const count = Number(summary?.publishedCount || 0);
-        const average = Number(summary?.averageRating || 0);
-        reviewSummary.textContent = count
-            ? `${average.toFixed(2)} / 5 · ${count} ${count === 1 ? 'opinia' : 'opinii'}`
-            : 'Brak opinii — bądź pierwszy.';
-        reviewList.innerHTML = Array.isArray(reviews) && reviews.length
-            ? reviews.map(renderReview).join('')
-            : '<p class="product-review-empty">Ten produkt nie ma jeszcze opublikowanych opinii.</p>';
-    } catch (error) {
-        reviewSummary.textContent = 'Opinie są chwilowo niedostępne.';
-        reviewList.innerHTML = `<p class="product-review-empty">${escapeHtml(error.message)}</p>`;
+    reviewList.innerHTML = '';
+    pageMoreButton('reviews-more', reviewList, '', null);
+    async function load(cursor = '0') {
+        const button = document.getElementById('reviews-more');
+        button.disabled = true;
+        try {
+            const [page, summary] = await Promise.all([
+                request(`/reviews/products/${encodeURIComponent(productId)}?size=20&cursor=${encodeURIComponent(cursor)}`, { paged: true }),
+                cursor === '0' ? request(`/reviews/products/${encodeURIComponent(productId)}/summary`) : Promise.resolve(null)
+            ]);
+            if (summary) {
+                const count = Number(summary.publishedCount || 0);
+                reviewSummary.textContent = count ? `${Number(summary.averageRating || 0).toFixed(2)} / 5 · ${count} ${count === 1 ? 'opinia' : 'opinii'}` : 'Brak opinii — bądź pierwszy.';
+            }
+            const reviews = Array.isArray(page.items) ? page.items : [];
+            reviewList.insertAdjacentHTML('beforeend', reviews.map(renderReview).join(''));
+            if (cursor === '0' && !reviews.length) reviewList.innerHTML = '<p class="product-review-empty">Ten produkt nie ma jeszcze opublikowanych opinii.</p>';
+            pageMoreButton('reviews-more', reviewList, 'Pokaż starsze opinie', page.hasMore ? () => load(page.nextCursor) : null);
+        } catch (error) {
+            reviewSummary.textContent = `Nie udało się pobrać opinii: ${error.message}`;
+        } finally { button.disabled = false; }
     }
+    await load();
 }
 
 async function loadReviewEligibility() {
-    if (!customer) {
-        reviewForm.hidden = true;
-        reviewLoginHint.hidden = false;
-        return;
+    if (!customer) { reviewForm.hidden = true; reviewLoginHint.hidden = false; return; }
+    const customerId = customer.id;
+    reviewOrder.innerHTML = '';
+    pageMoreButton('review-orders-more', reviewOrder, '', null);
+    async function load(cursor = '0') {
+        const button = document.getElementById('review-orders-more');
+        button.disabled = true;
+        try {
+            const page = await request(`/orders/customer/${encodeURIComponent(customerId)}?status=PAID&productId=${encodeURIComponent(product.id)}&size=20&cursor=${encodeURIComponent(cursor)}`, { paged: true });
+            if (customer?.id !== customerId) return;
+            const orders = Array.isArray(page.items) ? page.items : [];
+            reviewOrder.insertAdjacentHTML('beforeend', orders.map(order => `<option value="${escapeHtml(order.id)}">Zamówienie #${escapeHtml(order.id)} · ${formatMoney(order.totalPrice)}</option>`).join(''));
+            const eligible = reviewOrder.options.length > 0;
+            reviewForm.hidden = !eligible; reviewLoginHint.hidden = eligible;
+            reviewLoginHint.textContent = eligible ? '' : 'Nie znaleziono opłaconego zamówienia z tym produktem. Po zakupie będzie można dodać opinię.';
+            if (Array.from(reviewOrder.options).some(option => option.value === String(reviewOrderId))) reviewOrder.value = reviewOrderId;
+            pageMoreButton('review-orders-more', reviewOrder, 'Pokaż starsze zakupy', page.hasMore ? () => load(page.nextCursor) : null);
+        } catch (error) {
+            if (customer?.id !== customerId) return;
+            reviewLoginHint.hidden = false;
+            reviewLoginHint.textContent = `Nie udało się pobrać historii zamówień: ${error.message}`;
+        } finally { button.disabled = false; }
     }
-    try {
-        const orders = await request(`/orders/customer/${encodeURIComponent(customer.id)}`);
-        const eligible = (Array.isArray(orders) ? orders : []).filter(order =>
-            order?.status === 'PAID' && (order.items || []).some(item => String(item.productId) === String(product.id))
-        );
-        reviewOrder.innerHTML = eligible.map(order =>
-            `<option value="${escapeHtml(order.id)}">Zamówienie #${escapeHtml(order.id)} · ${formatMoney(order.totalPrice)}</option>`
-        ).join('');
-        reviewForm.hidden = eligible.length === 0;
-        reviewLoginHint.hidden = eligible.length > 0;
-        reviewLoginHint.textContent = eligible.length
-            ? ''
-            : 'Nie znaleziono opłaconego zamówienia z tym produktem. Po zakupie będzie można dodać opinię.';
-        if (eligible.some(order => String(order.id) === String(reviewOrderId))) {
-            reviewOrder.value = reviewOrderId;
-            window.setTimeout(() => reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-        }
-    } catch {
-        reviewForm.hidden = true;
-        reviewLoginHint.hidden = false;
-        reviewLoginHint.textContent = 'Nie udało się pobrać historii zamówień.';
-    }
+    await load();
 }
 
 function renderReview(review) {
@@ -358,62 +320,19 @@ function setReviewStatus(message, type = '') {
 }
 
 function getApiBase() {
-    if (window.MINITECH_API_BASE) return window.MINITECH_API_BASE.replace(/\/$/, '');
-    const queryApi = new URLSearchParams(window.location.search).get('api');
-    if (queryApi) return queryApi.replace(/\/$/, '');
-    const host = window.location.hostname || '127.0.0.1';
-    return `http://${host}:18080/api`;
+    return window.MiniTechApi.baseUrl;
 }
 
 function cartStorageKey() {
-    const customerId = Number(customer?.id);
-    return Number.isInteger(customerId) && customerId > 0
-        ? `${CUSTOMER_CART_STORAGE_PREFIX}${customerId}`
-        : GUEST_CART_STORAGE_KEY;
-}
-
-function hasAuthenticationMarker() {
-    try {
-        const value = Number(localStorage.getItem(sessionGuard?.storageKey || ''));
-        return Number.isFinite(value) && value > 0;
-    } catch {
-        return false;
-    }
-}
-
-function clearGuestCartStorage() {
-    try {
-        localStorage.removeItem(GUEST_CART_STORAGE_KEY);
-    } catch {
-        // Product details remain usable when persistent storage is unavailable.
-    }
-}
-
-function migrateCartStorageScope() {
-    try {
-        if (localStorage.getItem(CART_STORAGE_SCHEMA_KEY) === CART_STORAGE_SCHEMA_VERSION) return;
-        localStorage.removeItem(GUEST_CART_STORAGE_KEY);
-        localStorage.setItem(CART_STORAGE_SCHEMA_KEY, CART_STORAGE_SCHEMA_VERSION);
-    } catch {
-        // The page can continue with an in-memory cart when storage migration is blocked.
-    }
+    return cartStore.key(customer);
 }
 
 function loadCart() {
-    try {
-        const cart = JSON.parse(localStorage.getItem(cartStorageKey()) || '[]');
-        return Array.isArray(cart) ? cart : [];
-    } catch {
-        return [];
-    }
+    return cartStore.load(cartStorageKey());
 }
 
 function saveCart(cart) {
-    try {
-        localStorage.setItem(cartStorageKey(), JSON.stringify(cart));
-    } catch {
-        // Persistent storage is optional; adding a product must not break the page.
-    }
+    cartStore.save(cartStorageKey(), cart);
 }
 
 function rememberRecentlyViewed(item) {
@@ -445,12 +364,12 @@ function showError(message) {
 }
 
 function formatMoney(value) {
-    if (window.MiniTechI18n) return window.MiniTechI18n.formatMoney(value);
+    if (i18n) return i18n.formatMoney(value);
     return `${Number(value || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`;
 }
 
 function formatDate(value) {
-    const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+    const isEn = i18n && i18n.getLanguage() === 'en';
     if (!value) return isEn ? 'recently' : 'niedawno';
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? (isEn ? 'recently' : 'niedawno') : date.toLocaleDateString(isEn ? 'en-US' : 'pl-PL');

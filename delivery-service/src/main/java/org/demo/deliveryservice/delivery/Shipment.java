@@ -6,7 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -49,6 +48,28 @@ public class Shipment {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(name="progress_revision",nullable=false) private long progressRevision;
+    @Column(name="sync_state",nullable=false,length=24) private String syncState="IDLE";
+    @Column(name="sync_attempts",nullable=false) private int syncAttempts;
+    @Column(name="sync_error",length=80) private String syncError;
+    @Column(name="sync_next_attempt_at") private Instant syncNextAttemptAt;
+    @Column(name="sync_token",length=36) private String syncToken;
+    @Column(name="sync_until") private Instant syncUntil;
+    public long getProgressRevision() { return progressRevision; }
+    public String getSyncState() { return syncState; }
+    public String getSyncError() { return syncError; }
+    public int getSyncAttempts() { return syncAttempts; }
+    public Instant getSyncNextAttemptAt() { return syncNextAttemptAt; }
+    public String getSyncToken() { return syncToken; }
+    public boolean syncProcessing() { return syncUntil!=null && syncUntil.isAfter(Instant.now()); }
+    public boolean syncDue() { return java.util.Set.of("PENDING","RETRY").contains(syncState) && syncNextAttemptAt!=null && !syncNextAttemptAt.isAfter(Instant.now()) && !syncProcessing(); }
+    public void claimSync(String token) { syncToken=token;syncUntil=Instant.now().plusSeconds(120);syncAttempts++; }
+    public void syncResult(String state,String code) {
+        syncState=state;syncError=code;syncToken=null;syncUntil=null;
+        syncNextAttemptAt="RETRY".equals(state) ? Instant.now().plusSeconds(Math.min(60,1L<<Math.min(syncAttempts,6))) : null;
+    }
+    public void retrySync() { if(!"IDLE".equals(syncState) && !"SYNCED".equals(syncState)) queueSync(); }
+    private void queueSync() { syncState="PENDING";syncAttempts=0;syncError=null;syncNextAttemptAt=Instant.now();syncToken=null;syncUntil=null; }
 
     protected Shipment() {
     }
@@ -71,7 +92,14 @@ public class Shipment {
     }
 
     public void updateStatus(String status) {
-        this.status = status;
+        if(this.status.equals(status)) return;
+        boolean pickup="STORE_PICKUP".equals(methodCode);
+        var ranks=java.util.Map.of(LABEL_CREATED,0,IN_TRANSIT,1,OUT_FOR_DELIVERY,2,DELIVERED,3);
+        if(java.util.Set.of(DELIVERED,PICKED_UP,CANCELLED).contains(this.status)
+                || !CANCELLED.equals(status) && (pickup ? !PICKED_UP.equals(status)
+                    : !ranks.containsKey(status) || ranks.get(status)<ranks.getOrDefault(this.status,99)))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Shipment progress cannot move backwards or change delivery mode");
+        this.status = status;updatedAt=Instant.now();progressRevision++;queueSync();
     }
 
     @PrePersist
@@ -79,11 +107,6 @@ public class Shipment {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
-    }
-
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = Instant.now();
     }
 
     public Long getId() { return id; }

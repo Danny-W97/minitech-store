@@ -62,6 +62,8 @@ run_app() {
   fi
   export SPRING_PROFILES_ACTIVE="$profile"
   printf '%sUruchamiam %s na porcie %s z profilem %s.%s\n' "$C_BLUE" "$project" "$(app_port "$alias")" "$profile" "$C_RESET"
+  maven -pl platform-security -am -DskipTests install || return 1
+  configure_service_auth "$project" || return 1
   maven -pl "$project" spring-boot:run
 }
 
@@ -115,11 +117,13 @@ app_run_background_one() {
   if command -v setsid >/dev/null 2>&1; then
     (
       cd "$PROJECT_ROOT" || exit 1
+      configure_service_auth "$project" || exit 1
       exec setsid bash "$MAVEN_WRAPPER" -pl "$project" spring-boot:run
     ) > "$log_file" 2>&1 &
   else
     (
       cd "$PROJECT_ROOT" || exit 1
+      configure_service_auth "$project" || exit 1
       exec bash "$MAVEN_WRAPPER" -pl "$project" spring-boot:run
     ) > "$log_file" 2>&1 &
   fi
@@ -159,6 +163,7 @@ app_run_all() {
   fi
   prepare_java_environment || return 1
   load_profile_secrets "$ACTIVE_APP_PROFILE" || return 1
+  maven -pl platform-security -am -DskipTests install || return 1
   mkdir -p "$RUNTIME_DIRECTORY/pids" "$RUNTIME_DIRECTORY/logs"
   printf 'Uruchamiam wszystkie aplikacje z profilem %s w tle.\n' "$ACTIVE_APP_PROFILE"
   printf 'Logi: %s/logs\n' "$RUNTIME_DIRECTORY"

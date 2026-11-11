@@ -1,14 +1,11 @@
 package org.demo.customerservice.config;
 
-import org.demo.customerservice.observability.CorrelationIdClientInterceptor;
+import org.demo.platformobservability.CorrelationIdClientInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
-import java.net.http.HttpClient;
-import java.time.Duration;
 
 @Configuration
 public class RestClientConfig {
@@ -18,12 +15,7 @@ public class RestClientConfig {
             @Value("${resilience.http.connect-timeout-ms:1000}") long connectTimeoutMs,
             @Value("${resilience.http.read-timeout-ms:3000}") long readTimeoutMs
     ) {
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
-                HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-                        .build()
-        );
-        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        var requestFactory = new org.demo.platformsecurity.BoundedHttpRequestFactory(connectTimeoutMs,readTimeoutMs);
         return RestClient.builder()
                 .requestFactory(requestFactory)
                 .requestInterceptor(new CorrelationIdClientInterceptor());

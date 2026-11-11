@@ -3,16 +3,2121 @@
   "openapiPath": "/v3/api-docs",
   "version": "v1",
   "paths": {
-    "/api/v1/products": ["GET", "POST", "PATCH"],
-    "/api/v1/orders": ["GET", "POST", "PATCH"],
-    "/api/v1/inventory": ["GET", "POST", "PATCH"],
-    "/api/v1/payments": ["GET", "POST"],
-    "/api/v1/notifications": ["GET", "POST"],
-    "/api/v1/customers": ["GET", "POST", "PUT"],
-    "/api/v1/deliveries": ["GET", "POST"],
-    "/api/v1/promotions": ["GET", "POST"],
-    "/api/v1/wishlists": ["GET", "PUT", "DELETE"],
-    "/api/v1/reviews": ["GET", "POST", "PATCH"],
-    "/api/v1/recommendations": ["GET"]
+    "/api/v1/products": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "/api/v1/orders": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "/api/v1/inventory": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "/api/v1/payments": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/notifications": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/customers": [
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/api/v1/deliveries": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/promotions": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/wishlists": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "/api/v1/reviews": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "/api/v1/recommendations": [
+      "GET"
+    ],
+    "/api/v1/chat": [
+      "GET",
+      "POST"
+    ],
+    "/api/v1/returns": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "/api/v1/invoices": [
+      "GET",
+      "POST"
+    ]
+  },
+  "services": {
+    "product": {
+      "operations": [
+        "GET /products",
+        "GET /products/{id}",
+        "POST /products"
+      ],
+      "requestBodies": [
+        "POST /products"
+      ],
+      "schemas": {
+        "ProductResponse": {
+          "id": "integer",
+          "price": "number",
+          "active": "boolean"
+        }
+      }
+    },
+    "order": {
+      "operations": [
+        "GET /orders/me/data-export",
+        "GET /orders/me/data-export/{id}/items",
+        "GET /orders/{id}",
+        "POST /orders",
+        "GET /orders/sagas",
+        "POST /orders/{id}/reconcile",
+        "GET /orders/{id}/coupon",
+        "POST /orders/{id}/coupon/reconcile"
+      ],
+      "requestBodies": [
+        "POST /orders"
+      ],
+      "schemas": {
+        "OrderDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "hasMore": "boolean",
+          "nextCursor": "string"
+        },
+        "OrderItemDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "hasMore": "boolean",
+          "nextCursor": "string"
+        },
+        "OrderExportData": {
+          "orderId": "integer",
+          "totalPrice": "number",
+          "status": "string",
+          "customerEmail": "string",
+          "invoiceRequested": "boolean"
+        },
+        "OrderExportAddress": {
+          "firstName": "string",
+          "lastName": "string",
+          "street": "string",
+          "postalCode": "string",
+          "city": "string",
+          "country": "string",
+          "phone": "string"
+        },
+        "OrderExportLegacyLine": {
+          "productId": "integer",
+          "quantity": "integer",
+          "unitPrice": "number"
+        },
+        "OrderExportLine": {
+          "itemId": "integer",
+          "productId": "integer",
+          "sku": "string",
+          "productName": "string",
+          "quantity": "integer",
+          "unitPrice": "number",
+          "totalPrice": "number"
+        },
+        "OrderExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "OrderResponse": {
+          "id": "integer",
+          "totalPrice": "number",
+          "items": "array",
+          "status": "string",
+          "paymentState": "string",
+          "lifecycleReviewRequired": "boolean",
+          "couponReservationVerified": "boolean"
+        },
+        "OrderSagaResponse": {
+          "orderId": "integer",
+          "state": "string"
+        }
+      }
+    },
+    "inventory": {
+      "operations": [
+        "GET /inventory/me/data-export/orders/{orderId}",
+        "GET /inventory/me/data-export/orders/{orderId}/items",
+        "GET /inventory/items/{productId}",
+        "POST /inventory/reservations",
+        "POST /inventory/items/{productId}/receipts",
+        "PATCH /inventory/items/{productId}",
+        "GET /inventory/operations/{operationId}",
+        "GET /inventory/operations"
+      ],
+      "requestBodies": [
+        "POST /inventory/reservations",
+        "POST /inventory/items/{productId}/receipts",
+        "PATCH /inventory/items/{productId}"
+      ],
+      "schemas": {
+        "InventoryDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "reservation": "object",
+          "omissions": "array"
+        },
+        "InventoryExportReservation": {
+          "reservationId": "integer",
+          "orderId": "integer",
+          "status": "string",
+          "expiresAt": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "InventoryItemDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "items": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "InventoryExportReservationItem": {
+          "reservationItemId": "integer",
+          "reservationId": "integer",
+          "productId": "integer",
+          "quantity": "integer"
+        },
+        "InventoryExportOmission": {
+          "area": "string",
+          "reason": "string"
+        },
+        "InventoryItemResponse": {
+          "productId": "integer",
+          "availableQuantity": "integer",
+          "version": "integer"
+        },
+        "ReceiveStockRequest": {
+          "quantity": "integer",
+          "operationId": "string"
+        },
+        "PatchInventoryItemRequest": {
+          "availableQuantity": "integer",
+          "expectedVersion": "integer",
+          "operationId": "string"
+        },
+        "StockOperationResponse": {
+          "operationId": "string",
+          "productId": "integer",
+          "status": "string",
+          "quantity": "integer",
+          "version": "integer"
+        }
+      }
+    },
+    "payment": {
+      "operations": [
+        "GET /payments/me/data-export/orders/{orderId}",
+        "GET /payments/{id}",
+        "POST /payments",
+        "POST /payments/{id}/collect"
+      ],
+      "requestBodies": [
+        "POST /payments",
+        "POST /payments/{id}/collect"
+      ],
+      "schemas": {
+        "PaymentDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "payment": "object",
+          "omissions": "array"
+        },
+        "PaymentExportData": {
+          "paymentId": "integer",
+          "orderId": "integer",
+          "amount": "number",
+          "currency": "string",
+          "paymentMethod": "string",
+          "status": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "PaymentExportRefund": {
+          "refundId": "integer",
+          "paymentId": "integer",
+          "orderId": "integer",
+          "amount": "number",
+          "currency": "string",
+          "status": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "PaymentExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "PaymentResponse": {
+          "orderId": "integer",
+          "amount": "number",
+          "status": "string",
+          "collectionReference": "string",
+          "collectedAt": "string"
+        },
+        "CollectPaymentRequest": {
+          "amount": "number",
+          "currency": "string",
+          "receiptReference": "string"
+        }
+      }
+    },
+    "notification": {
+      "operations": [
+        "GET /notifications/chat/data-export/{eventType}/{sourceId}",
+        "GET /notifications/me/data-export/orders/{orderId}",
+        "GET /notifications/{id}",
+        "POST /notifications"
+      ],
+      "requestBodies": [
+        "POST /notifications"
+      ],
+      "schemas": {
+        "NotificationDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "exportedAt": "string",
+          "authorizationMode": "string",
+          "sourceId": "integer",
+          "items": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "NotificationExportEntry": {
+          "notificationId": "integer",
+          "eventType": "string",
+          "sourceId": "integer",
+          "channel": "string",
+          "status": "string",
+          "contentDisposition": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "NotificationExportOmission": {
+          "area": "string",
+          "reason": "string"
+        },
+        "NotificationResponse": {
+          "id": "integer",
+          "status": "string",
+          "recipient": "string"
+        }
+      }
+    },
+    "customer": {
+      "operations": [
+        "GET /customers/me/data-export/security/methods",
+        "GET /customers/me/data-export/security/events",
+        "GET /customers/me/data-export/security/passkeys",
+        "GET /customers/me/data-export/security/recovery-codes",
+        "GET /customers",
+        "GET /customers/me/data-export",
+        "GET /customers/{id}",
+        "POST /customers/register",
+        "POST /customers/me/data-export/jobs",
+        "GET /customers/me/data-export/jobs/{id}",
+        "POST /customers/me/data-export/jobs/{id}/advance",
+        "POST /customers/me/data-export/jobs/{id}/retry",
+        "POST /customers/me/data-export/jobs/{id}/cancel",
+        "GET /customers/me/data-export/jobs/{id}/chunks",
+        "GET /customers/me/data-export/jobs/{id}/manifest",
+        "GET /customers/me/data-export/jobs",
+        "POST /customers/me/privacy-requests/preview",
+        "POST /customers/me/privacy-requests/{id}/confirm",
+        "GET /customers/privacy-requests/{id}/status",
+        "GET /customers/privacy-requests/{id}/operator-status",
+        "POST /customers/privacy-requests/{id}/retry"
+      ],
+      "requestBodies": [
+        "POST /customers/register"
+      ],
+      "schemas": {
+        "SecurityDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "totp": "object",
+          "omissions": "array"
+        },
+        "SecurityExportTotp": {
+          "enabled": "boolean",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "SecurityExportAuditEvent": {
+          "eventId": "integer",
+          "eventType": "string",
+          "outcome": "string",
+          "occurredAt": "string",
+          "subjectProof": "string"
+        },
+        "SecurityExportPasskey": {
+          "exportId": "integer",
+          "createdAt": "string",
+          "userVerificationInitialized": "boolean",
+          "backupEligible": "boolean",
+          "backupState": "boolean"
+        },
+        "SecurityExportRecoveryCodeMetadata": {
+          "recordId": "integer",
+          "createdAt": "string"
+        },
+        "SecurityExportOmission": {
+          "area": "string",
+          "reason": "string"
+        },
+        "AccountDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string"
+        },
+        "AccountExportProfile": {
+          "id": "integer",
+          "email": "string",
+          "firstName": "string",
+          "lastName": "string"
+        },
+        "AccountExportSecuritySummary": {
+          "totpEnabled": "boolean",
+          "passkeyCount": "integer",
+          "unusedRecoveryCodeCount": "integer"
+        },
+        "AccountExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "CustomerResponse": {
+          "id": "integer",
+          "email": "string",
+          "firstName": "string",
+          "lastName": "string",
+          "city": "string",
+          "createdAt": "string"
+        }
+      }
+    },
+    "delivery": {
+      "operations": [
+        "GET /deliveries/me/data-export/orders/{orderId}",
+        "GET /deliveries/methods",
+        "POST /deliveries/quote",
+        "GET /deliveries/orders/{orderId}/synchronization",
+        "POST /deliveries/orders/{orderId}/synchronization/reconcile"
+      ],
+      "requestBodies": [
+        "POST /deliveries/quote"
+      ],
+      "schemas": {
+        "DeliveryMethodResponse": {
+          "code": "string",
+          "basePrice": "number",
+          "active": "boolean"
+        },
+        "ShipmentDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "shipment": "object",
+          "omissions": "array"
+        },
+        "ShipmentExportData": {
+          "shipmentId": "integer",
+          "orderId": "integer",
+          "trackingNumber": "string",
+          "carrier": "string",
+          "methodCode": "string",
+          "status": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "ShipmentExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "ShipmentSynchronizationResponse": {
+          "orderId": "integer",
+          "revision": "integer",
+          "shipmentStatus": "string",
+          "state": "string",
+          "attempts": "integer",
+          "processing": "boolean"
+        }
+      }
+    },
+    "promotion": {
+      "operations": [
+        "GET /promotions/me/data-export/orders/{orderId}",
+        "GET /promotions/me/data-export/orders/{orderId}/redemptions",
+        "GET /promotions/active",
+        "GET /promotions/history/{productId}",
+        "GET /promotions/history/{productId}/lowest",
+        "POST /promotions/evaluate",
+        "GET /promotions/codes/{code}/capacity",
+        "GET /promotions/codes/reservations"
+      ],
+      "requestBodies": [
+        "POST /promotions/evaluate"
+      ],
+      "schemas": {
+        "CouponDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "reservation": "object",
+          "omissions": "array"
+        },
+        "CouponExportReservation": {
+          "orderId": "integer",
+          "code": "string",
+          "subtotal": "number",
+          "discountAmount": "number",
+          "state": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "RedemptionDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "items": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "CouponExportRedemption": {
+          "redemptionId": "integer",
+          "orderId": "integer",
+          "code": "string",
+          "redeemedAt": "string"
+        },
+        "CouponExportOmission": {
+          "area": "string",
+          "reason": "string"
+        },
+        "CouponReservationResponse": {
+          "orderId": "integer",
+          "code": "string",
+          "subtotal": "number",
+          "discountAmount": "number",
+          "state": "string"
+        },
+        "CouponCapacityResponse": {
+          "code": "string",
+          "redeemedCount": "integer",
+          "reservedCount": "integer"
+        },
+        "PriceHistoryResponse": {
+          "productId": "integer",
+          "campaignCode": "string",
+          "regularPrice": "number",
+          "promotionalPrice": "number",
+          "discountPercent": "integer",
+          "rotationDate": "string",
+          "recordedAt": "string",
+          "priceRevision": "integer",
+          "layoutRevision": "integer",
+          "sourceType": "string"
+        },
+        "LowestPriceResponse": {
+          "productId": "integer",
+          "days": "integer",
+          "from": "string",
+          "to": "string",
+          "lowestPrice": "number",
+          "observedDays": "integer",
+          "historyComplete": "boolean"
+        }
+      }
+    },
+    "wishlist": {
+      "operations": [
+        "GET /wishlists/customer/{id}",
+        "GET /wishlists/me/data-export"
+      ],
+      "requestBodies": [],
+      "schemas": {
+        "WishlistDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "hasMore": "boolean",
+          "nextCursor": "string"
+        },
+        "WishlistExportItem": {
+          "productId": "integer",
+          "createdAt": "string"
+        },
+        "WishlistExportOmission": {
+          "scope": "string",
+          "status": "string"
+        }
+      }
+    },
+    "review": {
+      "operations": [
+        "GET /reviews/me/data-export",
+        "GET /reviews/products/{id}",
+        "POST /reviews"
+      ],
+      "requestBodies": [
+        "POST /reviews"
+      ],
+      "schemas": {
+        "ReviewDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "hasMore": "boolean",
+          "nextCursor": "string"
+        },
+        "ReviewExportItem": {
+          "reviewId": "integer",
+          "productId": "integer",
+          "rating": "integer",
+          "title": "string",
+          "content": "string",
+          "status": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "ReviewExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "PublicReviewResponse": {
+          "id": "integer",
+          "productId": "integer",
+          "rating": "integer"
+        }
+      }
+    },
+    "recommendation": {
+      "operations": [
+        "GET /recommendations/products/{id}",
+        "GET /recommendations/me/data-export"
+      ],
+      "requestBodies": [],
+      "schemas": {
+        "RecommendationDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "recordingEnabled": "boolean",
+          "historyCoverage": "string",
+          "hasMore": "boolean",
+          "nextCursor": "string"
+        },
+        "RecommendationExportItem": {
+          "requestId": "integer",
+          "sourceProductId": "integer",
+          "strategy": "string",
+          "resultCount": "integer",
+          "requestedAt": "string"
+        },
+        "RecommendationExportOmission": {
+          "scope": "string",
+          "status": "string"
+        }
+      }
+    },
+    "chat": {
+      "operations": [
+        "GET /chat/conversations/{conversationId}/data-export",
+        "GET /chat/conversations/{conversationId}/data-export/entries",
+        "GET /chat/messages/{id}",
+        "POST /chat/messages",
+        "GET /chat/conversations/{conversationId}/privacy-request",
+        "POST /chat/conversations/{conversationId}/privacy-request"
+      ],
+      "requestBodies": [
+        "POST /chat/messages",
+        "POST /chat/conversations/{conversationId}/privacy-request"
+      ],
+      "schemas": {
+        "ChatDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "authorizationMode": "string",
+          "conversation": "object",
+          "omissions": "array"
+        },
+        "ChatExportConversation": {
+          "conversationId": "integer",
+          "customerName": "string",
+          "customerEmail": "string",
+          "subject": "string",
+          "status": "string",
+          "initialMessage": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "ChatEntryDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "authorizationMode": "string",
+          "conversationId": "integer",
+          "entries": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "ChatExportEntry": {
+          "entryId": "integer",
+          "author": "string",
+          "initialMessage": "boolean",
+          "message": "string",
+          "createdAt": "string"
+        },
+        "ChatExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "ChatMessageResponse": {
+          "id": "integer",
+          "message": "string",
+          "status": "string"
+        },
+        "ChatPrivacyRequestStatus": {
+          "schemaVersion": "integer",
+          "requestId": "string",
+          "conversationId": "string",
+          "state": "string",
+          "requestedAt": "string",
+          "contentErased": "boolean",
+          "complete": "boolean"
+        }
+      }
+    },
+    "returns": {
+      "operations": [
+        "GET /returns/me/data-export",
+        "GET /returns/me/data-export/{returnId}/items",
+        "GET /returns/me/data-export/{returnId}/events",
+        "GET /returns/{id}",
+        "POST /returns",
+        "PATCH /returns/{id}/status",
+        "GET /returns/{id}/history",
+        "POST /returns/{id}/reconcile"
+      ],
+      "requestBodies": [
+        "POST /returns",
+        "PATCH /returns/{id}/status",
+        "POST /returns/{id}/reconcile"
+      ],
+      "schemas": {
+        "ReturnDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "returns": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "ReturnItemDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "returnId": "integer",
+          "items": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "ReturnEventDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "returnId": "integer",
+          "events": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "ReturnExportData": {
+          "returnId": "integer",
+          "orderId": "integer",
+          "customerEmail": "string",
+          "requestType": "string",
+          "reason": "string",
+          "description": "string",
+          "status": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
+        },
+        "ReturnExportLine": {
+          "lineId": "integer",
+          "orderItemId": "integer",
+          "productId": "integer",
+          "productName": "string",
+          "orderedQuantity": "integer",
+          "quantity": "integer"
+        },
+        "ReturnExportEvent": {
+          "eventId": "integer",
+          "action": "string",
+          "fromStatus": "string",
+          "toStatus": "string",
+          "createdAt": "string"
+        },
+        "ReturnExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "ReturnResponse": {
+          "id": "integer",
+          "orderId": "integer",
+          "status": "string",
+          "version": "integer",
+          "requiresReconciliation": "boolean",
+          "effectsState": "string",
+          "items": "array"
+        },
+        "ReturnEventResponse": {
+          "revision": "integer",
+          "action": "string",
+          "actorRef": "string"
+        },
+        "ReturnItemSelection": {
+          "orderItemId": "integer",
+          "quantity": "integer"
+        },
+        "ReturnCaseItem": {
+          "orderItemId": "integer",
+          "quantity": "integer",
+          "orderedQuantity": "integer"
+        }
+      }
+    },
+    "billing": {
+      "operations": [
+        "GET /invoices/me/data-export/orders/{orderId}",
+        "GET /invoices/me/data-export/orders/{orderId}/items",
+        "GET /invoices/me/data-export/orders/{orderId}/corrections",
+        "GET /invoices/me/data-export/orders/{orderId}/pdf",
+        "GET /invoices/me/data-export/orders/{orderId}/corrections/{correctionId}/pdf",
+        "GET /invoices/{id}",
+        "POST /invoices",
+        "GET /invoices/{id}/correction-balance",
+        "POST /invoices/{id}/corrections"
+      ],
+      "requestBodies": [
+        "POST /invoices",
+        "POST /invoices/{id}/corrections"
+      ],
+      "schemas": {
+        "InvoiceDataExport": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "invoice": "object",
+          "pdf": "object",
+          "omissions": "array"
+        },
+        "InvoiceExportData": {
+          "invoiceId": "integer",
+          "orderId": "integer",
+          "customerEmail": "string",
+          "invoiceNumber": "string",
+          "billingKind": "string",
+          "buyerName": "string",
+          "netAmount": "number",
+          "vatAmount": "number",
+          "grossAmount": "number",
+          "currency": "string",
+          "status": "string",
+          "createdAt": "string"
+        },
+        "InvoiceItemDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "items": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "InvoiceCorrectionDataExportPage": {
+          "schemaVersion": "integer",
+          "scope": "string",
+          "complete": "boolean",
+          "generatedAt": "string",
+          "orderId": "integer",
+          "corrections": "array",
+          "hasMore": "boolean",
+          "nextCursor": "string",
+          "omissions": "array"
+        },
+        "InvoiceExportLine": {
+          "itemId": "integer",
+          "positionNo": "integer",
+          "productId": "integer",
+          "productName": "string",
+          "quantity": "integer",
+          "unitPrice": "number",
+          "totalPrice": "number"
+        },
+        "InvoiceExportCorrection": {
+          "correctionId": "integer",
+          "invoiceId": "integer",
+          "orderId": "integer",
+          "correctionNumber": "string",
+          "reason": "string",
+          "originalGross": "number",
+          "correctionGross": "number",
+          "finalGross": "number",
+          "createdAt": "string",
+          "balanceModel": "string",
+          "pdf": "object"
+        },
+        "InvoiceExportDocument": {
+          "path": "string",
+          "mediaType": "string",
+          "representation": "string"
+        },
+        "InvoiceExportOmission": {
+          "scope": "string",
+          "status": "string"
+        },
+        "InvoiceResponse": {
+          "id": "integer",
+          "grossAmount": "number",
+          "items": "array"
+        },
+        "InvoiceBalanceResponse": {
+          "invoiceId": "integer",
+          "version": "integer",
+          "grossAmount": "number",
+          "legacyCorrections": "integer"
+        },
+        "IssueCorrectionRequest": {
+          "reason": "string",
+          "correctionGrossAmount": "number",
+          "idempotencyKey": "string",
+          "expectedVersion": "integer"
+        },
+        "InvoiceCorrectionResponse": {
+          "id": "integer",
+          "balanceVersion": "integer",
+          "balanceModel": "string",
+          "idempotencyKey": "string",
+          "originalGross": "number",
+          "finalGross": "number"
+        }
+      }
+    }
+  },
+  "runtime": {
+    "product": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "regularPrice": {
+          "type": "number",
+          "minimum": 0
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "discountPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "promotional": {
+          "type": "boolean"
+        },
+        "newProduct": {
+          "type": "boolean"
+        },
+        "rotationDate": {
+          "type": "string",
+          "minLength": 10
+        }
+      },
+      "required": [
+        "id",
+        "sku",
+        "name",
+        "price",
+        "regularPrice",
+        "active",
+        "discountPercent",
+        "promotional",
+        "newProduct",
+        "rotationDate"
+      ]
+    },
+    "catalog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0
+          },
+          "regularPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "discountPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "promotional": {
+            "type": "boolean"
+          },
+          "newProduct": {
+            "type": "boolean"
+          },
+          "rotationDate": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "price",
+          "regularPrice",
+          "active",
+          "discountPercent",
+          "promotional",
+          "newProduct",
+          "rotationDate"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 10000
+    },
+    "inventory": {
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "availableQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "soldQuantity": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "productId",
+        "availableQuantity",
+        "reservedQuantity",
+        "soldQuantity"
+      ]
+    },
+    "delivery": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "basePrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "basePrice",
+          "active"
+        ]
+      },
+      "minItems": 1
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "productId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "rating",
+          "title",
+          "content",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "operatorLists": {
+      "orders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unitPrice": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "totalPrice": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "productId",
+                  "quantity",
+                  "unitPrice",
+                  "totalPrice"
+                ]
+              },
+              "minItems": 1
+            },
+            "totalPrice": {
+              "type": "number",
+              "minimum": 0
+            },
+            "status": {
+              "enum": [
+                "CREATED",
+                "CONFIRMED",
+                "PAID",
+                "SHIPPED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            },
+            "customerEmail": {
+              "type": "string"
+            },
+            "invoiceRequested": {
+              "type": "boolean"
+            },
+            "paymentState": {
+              "enum": [
+                "UNPAID",
+                "COLLECTION_DUE",
+                "PAID",
+                "REFUND_PENDING",
+                "REFUNDED"
+              ]
+            },
+            "lifecycleReviewRequired": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id",
+            "items",
+            "totalPrice",
+            "status",
+            "customerEmail",
+            "invoiceRequested",
+            "paymentState",
+            "lifecycleReviewRequired"
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 1
+      },
+      "payments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "orderId": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0
+            },
+            "currency": {
+              "const": "PLN"
+            },
+            "paymentMethod": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "PENDING",
+                "SUCCEEDED",
+                "FAILED",
+                "REFUNDED"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "orderId",
+            "amount",
+            "currency",
+            "paymentMethod",
+            "status"
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 1
+      },
+      "invoices": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "orderId": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "invoiceNumber": {
+              "type": "string",
+              "minLength": 1
+            },
+            "grossAmount": {
+              "type": "number",
+              "minimum": 0
+            },
+            "netAmount": {
+              "type": "number",
+              "minimum": 0
+            },
+            "vatAmount": {
+              "type": "number",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unitPrice": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "totalPrice": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "productId",
+                  "quantity",
+                  "unitPrice",
+                  "totalPrice"
+                ]
+              },
+              "minItems": 0
+            },
+            "currency": {
+              "const": "PLN"
+            },
+            "status": {
+              "enum": [
+                "ISSUED",
+                "CANCELLED"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "orderId",
+            "invoiceNumber",
+            "grossAmount",
+            "netAmount",
+            "vatAmount",
+            "items",
+            "currency",
+            "status"
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 1
+      },
+      "notifications": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sourceId": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "recipient": {
+              "type": "string"
+            },
+            "eventType": {
+              "type": "string"
+            },
+            "channel": {
+              "const": "EMAIL"
+            },
+            "status": {
+              "enum": [
+                "PENDING",
+                "SENT",
+                "FAILED"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "sourceId",
+            "recipient",
+            "eventType",
+            "channel",
+            "status"
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 1
+      },
+      "chat/messages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "customerName": {
+              "type": "string"
+            },
+            "customerEmail": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "NEW",
+                "ANSWERED",
+                "CLOSED"
+              ]
+            },
+            "notificationStatus": {
+              "enum": [
+                "PENDING",
+                "SENT",
+                "FAILED"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "customerName",
+            "customerEmail",
+            "subject",
+            "message",
+            "status",
+            "notificationStatus"
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 1
+      },
+      "returns": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "orderId": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "customerEmail": {
+              "type": "string"
+            },
+            "requestType": {
+              "enum": [
+                "RETURN",
+                "COMPLAINT"
+              ]
+            },
+            "status": {
+              "enum": [
+                "REQUESTED",
+                "UNDER_REVIEW",
+                "APPROVED",
+                "REJECTED",
+                "COMPLETED"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "orderId",
+            "customerEmail",
+            "requestType",
+            "status"
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 1
+      }
+    }
+  },
+  "chaosSchemas": {
+    "payment-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "orderId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "const": "PLN"
+          },
+          "paymentMethod": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "SUCCEEDED",
+              "FAILED",
+              "REFUNDED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "orderId",
+          "amount",
+          "currency",
+          "paymentMethod",
+          "status"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1
+    },
+    "order-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "productId": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "unitPrice": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "totalPrice": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "productId",
+                "quantity",
+                "unitPrice",
+                "totalPrice"
+              ]
+            },
+            "minItems": 1
+          },
+          "totalPrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "enum": [
+              "CREATED",
+              "CONFIRMED",
+              "PAID",
+              "SHIPPED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "invoiceRequested": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "items",
+          "totalPrice",
+          "status",
+          "customerEmail",
+          "invoiceRequested"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1
+    },
+    "billing-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "orderId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "invoiceNumber": {
+            "type": "string",
+            "minLength": 1
+          },
+          "grossAmount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "netAmount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "vatAmount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "productId": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "unitPrice": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "totalPrice": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "productId",
+                "quantity",
+                "unitPrice",
+                "totalPrice"
+              ]
+            },
+            "minItems": 0
+          },
+          "currency": {
+            "const": "PLN"
+          },
+          "status": {
+            "enum": [
+              "ISSUED",
+              "CANCELLED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "orderId",
+          "invoiceNumber",
+          "grossAmount",
+          "netAmount",
+          "vatAmount",
+          "items",
+          "currency",
+          "status"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1
+    },
+    "notification-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "channel": {
+            "const": "EMAIL"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "SENT",
+              "FAILED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sourceId",
+          "recipient",
+          "eventType",
+          "channel",
+          "status"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1
+    },
+    "chat-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "NEW",
+              "ANSWERED",
+              "CLOSED"
+            ]
+          },
+          "notificationStatus": {
+            "enum": [
+              "PENDING",
+              "SENT",
+              "FAILED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "customerName",
+          "customerEmail",
+          "subject",
+          "message",
+          "status",
+          "notificationStatus"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1
+    },
+    "returns-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "orderId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "requestType": {
+            "enum": [
+              "RETURN",
+              "COMPLAINT"
+            ]
+          },
+          "status": {
+            "enum": [
+              "REQUESTED",
+              "UNDER_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "COMPLETED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "orderId",
+          "customerEmail",
+          "requestType",
+          "status"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1
+    },
+    "inventory-service": {
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "availableQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "soldQuantity": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "productId",
+        "availableQuantity",
+        "reservedQuantity",
+        "soldQuantity"
+      ]
+    },
+    "product-service": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "price": {
+          "type": "number",
+          "minimum": 0
+        },
+        "regularPrice": {
+          "type": "number",
+          "minimum": 0
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "discountPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "promotional": {
+          "type": "boolean"
+        },
+        "newProduct": {
+          "type": "boolean"
+        },
+        "rotationDate": {
+          "type": "string",
+          "minLength": 10
+        }
+      },
+      "required": [
+        "id",
+        "sku",
+        "name",
+        "price",
+        "regularPrice",
+        "active",
+        "discountPercent",
+        "promotional",
+        "newProduct",
+        "rotationDate"
+      ]
+    },
+    "delivery-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "basePrice": {
+            "type": "number",
+            "minimum": 0
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "basePrice",
+          "active"
+        ]
+      },
+      "minItems": 1
+    },
+    "review-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "productId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "minLength": 10
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "rating",
+          "title",
+          "content",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "customer-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ]
+      }
+    },
+    "promotion-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      }
+    },
+    "wishlist-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      }
+    },
+    "recommendation-service": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "productId",
+          "name",
+          "price"
+        ]
+      }
+    }
   }
 }

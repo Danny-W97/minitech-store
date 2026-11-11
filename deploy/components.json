@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "kubernetesVersion": "1.35.0",
+  "components": [
+    {
+      "name": "api-gateway",
+      "runtime": "jvm",
+      "database": null,
+      "http": [
+        "product-service",
+        "order-service",
+        "inventory-service",
+        "payment-service",
+        "notification-service",
+        "customer-service",
+        "delivery-service",
+        "promotion-service",
+        "wishlist-service",
+        "review-service",
+        "recommendation-service",
+        "chat-service",
+        "returns-service",
+        "billing-service"
+      ],
+      "redis": true
+    },
+    {
+      "name": "product-service",
+      "runtime": "jvm",
+      "database": "product",
+      "http": [
+        "customer-service",
+        "promotion-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "order-service",
+      "runtime": "jvm",
+      "database": "order",
+      "http": [
+        "billing-service",
+        "customer-service",
+        "delivery-service",
+        "inventory-service",
+        "notification-service",
+        "payment-service",
+        "product-service",
+        "promotion-service",
+        "returns-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "inventory-service",
+      "runtime": "jvm",
+      "database": "inventory",
+      "http": [
+        "customer-service",
+        "order-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "payment-service",
+      "runtime": "jvm",
+      "database": "payment",
+      "http": [
+        "billing-service",
+        "customer-service",
+        "delivery-service",
+        "inventory-service",
+        "notification-service",
+        "order-service",
+        "promotion-service"
+      ],
+      "redis": true,
+      "publicTcpPorts": [
+        443
+      ]
+    },
+    {
+      "name": "notification-service",
+      "runtime": "jvm",
+      "database": "notification",
+      "http": [
+        "billing-service",
+        "chat-service",
+        "customer-service",
+        "order-service",
+        "payment-service"
+      ],
+      "redis": true,
+      "publicTcpPorts": [
+        587
+      ]
+    },
+    {
+      "name": "customer-service",
+      "runtime": "jvm",
+      "database": "customer",
+      "http": [
+        "notification-service",
+        "order-service",
+        "inventory-service",
+        "payment-service",
+        "delivery-service",
+        "promotion-service",
+        "wishlist-service",
+        "review-service",
+        "recommendation-service",
+        "returns-service",
+        "billing-service",
+        "product-service",
+        "chat-service"
+      ],
+      "redis": true
+    },
+    {
+      "name": "delivery-service",
+      "runtime": "jvm",
+      "database": "delivery",
+      "http": [
+        "customer-service",
+        "order-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "promotion-service",
+      "runtime": "jvm",
+      "database": "promotion",
+      "http": [
+        "customer-service",
+        "order-service",
+        "product-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "wishlist-service",
+      "runtime": "jvm",
+      "database": "wishlist",
+      "http": [
+        "customer-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "review-service",
+      "runtime": "jvm",
+      "database": "review",
+      "http": [
+        "customer-service",
+        "order-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "recommendation-service",
+      "runtime": "jvm",
+      "database": "recommendation",
+      "http": [
+        "customer-service",
+        "order-service",
+        "product-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "chat-service",
+      "runtime": "jvm",
+      "database": "chat",
+      "http": [
+        "customer-service",
+        "notification-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "returns-service",
+      "runtime": "jvm",
+      "database": "returns",
+      "http": [
+        "billing-service",
+        "customer-service",
+        "inventory-service",
+        "order-service",
+        "payment-service"
+      ],
+      "redis": false
+    },
+    {
+      "name": "billing-service",
+      "runtime": "jvm",
+      "database": "billing",
+      "http": [
+        "customer-service",
+        "order-service",
+        "payment-service"
+      ],
+      "redis": true
+    },
+    {
+      "name": "frontend",
+      "runtime": "nginx",
+      "database": null,
+      "http": [
+        "api-gateway"
+      ],
+      "redis": false
+    }
+  ]
+}

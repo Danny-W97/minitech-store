@@ -1,5 +1,8 @@
 package org.demo.reviewservice.web;
 
+import org.demo.platformsecurity.Access;
+import org.demo.platformsecurity.OrderAccess;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,8 +32,10 @@ public class ReviewController {
 
     @GetMapping("/products/{productId}")
     @Operation(summary = "List published reviews for a product")
-    public List<ReviewResponse> published(@PathVariable @Positive Long productId) {
-        return reviewService.published(productId);
+    public ResponseEntity<List<PublicReviewResponse>> published(@PathVariable @Positive Long productId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") long cursor,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size) {
+        return reviewService.published(productId, new org.demo.platformsecurity.ListWindow(cursor, size)).map(PublicReviewResponse::from).response();
     }
 
     @GetMapping("/products/{productId}/summary")
@@ -41,17 +46,24 @@ public class ReviewController {
 
     @GetMapping("/customer/{customerId}")
     @Operation(summary = "List reviews submitted by a customer")
-    public List<ReviewResponse> customer(@PathVariable @Positive Long customerId) {
-        return reviewService.forCustomer(customerId);
+    public ResponseEntity<List<ReviewResponse>> customer(@PathVariable @Positive Long customerId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") long cursor,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size) {
+        Access.customer(customerId);
+        return reviewService.forCustomer(customerId, new org.demo.platformsecurity.ListWindow(cursor, size)).response();
     }
 
     @GetMapping("/moderation/pending")
     @Operation(summary = "List reviews pending moderation")
-    public List<ReviewResponse> pending() { return reviewService.pending(); }
+    public ResponseEntity<List<ReviewResponse>> pending(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") long cursor,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size) {
+        return reviewService.pending(new org.demo.platformsecurity.ListWindow(cursor, size)).response();
+    }
 
     @PostMapping
     @Operation(summary = "Create a review after a paid purchase")
     public ResponseEntity<ReviewResponse> create(@Valid @RequestBody CreateReviewRequest request) {
+        Access.customer(request.customerId());
         return ResponseEntity.status(HttpStatus.CREATED).body(reviewService.create(request));
     }
 

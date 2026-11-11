@@ -204,8 +204,86 @@ db_backup_prune() {
     printf 'Brak katalogu backupow do czyszczenia: %s\n' "$profile_directory"
     return 0
   }
-  printf 'Usuwam zaszyfrowane backupy starsze niz %s dni z %s\n' "$retention_days" "$profile_directory"
-  find "$profile_directory" -type f -name '*.dump.age' -mtime "+$retention_days" -print -delete
+  local mode="${BACKUP_RETENTION_MODE:-observe}"
+  [[ "$mode" == observe || "$mode" == purge ]] || return 2
+  printf 'Retencja backupow (%s dni), tryb %s: %s\n'  "$retention_days" "$mode" "$profile_directory"
+  # Complete platform sets have their own authenticated, whole-set retention.
+  if [[ "$mode" == purge ]]; then
+    find "$profile_directory" -type f -name '*.dump.age' ! -path "$profile_directory/checkpoints/*" -mtime "+$retention_days" -print -delete
+  else
+    find "$profile_directory" -type f -name '*.dump.age' ! -path "$profile_directory/checkpoints/*" -mtime "+$retention_days" -print
+  fi
+}
+
+
+platform_backup() {
+  require_command docker || return 1
+  require_command python3 || return 1
+  require_command age || return 1
+  local profile alias service container broker
+  profile="$(active_profile)"
+  secret_profile_supported "$profile" || { printf 'Platform backup currently supports dev/test Compose only.\n' >&2; return 2; }
+  backup_recipient_for_profile "$profile" || return 1
+  backup_prepare_directory || return 1
+  local -a rows=()
+  for service in "${DB_SERVICES[@]}"; do
+    alias="${service%-db}"
+    container="$(compose ps -q "$service")" || return 1
+    [[ "$container" =~ ^[a-f0-9]{12,64}$ ]] || { printf 'Brak jednej dzialajacej bazy: %s\n' "$service" >&2; return 1; }
+    rows+=("$alias:$container:$(db_name "$alias"):$(db_user "$alias")")
+  done
+  broker="$(compose ps -q "$BROKER_SERVICE")" || return 1
+  [[ "$broker" =~ ^[a-f0-9]{12,64}$ ]] || { printf 'Brak jednego dzialajacego brokera Redis.\n' >&2; return 1; }
+  python3 -c 'import json,sys; rows=[v.split(":") for v in sys.argv[2:]]; print(json.dumps({"redis":{"container":sys.argv[1]},"databases":{a:{"container":c,"database":d,"user":u} for a,c,d,u in rows}}))' "$broker" "${rows[@]}" \
+    | python3 "$PROJECT_ROOT/scripts/backup/platform-recovery.py" capture \
+      --recipient "$BACKUP_RECIPIENT" --output-dir "$(backup_profile_directory "$profile")/checkpoints"
+}
+
+
+latest_platform_backup() {
+  python3 -c 'from pathlib import Path; import sys; root=Path(sys.argv[1]); files=sorted((p for p in root.glob("checkpoint-*/manifest.json.age") if not p.is_symlink() and not p.parent.is_symlink()),key=lambda p:p.stat().st_mtime,reverse=True); sys.exit(1) if not files else print(files[0].parent)' \
+    "$(backup_profile_directory "$(active_profile)")/checkpoints"
+}
+
+
+platform_restore_drill() {
+  require_command docker || return 1
+  require_command python3 || return 1
+  require_command age || return 1
+  local bundle="${1:-latest}" order_id="${2:-}" profile report
+  profile="$(active_profile)"
+  secret_profile_supported "$profile" || { printf 'Platform restore drill currently supports dev/test only.\n' >&2; return 2; }
+  backup_recipient_for_profile "$profile" || return 1
+  [[ -f "${BACKUP_IDENTITY_FILE:-}" ]] || return 1
+  if [[ "$bundle" == 'latest' ]]; then
+    bundle="$(latest_platform_backup)" || { printf 'Brak kompletnego zestawu kopii platformy.\n' >&2; return 1; }
+  fi
+  local -a witness=()
+  if [[ -n "$order_id" ]]; then
+    [[ "$order_id" =~ ^[1-9][0-9]*$ ]] || { printf 'ID zamowienia musi byc dodatnia liczba.\n' >&2; return 2; }
+    witness=(--order-id "$order_id")
+  else
+    printf 'Proba techniczna bez wskazanego zamowienia: zgodnosc biznesowa nie bedzie potwierdzona.\n'
+  fi
+  report="$RUNTIME_DIRECTORY/recovery-drills/restore-$(date -u +%Y%m%dT%H%M%SZ)-$RANDOM.json"
+  python3 "$PROJECT_ROOT/scripts/backup/platform-recovery.py" drill \
+    --bundle "$bundle" --identity "$BACKUP_IDENTITY_FILE" --report "$report" "${witness[@]}"
+}
+
+
+platform_backup_prune() {
+  require_command python3 || return 1
+  require_command age || return 1
+  backup_root_check || return 1
+  local days="${1:-$BACKUP_RETENTION_DAYS}" profile directory
+  [[ "$days" =~ ^[1-9][0-9]*$ ]] || return 2
+  profile="$(active_profile)"
+  secret_profile_supported "$profile" || return 2
+  backup_recipient_for_profile "$profile" || return 1
+  directory="$(backup_profile_directory "$profile")/checkpoints"
+  [[ -d "$directory" ]] || { printf 'Brak zestawow do czyszczenia.\n'; return 0; }
+  python3 "$PROJECT_ROOT/scripts/backup/platform-recovery.py" prune \
+    --directory "$directory" --identity "$BACKUP_IDENTITY_FILE" --days "$days" --mode "${BACKUP_RETENTION_MODE:-observe}"
 }
 
 
@@ -351,3 +429,36 @@ backup_schedule_status() {
 }
 
 
+
+
+privacy_journal_config() {
+  local name
+  for name in PRIVACY_JOURNAL_DIRECTORY PRIVACY_JOURNAL_IDENTITY_FILE PRIVACY_JOURNAL_PUBLIC_KEY_FILE; do
+    [[ -n "${!name:-}" ]] || { printf 'Brak konfiguracji rejestru: %s\n' "$name" >&2; return 2; }
+  done
+  require_command python3 && require_command age && require_command openssl
+}
+
+privacy_journal_sync() (
+  privacy_journal_config || exit $?
+  [[ -n "${PRIVACY_JOURNAL_SIGNING_KEY_FILE:-}" && -n "${PRIVACY_JOURNAL_AGE_RECIPIENT:-}" ]] || { printf 'Skonfiguruj osobny klucz podpisu i recipient rejestru.\n' >&2; exit 2; }
+  load_profile_secrets "$(active_profile)" || exit 1
+  python3 "$PROJECT_ROOT/scripts/backup/privacy-journal.py" sync \
+    --directory "$PRIVACY_JOURNAL_DIRECTORY" --identity "$PRIVACY_JOURNAL_IDENTITY_FILE" \
+    --public-key "$PRIVACY_JOURNAL_PUBLIC_KEY_FILE" --signing-key "$PRIVACY_JOURNAL_SIGNING_KEY_FILE" \
+    --recipient "$PRIVACY_JOURNAL_AGE_RECIPIENT" --backup-root "$BACKUP_ROOT_DIRECTORY" \
+    --origin "${PRIVACY_JOURNAL_CUSTOMER_ORIGIN:-http://127.0.0.1:18087}"
+)
+
+privacy_restore_drill() {
+  privacy_journal_config || return $?
+  local bundle="${1:-latest}" expected="${2:-}"
+  [[ -n "$expected" ]] || { printf 'Wymagany aktualny wskaznik rejestru z niezaleznego miejsca.\n' >&2; return 2; }
+  backup_recipient_for_profile "$(active_profile)" || return 1
+  [[ "$bundle" != latest ]] || bundle="$(latest_platform_backup)" || return 1
+  python3 "$PROJECT_ROOT/scripts/backup/privacy-restore.py" \
+    --bundle "$bundle" --identity "$BACKUP_IDENTITY_FILE" --backup-root "$BACKUP_ROOT_DIRECTORY" \
+    --journal-directory "$PRIVACY_JOURNAL_DIRECTORY" --journal-identity "$PRIVACY_JOURNAL_IDENTITY_FILE" \
+    --journal-public-key "$PRIVACY_JOURNAL_PUBLIC_KEY_FILE" --expected-head "$expected" \
+    --report "$RUNTIME_DIRECTORY/recovery-drills/privacy-$(date -u +%Y%m%dT%H%M%SZ)-$RANDOM.json"
+}

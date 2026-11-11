@@ -1,63 +1,22 @@
 package org.demo.paymentservice.outbox;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
+import org.junit.jupiter.api.*;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
+import static org.mockito.Mockito.*;
 class PaymentOutboxPublisherTest {
-
-    @Mock
-    private PaymentOutboxRepository outboxRepository;
-
-    @Mock
-    private PaymentEventPublisher eventPublisher;
-
-    @InjectMocks
-    private PaymentOutboxPublisher publisher;
-
-    @Test
-    void publishesPendingEvent() {
-        PaymentOutboxEvent event = new PaymentOutboxEvent(
-                "PAYMENT_SUCCEEDED", 11L, new BigDecimal("699.99"), "customer@example.com"
-        );
-        when(outboxRepository.findTop50ByStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
-                any(), any(Instant.class)
-        )).thenReturn(List.of(event));
-        when(eventPublisher.publish(event)).thenReturn(true);
-
-        publisher.publishPendingEvents();
-
-        assertThat(event.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
-        verify(outboxRepository).save(event);
+    private final PaymentOutboxStateStore states=mock(PaymentOutboxStateStore.class);
+    private final PaymentEventPublisher sender=mock(PaymentEventPublisher.class);
+    private final PaymentOutboxPublisher publisher=new PaymentOutboxPublisher(states,sender);
+    @AfterEach void close() { publisher.close(); }
+    @Test void publicationIsRecordedOnlyForTheClaimedTicket() {
+        var ticket=new PaymentOutboxStateStore.Ticket(new PaymentOutboxEvent("PAYMENT_SUCCEEDED",11L,BigDecimal.TEN,"owner@example.test"),"token");
+        when(states.claim(1L)).thenReturn(ticket);when(sender.publish(ticket.event())).thenReturn(true);
+        publisher.publishOne(1L);verify(states).complete(ticket,true);
     }
-
-    @Test
-    void failedDeliveryIsScheduledForRetry() {
-        PaymentOutboxEvent event = new PaymentOutboxEvent(
-                "PAYMENT_FAILED", 11L, new BigDecimal("699.99"), "customer@example.com"
-        );
-        when(outboxRepository.findTop50ByStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
-                any(), any(Instant.class)
-        )).thenReturn(List.of(event));
-        when(eventPublisher.publish(event)).thenReturn(false);
-
-        publisher.publishPendingEvents();
-
-        assertThat(event.getStatus()).isEqualTo(OutboxStatus.FAILED);
-        assertThat(event.getAttempts()).isEqualTo(1);
-        assertThat(event.getNextAttemptAt()).isAfter(Instant.now());
-        verify(outboxRepository).save(event);
+    @Test void brokerFailureIsDurablyScheduledAndAnUnclaimedRecordIsNeverPublished() {
+        var ticket=new PaymentOutboxStateStore.Ticket(new PaymentOutboxEvent("PAYMENT_FAILED",11L,BigDecimal.TEN,"owner@example.test"),"token");
+        when(states.claim(1L)).thenReturn(ticket);when(sender.publish(ticket.event())).thenThrow(new IllegalStateException("Broker unavailable"));
+        publisher.publishOne(1L);verify(states).complete(ticket,false);
+        publisher.publishOne(2L);verify(sender,times(1)).publish(any());
     }
 }

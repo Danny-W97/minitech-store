@@ -17,6 +17,12 @@ import java.time.Instant;
 @Entity
 @Table(name = "order_sagas")
 public class OrderSaga {
+    @Column(name="processing_token",length=36) private String processingToken;
+    @Column(name="processing_until") private Instant processingUntil;
+    public String getProcessingToken() { return processingToken; }
+    public boolean processing() { return processingUntil!=null && processingUntil.isAfter(Instant.now()); }
+    public void claim(String token,Instant until) { processingToken=token; processingUntil=until; }
+    public void release() { processingToken=null; processingUntil=null; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -69,6 +75,10 @@ public class OrderSaga {
         this.nextAttemptAt = null;
         this.lastError = null;
     }
+    public void restartReservation() {
+        state=OrderSagaState.INVENTORY_RESERVATION_PENDING;
+        nextAttemptAt=Instant.now();lastError=null;
+    }
 
     public void compensationPending(Instant nextAttemptAt, String error) {
         this.state = OrderSagaState.COMPENSATION_PENDING;
@@ -86,6 +96,9 @@ public class OrderSaga {
         this.state = OrderSagaState.FAILED;
         this.nextAttemptAt = null;
         this.lastError = error;
+    }
+    public void reconciliationRequired(String reason) {
+        state=OrderSagaState.RECONCILIATION_REQUIRED;nextAttemptAt=null;lastError=reason;release();
     }
 
     @PrePersist

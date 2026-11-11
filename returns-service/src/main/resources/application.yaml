@@ -20,3 +20,7 @@ management.endpoint.health.show-details: never
 management.endpoint.health.probes.enabled: ${MANAGEMENT_HEALTH_PROBES_ENABLED:true}
 management.metrics.tags.application: ${spring.application.name}
 logging.pattern.console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [corr=%X{correlationId}] %logger{36} - %msg%n"
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

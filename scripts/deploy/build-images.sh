@@ -11,23 +11,8 @@ command -v docker >/dev/null 2>&1 || {
   exit 1
 }
 
-services=(
-  api-gateway
-  product-service
-  order-service
-  inventory-service
-  payment-service
-  notification-service
-  customer-service
-  delivery-service
-  promotion-service
-  wishlist-service
-  review-service
-  recommendation-service
-  chat-service
-  returns-service
-  billing-service
-)
+component_names="$(python3 "$PROJECT_ROOT/scripts/deploy/components.py" --runtime jvm)"
+mapfile -t services <<<"$component_names"
 
 for service in "${services[@]}"; do
   printf 'Buduję obraz %s:%s\n' "$REGISTRY_PREFIX/$service" "$TAG"
@@ -38,10 +23,13 @@ for service in "${services[@]}"; do
     "$PROJECT_ROOT"
 done
 
-printf 'Buduję obraz frontend:%s\n' "$TAG"
-docker build \
-  --file "$PROJECT_ROOT/deploy/docker/frontend.Dockerfile" \
-  --tag "$REGISTRY_PREFIX/frontend:$TAG" \
-  "$PROJECT_ROOT"
+frontend_names="$(python3 "$PROJECT_ROOT/scripts/deploy/components.py" --runtime nginx)"
+while IFS= read -r frontend; do
+  printf 'Buduję obraz %s:%s\n' "$frontend" "$TAG"
+  docker build \
+    --file "$PROJECT_ROOT/deploy/docker/frontend.Dockerfile" \
+    --tag "$REGISTRY_PREFIX/$frontend:$TAG" \
+    "$PROJECT_ROOT"
+done <<<"$frontend_names"
 
 printf 'Obrazy zbudowane dla tagu %s.\n' "$TAG"

@@ -21,7 +21,8 @@ public record NotificationDeadLetterResponse(
         int attemptCount,
         Instant createdAt,
         Instant updatedAt,
-        Instant resolvedAt
+        Instant resolvedAt,
+        boolean contentCompacted
 ) {
 
     public static NotificationDeadLetterResponse from(NotificationDeadLetterEntry entry) {
@@ -32,14 +33,15 @@ public record NotificationDeadLetterResponse(
                 entry.getSourceId(),
                 entry.getRecipient(),
                 entry.getChannel(),
-                entry.getSubject(),
-                entry.getMessage(),
+                entry.isContentCompacted() ? "Content removed" : entry.getSubject(),
+                entry.isContentCompacted() ? "Content removed by retention policy." : entry.getMessage(),
                 entry.getStatus(),
-                entry.getFailureReason(),
+                entry.isContentCompacted() ? "Diagnostic removed by retention policy." : entry.getFailureReason(),
                 entry.getAttemptCount(),
                 entry.getCreatedAt(),
                 entry.getUpdatedAt(),
-                entry.getResolvedAt()
+                entry.getResolvedAt(),
+                entry.isContentCompacted()
         );
     }
 }

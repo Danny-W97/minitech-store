@@ -18,6 +18,9 @@ public class AuditEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "subject_customer_id", updatable = false)
+    private Long subjectCustomerId;
+
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;
 
@@ -58,6 +61,12 @@ public class AuditEvent {
             String userAgent,
             String metadata
     ) {
+        this(null,eventType,actor,resource,outcome,correlationId,clientIp,userAgent,metadata);
+    }
+
+    public AuditEvent(Long subjectCustomerId,String eventType,String actor,String resource,String outcome,
+                      String correlationId,String clientIp,String userAgent,String metadata) {
+        this.subjectCustomerId=subjectCustomerId;
         this.eventType = eventType;
         this.actor = actor;
         this.resource = resource;
@@ -74,6 +83,7 @@ public class AuditEvent {
     }
 
     public Long getId() { return id; }
+    public Long getSubjectCustomerId() { return subjectCustomerId; }
     public Instant getOccurredAt() { return occurredAt; }
     public String getEventType() { return eventType; }
     public String getActor() { return actor; }

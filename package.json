@@ -5,6 +5,8 @@
   "description": "Playwright browser regression tests for MiniTech Store",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
+    "test:unit": "node --test scripts/qa/unit/*.test.cjs",
+    "test:cc": "playwright test --config playwright.control-center.config.ts",
     "test:ui": "playwright test --project=chromium --grep-invert @full-system",
     "test:ui:smoke": "playwright test --project=chromium --grep @smoke --grep-invert @full-system",
     "test:ui:full": "playwright test --project=chromium",

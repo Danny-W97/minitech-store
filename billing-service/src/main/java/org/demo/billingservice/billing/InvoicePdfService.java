@@ -206,9 +206,12 @@ public class InvoicePdfService {
         rightText(canvas, bold, 8.5f, 430, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, money(c.getCorrectionVat()) + " " + curr);
         rightText(canvas, bold, 8.5f, 533, row2Y, ORANGE_R, ORANGE_G, ORANGE_B, money(c.getCorrectionGross()) + " " + curr);
 
-        // Row 3: Po korekcie
+        text(canvas, regular, 8, 60, 428, MUTED_R, MUTED_G, MUTED_B, c.getLedgerVersion()==null
+                ? "Historyczny dokument: saldo zbiorcze wymaga odczytu rejestru korekt."
+                : "Saldo rejestru po korekcie nr " + c.getLedgerVersion());
+        // This immutable document describes its own point in history.
         float row3Y = 305;
-        text(canvas, bold, 8.5f, 60, row3Y, NAVY_R, NAVY_G, NAVY_B, "Po korekcie (stan obecny)");
+        text(canvas, bold, 8.5f, 60, row3Y, NAVY_R, NAVY_G, NAVY_B, "Po tej korekcie");
         rightText(canvas, bold, 8.5f, 260, row3Y, NAVY_R, NAVY_G, NAVY_B, money(c.getFinalNet()) + " " + curr);
         rightText(canvas, bold, 8.5f, 340, row3Y, NAVY_R, NAVY_G, NAVY_B, "23%");
         rightText(canvas, bold, 8.5f, 430, row3Y, NAVY_R, NAVY_G, NAVY_B, money(c.getFinalVat()) + " " + curr);

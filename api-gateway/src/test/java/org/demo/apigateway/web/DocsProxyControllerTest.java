@@ -7,6 +7,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +22,17 @@ class DocsProxyControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Test
+    void allowsAuthenticatedWishlistDeletePreflightFromLocalStorefront() throws Exception {
+        mockMvc.perform(options("/api/v1/wishlists/customer/17/products/1")
+                        .header("Origin", "http://127.0.0.1:18070")
+                        .header("Access-Control-Request-Method", "DELETE")
+                        .header("Access-Control-Request-Headers", "authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:18070"))
+                .andExpect(header().string("Access-Control-Allow-Methods", org.hamcrest.Matchers.containsString("DELETE")));
+    }
 
     @Test
     void returnsNotFoundForUnknownService() throws Exception {

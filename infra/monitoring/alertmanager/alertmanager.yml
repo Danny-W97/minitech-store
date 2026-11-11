@@ -1,0 +1,10 @@
+# Local development: active alerts are visible in the UI. No external messages.
+# Before production, configure an owned receiver and verify delivery + resolution.
+route:
+  receiver: local-console
+  group_by: [alertname, instance, queue]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+receivers:
+  - name: local-console

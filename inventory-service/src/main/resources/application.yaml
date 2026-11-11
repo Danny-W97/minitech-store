@@ -1,4 +1,7 @@
 spring:
+  jackson:
+    deserialization:
+      accept-float-as-int: false
   profiles:
     default: dev
   application:
@@ -58,3 +61,7 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

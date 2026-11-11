@@ -174,9 +174,10 @@ public class CustomerController {
     @PostMapping("/mfa/recovery-codes/regenerate")
     @SecurityRequirement(name = "bearerAuth")
     public MfaResponses.RecoveryCodes regenerateRecoveryCodes(
+            @Valid @RequestBody MfaRequests.Code request,
             @AuthenticationPrincipal CustomerPrincipal principal
     ) {
-        return mfaService.regenerateRecoveryCodes(principal.customerId());
+        return mfaService.regenerateRecoveryCodes(principal.customerId(), principal.email(), request.code());
     }
 
     @GetMapping("/mfa/webauthn/register/options")
@@ -221,8 +222,29 @@ public class CustomerController {
     @GetMapping("/{id}")
     @SecurityRequirement(name = "bearerAuth")
     public CustomerResponse get(@PathVariable Long id, @AuthenticationPrincipal CustomerPrincipal principal) {
-        assertOwner(id, principal);
+        if (!isOperator()) assertOwner(id, principal);
         return customerService.get(id);
+    }
+
+    @GetMapping
+    public org.springframework.http.ResponseEntity<java.util.List<CustomerResponse>> list(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") long cursor,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "") String search) {
+        if (!isOperator()) throw new CustomerAccessDeniedException();
+        return customerService.list(search, new org.demo.platformsecurity.ListWindow(cursor, size)).response();
+    }
+
+    private boolean isOperator() {
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_OPERATOR"));
+    }
+
+    @GetMapping("/operator-session")
+    public Map<String, String> operatorSession() {
+        if (!isOperator()) throw new CustomerAccessDeniedException();
+        return Map.of("role", "OPERATOR");
     }
 
     @PutMapping("/{id}/address")

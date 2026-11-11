@@ -2,40 +2,25 @@ package org.demo.paymentservice.outbox;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.time.Instant;
-import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.demo.platformsecurity.BoundedJobs;
 
 @Component
+@ConditionalOnProperty(name="outbox.publisher.enabled",havingValue="true",matchIfMissing=true)
 public class PaymentOutboxPublisher {
-
-    private final PaymentOutboxRepository outboxRepository;
-    private final PaymentEventPublisher eventPublisher;
-
-    public PaymentOutboxPublisher(
-            PaymentOutboxRepository outboxRepository,
-            PaymentEventPublisher eventPublisher
-    ) {
-        this.outboxRepository = outboxRepository;
-        this.eventPublisher = eventPublisher;
-    }
-
-    @Scheduled(fixedDelayString = "${outbox.publisher.fixed-delay-ms:5000}")
-    public void publishPendingEvents() {
-        List<PaymentOutboxEvent> events = outboxRepository
-                .findTop50ByStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
-                        List.of(OutboxStatus.PENDING, OutboxStatus.FAILED),
-                        Instant.now()
-        );
-
-        for (PaymentOutboxEvent event : events) {
-            boolean published = eventPublisher.publish(event);
-            if (published) {
-                event.markPublished();
-            } else {
-                event.markFailed("Event broker is unavailable");
-            }
-            outboxRepository.save(event);
-        }
+    private final PaymentOutboxStateStore states;
+    private final PaymentEventPublisher publisher;
+    private final BoundedJobs jobs=new BoundedJobs("payment-outbox",4,50,5000);
+    public PaymentOutboxPublisher(PaymentOutboxStateStore states,PaymentEventPublisher publisher) { this.states=states;this.publisher=publisher; }
+    @jakarta.annotation.PreDestroy void close() { jobs.close(); }
+    @Scheduled(fixedDelayString="${outbox.publisher.fixed-delay-ms:5000}")
+    public void publishPendingEvents() { states.due().forEach(id -> jobs.submit(id,() -> {
+        try { publishOne(id); } catch(RuntimeException error) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Outbox retry failed for {}",id,error); }
+    })); }
+    public void publishOne(Long id) {
+        var ticket=states.claim(id);if(ticket==null) return;
+        boolean published;
+        try { published=publisher.publish(ticket.event()); } catch(RuntimeException error) { published=false; }
+        states.complete(ticket,published);
     }
 }

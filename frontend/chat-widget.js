@@ -1,5 +1,10 @@
+import { i18n } from './i18n.js?v=20261028-a43-32';
+import { createStoreClient } from './store-client.js?v=20261026-2';
+import { createChatClient } from './chat-client.js?v=20261026-1';
+
 (function () {
     const apiBase = getApiBase();
+    const chatClient = createChatClient({request: createStoreClient({baseUrl: apiBase}).request});
     const widget = document.createElement('div');
     widget.className = 'chat-widget';
     widget.innerHTML = `
@@ -27,12 +32,12 @@
                         <span id="chat-bubble-user-label">Ty</span>
                         <p id="chat-thread-message"></p>
                     </div>
-                    <div class="chat-bubble chat-bubble-support" id="chat-reply-bubble" hidden>
-                        <span>MiniTech Store</span>
-                        <p id="chat-thread-reply"></p>
-                    </div>
+                    <button class="secondary-button" id="chat-history-older" type="button" hidden>Wczytaj starsze wiadomości</button>
+                    <div id="chat-entry-history"></div>
+                    <p id="chat-history-status" role="status"></p>
                     <p class="chat-live-status" id="chat-live-status">Centrala odpowie tutaj.</p>
                 </section>
+                <button class="secondary-button" id="chat-new-conversation" type="button" hidden>Nowa rozmowa</button>
                 <form id="chat-form" class="chat-form">
                     <label id="chat-name-label">Imię<input id="chat-name" type="text" maxlength="100" autocomplete="name" required></label>
                     <label id="chat-email-label">E-mail<input id="chat-email" type="email" maxlength="255" autocomplete="email" required></label>
@@ -59,53 +64,73 @@
     const threadId = widget.querySelector('#chat-thread-id');
     const threadState = widget.querySelector('#chat-thread-state');
     const threadMessage = widget.querySelector('#chat-thread-message');
-    const replyBubble = widget.querySelector('#chat-reply-bubble');
-    const threadReply = widget.querySelector('#chat-thread-reply');
+    const history = widget.querySelector('#chat-entry-history');
+    const older = widget.querySelector('#chat-history-older');
+    const newConversation = widget.querySelector('#chat-new-conversation');
+    const historyEntries = new Map();
+    let historyStarted = false;
+    let olderCursor = null;
+    let pendingReply = null;
+    let loading = null;
     const liveStatus = widget.querySelector('#chat-live-status');
     const emailFallback = widget.querySelector('#chat-email-fallback');
     const conversationStorageKey = `minitech.chat.conversationId.${apiBase}`;
-    let conversationId = readConversationId();
+    const tokenStorageKey = `${conversationStorageKey}.accessToken`;
+    let conversationToken;
+    try { conversationToken = window.localStorage.getItem(tokenStorageKey); } catch { conversationToken = null; }
+    let conversationId = conversationToken ? readConversationId() : null;
     let pollTimer = null;
 
     launcher.addEventListener('click', () => {
         const open = panel.hidden;
-        panel.hidden = !open;
+        if (!open) { closeChat(); return; }
+        panel.hidden = false;
         launcher.setAttribute('aria-expanded', String(open));
         if (open) {
             prefillFromAccount();
             if (conversationId) {
                 thread.hidden = false;
+                loadConversation(true);
                 startPolling();
             }
             updateEmailFallback();
-            name.focus();
+            (conversationId ? widget.querySelector('#chat-message') : name).focus();
         }
     });
     close.addEventListener('click', closeChat);
+    older.addEventListener('click', () => loadHistory(olderCursor));
+    newConversation.addEventListener('click', () => {
+        resetConversation();
+        name.focus();
+    });
     form.addEventListener('submit', async event => {
         event.preventDefault();
         status.textContent = 'Wysyłanie wiadomości…';
         status.className = 'chat-status';
         submit.disabled = true;
+        newConversation.disabled = true;
         try {
-            const response = await fetch(`${apiBase}/chat/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const followUp = Boolean(conversationId);
+            const text = widget.querySelector('#chat-message').value.trim();
+            if (!pendingReply || pendingReply.message !== text) pendingReply = { message: text, requestId: crypto.randomUUID() };
+            const newConversationToken = followUp ? conversationToken : window.MiniTechApi.newAccessToken();
+            const payload = followUp
+                ? await chatClient.reply(conversationId, pendingReply, newConversationToken)
+                : await chatClient.create({
                     customerName: name.value.trim(),
                     customerEmail: email.value.trim(),
                     subject: widget.querySelector('#chat-subject').value.trim(),
                     message: widget.querySelector('#chat-message').value.trim()
-                })
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.message || `HTTP ${response.status}`);
+                }, newConversationToken);
+            conversationToken = newConversationToken;
             conversationId = Number(payload.id);
             saveConversationId(conversationId);
+            pendingReply = null;
             renderConversation(payload);
+            await loadHistory(0);
             startPolling();
             widget.querySelector('#chat-subject').value = '';
-            widget.querySelector('#chat-message').value = '';
+            if (widget.querySelector('#chat-message').value.trim() === text) widget.querySelector('#chat-message').value = '';
             status.textContent = 'Wiadomość wysłana. Odpowiedź pojawi się w tym oknie czatu.';
             status.className = 'chat-status success';
             prefillFromAccount();
@@ -115,10 +140,11 @@
             status.className = 'chat-status error';
         } finally {
             submit.disabled = false;
+            newConversation.disabled = false;
         }
     });
     document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && !panel.hidden) closeChat();
+        if (event.key === 'Escape' && !panel.hidden && !document.querySelector('dialog[open]')) closeChat();
     });
 
     [email, name, widget.querySelector('#chat-subject'), widget.querySelector('#chat-message')]
@@ -128,6 +154,9 @@
     function closeChat() {
         panel.hidden = true;
         launcher.setAttribute('aria-expanded', 'false');
+        stopPolling();
+        cancelReads();
+        launcher.focus();
     }
 
     function prefillFromAccount() {
@@ -150,6 +179,7 @@
     function saveConversationId(id) {
         try {
             window.localStorage.setItem(conversationStorageKey, String(id));
+            window.localStorage.setItem(tokenStorageKey, conversationToken);
         } catch (_) {
             // Private browsing can disable localStorage; live polling still works until refresh.
         }
@@ -158,6 +188,7 @@
     function clearConversationId() {
         try {
             window.localStorage.removeItem(conversationStorageKey);
+            window.localStorage.removeItem(tokenStorageKey);
         } catch (_) {
             // Ignore storage errors; the in-memory state is still cleared.
         }
@@ -171,7 +202,7 @@
     }
 
     function startPolling() {
-        if (!conversationId || pollTimer) return;
+        if (!conversationId || pollTimer || panel.hidden || document.hidden) return;
         pollTimer = window.setInterval(() => loadConversation(false), 3000);
     }
 
@@ -181,37 +212,94 @@
         pollTimer = null;
     }
 
+    function cancelReads() {
+        chatClient.cancelReads();
+        loading = null;
+    }
+
+    function resetConversation() {
+        stopPolling(); cancelReads();
+        conversationId = null; conversationToken = null; pendingReply = null;
+        clearConversationId(); historyEntries.clear(); history.replaceChildren(); historyStarted = false; olderCursor = null;
+        older.hidden = true; newConversation.hidden = true; thread.hidden = true;
+        widget.querySelector('#chat-history-status').textContent = '';
+        [name, email, widget.querySelector('#chat-subject')].forEach(input => {input.parentElement.hidden = false;});
+        name.required = true; email.required = true;
+    }
+
     async function loadConversation(showError) {
-        if (!conversationId) return;
+        if (!conversationId || loading) return;
+        const flight = {};
+        loading = flight;
+        const requestedId = conversationId;
+        const requestedToken = conversationToken;
         try {
-            const response = await fetch(`${apiBase}/chat/messages/${conversationId}`);
-            const payload = await response.json().catch(() => ({}));
-            if (response.status === 404) {
-                conversationId = null;
-                clearConversationId();
-                stopPolling();
-                thread.hidden = true;
-                return;
-            }
-            if (!response.ok) throw new Error(payload.message || `HTTP ${response.status}`);
+            const payload = await chatClient.conversation(requestedId, requestedToken);
+            if (conversationId !== requestedId || conversationToken !== requestedToken) return;
             renderConversation(payload);
-            if (payload.replyMessage) stopPolling();
+            await loadHistory(0);
         } catch (error) {
+            if (error.name === 'AbortError' || conversationId !== requestedId || conversationToken !== requestedToken) return;
+            if (error.status === 404) {resetConversation(); return;}
             if (showError) {
                 liveStatus.textContent = `Nie udało się odświeżyć rozmowy: ${error.message}`;
                 liveStatus.className = 'chat-live-status error';
             }
+        } finally { if (loading === flight) loading = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {stopPolling(); cancelReads();} else if (!panel.hidden) { loadConversation(false); startPolling(); }
+    });
+
+    async function loadHistory(before = 0) {
+        if (!conversationId) return;
+        const id=conversationId, token=conversationToken;
+        try {
+            const page = await chatClient.history(id, token, before || 0);
+            if (id!==conversationId || token!==conversationToken) return;
+            const previousLast=Math.max(0,...[...historyEntries.values()].map(entry=>Number(entry.id)));
+            const latestFirst=Math.min(...(page.entries || []).map(entry=>Number(entry.id)));
+            if (!historyStarted || before || (page.hasMore && previousLast < latestFirst)) olderCursor=page.nextCursor;
+            historyStarted=true;
+            widget.querySelector('#chat-history-status').textContent='';
+            (page.entries || []).forEach(entry => historyEntries.set(String(entry.id),entry));
+            renderEntries();
+            older.hidden=!olderCursor;
+        } catch (error) {
+            if (error.name === 'AbortError' || id !== conversationId || token !== conversationToken) return;
+            widget.querySelector('#chat-history-status').textContent='Nie udało się odświeżyć historii. Zachowano ostatni widok.';
         }
+    }
+
+    function renderEntries() {
+        const entries=[...historyEntries.values()].filter(entry => !entry.initialMessage).sort((a,b) => Number(a.id)-Number(b.id));
+        const lastSupport=entries.filter(entry => entry.author==='SUPPORT').at(-1);
+        const fragment=document.createDocumentFragment();
+        for (const entry of entries) {
+            const bubble=document.createElement('div');bubble.className=`chat-bubble chat-bubble-${entry.author==='SUPPORT'?'support':'customer'}`;
+            const label=document.createElement('span');label.textContent=entry.author==='SUPPORT'?'MiniTech Store':(i18n?.getLanguage()==='en'?'You':'Ty');
+            const text=document.createElement('p');text.textContent=entry.message;
+            if (entry===lastSupport) text.id='chat-thread-reply';
+            const time=document.createElement('time');time.dateTime=entry.createdAt || '';time.textContent=entry.createdAt?new Date(entry.createdAt).toLocaleString():'';
+            bubble.append(label,text,time);fragment.append(bubble);
+        }
+        history.replaceChildren(fragment);
     }
 
     function renderConversation(payload) {
         thread.hidden = false;
         threadId.textContent = `Rozmowa #${payload.id}`;
-        threadState.textContent = payload.replyMessage ? 'Odpowiedziano' : 'Oczekuje na odpowiedź';
+        const answered = payload.status ? payload.status==='ANSWERED' : Boolean(payload.replyMessage);
+        threadState.textContent = answered ? 'Odpowiedziano' : 'Oczekuje na odpowiedź';
         threadMessage.textContent = payload.message || '';
-        const answered = Boolean(payload.replyMessage);
-        replyBubble.hidden = !answered;
-        threadReply.textContent = payload.replyMessage || '';
+        newConversation.hidden=false;
+        [name,email,widget.querySelector('#chat-subject')].forEach(input => { input.parentElement.hidden=true; });
+        name.required=false;email.required=false;
+        if (!historyStarted && payload.replyMessage) {
+            const bubble=document.createElement('div');bubble.className='chat-bubble chat-bubble-support';
+            const text=document.createElement('p');text.id='chat-thread-reply';text.textContent=payload.replyMessage;bubble.append(text);history.replaceChildren(bubble);
+        }
         liveStatus.textContent = answered
             ? 'Odpowiedź z Centrali jest już dostępna.'
             : 'Czekamy na odpowiedź Centrali. Okno sprawdza nowe wiadomości co 3 sekundy.';
@@ -219,7 +307,10 @@
     }
 
     function applyChatLanguage() {
-        const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+        const isEn = i18n && i18n.getLanguage() === 'en';
+        older.textContent=isEn?'Load older messages':'Wczytaj starsze wiadomości';
+        newConversation.textContent=isEn?'New conversation':'Nowa rozmowa';
+        if(historyStarted)renderEntries();
         const launcherBtn = widget.querySelector('#chat-launcher');
         if (launcherBtn) launcherBtn.setAttribute('aria-label', isEn ? 'Chat' : 'Czat');
         const launcherText = widget.querySelector('#chat-launcher-text');
@@ -270,7 +361,7 @@
     });
 
     function updateEmailFallback() {
-        const isEn = window.MiniTechI18n && window.MiniTechI18n.getLanguage() === 'en';
+        const isEn = i18n && i18n.getLanguage() === 'en';
         const subject = widget.querySelector('#chat-subject').value.trim() || (isEn ? 'Question to MiniTech Store' : 'Pytanie do MiniTech Store');
         const body = widget.querySelector('#chat-message').value.trim() || (isEn ? 'Hello,\n\n' : 'Dzień dobry,\n\n');
         const supportEmail = window.MINITECH_SUPPORT_EMAIL || 'company@minitech.local';
@@ -279,11 +370,6 @@
     }
 
     function getApiBase() {
-        if (window.MINITECH_API_BASE) return window.MINITECH_API_BASE.replace(/\/$/, '');
-        if (window.location.port !== '18070' && window.location.protocol !== 'file:') {
-            return `${window.location.origin}/api`;
-        }
-        const host = window.location.hostname || '127.0.0.1';
-        return `http://${host}:18080/api`;
+        return window.MiniTechApi.baseUrl;
     }
 }());

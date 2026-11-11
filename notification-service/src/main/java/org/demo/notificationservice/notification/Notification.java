@@ -1,6 +1,6 @@
 package org.demo.notificationservice.notification;
 
-import org.demo.notificationservice.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,6 +24,18 @@ import java.time.Instant;
         )
 )
 public class Notification {
+    @Column(name="subject_customer_id") private Long subjectCustomerId;
+    public Long getSubjectCustomerId(){return subjectCustomerId;}
+    public void accountSubject(Long id){if(subjectCustomerId!=null&&!subjectCustomerId.equals(id))throw new IllegalArgumentException("Notification subject is immutable");subjectCustomerId=id;}
+    @Column(name="privacy_redacted",nullable=false) private boolean privacyRedacted;
+    @Column(name="recipient_hash",length=64) private String recipientHash;
+    @Column(name="processing_token",length=36) private String processingToken;
+    @Column(name="processing_until") private Instant processingUntil;
+    public void queueForDelivery() { requireDeliveryContent();processingToken="queued";processingUntil=Instant.EPOCH; }
+    public String getProcessingToken() { return processingToken; }
+    public boolean processing() { return processingUntil!=null && processingUntil.isAfter(Instant.now()); }
+    public void claim(String token,Instant until) { requireDeliveryContent();processingToken=token; processingUntil=until; }
+    public void release() { processingToken=null; processingUntil=null; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,18 +48,27 @@ public class Notification {
     @Column(name = "source_id", nullable = false)
     private Long sourceId;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String recipient;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private NotificationChannel channel;
 
-    @Column(nullable = false, length = 120)
+    @Column(length = 120)
     private String subject;
 
-    @Column(nullable = false, length = 1000)
+    @Column(length = 6000)
     private String message;
+
+    @Column(name = "content_compacted_at")
+    private Instant contentCompactedAt;
+
+    public boolean isContentCompacted() { return contentCompactedAt != null; }
+
+    public void requireDeliveryContent() {
+        if (isContentCompacted()) throw new IllegalStateException("Sent notification content is compacted");
+    }
 
     @Column(name = "correlation_id", length = 100)
     private String correlationId;
@@ -155,6 +176,7 @@ public class Notification {
             String correlationId,
             Long invoiceId
     ) {
+        requireDeliveryContent();
         this.recipient = recipient;
         this.channel = channel;
         this.subject = subject;
@@ -170,12 +192,14 @@ public class Notification {
     }
 
     public void startDeliveryAttempt() {
+        requireDeliveryContent();
         this.status = NotificationStatus.PENDING;
         this.attemptCount++;
         this.nextAttemptAt = null;
     }
 
     public void markSent(String providerReference) {
+        requireDeliveryContent();
         this.status = NotificationStatus.SENT;
         this.providerReference = providerReference;
         this.failureReason = null;
@@ -184,6 +208,7 @@ public class Notification {
     }
 
     public void markFailed(String failureReason, Instant nextAttemptAt) {
+        requireDeliveryContent();
         this.status = NotificationStatus.FAILED;
         this.providerReference = null;
         this.failureReason = failureReason;

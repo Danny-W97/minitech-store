@@ -86,7 +86,7 @@
 
 ### `PORT_ALREADY_IN_USE`
 * **Identyfikator:** `PORT_ALREADY_IN_USE`
-* **Wzorce w logu:** `Address already in use`, `BindException: Address already in use`, `port is already allocated`, `failed: port is already allocated`
+* **Wzorce w logu:** `Address already in use`, `listen EADDRINUSE`, `BindException: Address already in use`, `port is already allocated`, `failed: port is already allocated`
 * **Przyczyna:** Wybrany port TCP (np. 18080 dla Gateway lub 18100 dla Centrali) jest zajęty przez wcześniej uruchomiony proces w tle lub inną aplikację.
 * **Rozwiązanie:**
   1. Zatrzymaj lokalne aplikacje uruchomione w tle: `bash ./scripts/control-center/control-center.sh app-stop-all`.
@@ -128,6 +128,19 @@
   1. Uruchom aplikację Docker Desktop w systemie Windows.
   2. Upewnij się, że w ustawieniach Docker Desktop włączona jest integracja z dystrybucją WSL2 (*Settings -> Resources -> WSL Integration*).
 * **Szybka akcja w Centrali:** `environment-check`
+
+### `DOCKER_APPS_STARTUP_TIMEOUT`
+* **Identyfikator:** `DOCKER_APPS_STARTUP_TIMEOUT`
+* **Wzorce w logu:** `nie odpowiedzia.*w wyznaczonym czasie`, `Did not respond in time`, `Usluga .* jest OFFLINE`, `Nastepujace uslugi nie odpowiedzialy`
+* **Przyczyna:** Równoległe uruchamianie 15 aplikacji Spring Boot (Java 25) oraz 14 kontenerów PostgreSQL na maszynie deweloperskiej w WSL2/Docker mocno obciąża procesor (CPU) i operacje wejścia/wyjścia (I/O) dysku. Czas potrzebny na start maszyn wirtualnych JVM, załadowanie kontekstu Spring Boot, inicjalizację pul HikariCP i migracje baz danych Flyway może wynieść od 60 do 95 sekund. Jeśli limit czasu oczekiwania w skrypcie był zbyt krótki (np. dawne 45 sekund), system zgłaszał błąd timeoutu, mimo że kontenery żyły (`status: running`), nie uległy awarii i wciąż się poprawnie inicjalizowały.
+* **Rozwiązanie:**
+  1. Kontenery w tle nadal pracują i za chwilę zakończą inicjalizację. Odczekaj kilkanaście sekund, a następnie kliknij przycisk **„Status kontenerów (Docker)”** (`docker-apps-status`) lub **„Sprawdź zdrowie (health)”** w Centrali.
+  2. Sprawdź bieżące logi uruchamiania wybranego serwisu poleceniem w terminalu:
+     ```bash
+     bash ./scripts/control-center/control-center.sh docker-apps-logs order
+     ```
+  3. Jeśli start regularnie trwa zbyt długo z powodu braku zasobów komputera, zwiększ przydział pamięci RAM i rdzeni CPU dla maszyny wirtualnej WSL2 w pliku `%USERPROFILE%\.wslconfig` (np. `memory=12GB`, `processors=6`).
+* **Szybka akcja w Centrali:** `docker-apps-status`
 
 ---
 
@@ -172,3 +185,26 @@
      ```
   2. Alternatywnie uruchom pełny zestaw testów na silnikach bez dodatkowych zależności: **Regresja UI Chromium** (`ui-test-regression`) lub zaktualizowany tryb wieloprzeglądarkowy `ui-test-browsers` (który automatycznie weryfikuje Chromium, Firefox i Mobile-Chrome).
 * **Szybka akcja w Centrali:** `ui-test-regression`
+
+### `PLAYWRIGHT_TEST_ASSERTION_FAILED`
+* **Identyfikator:** `PLAYWRIGHT_TEST_ASSERTION_FAILED`
+* **Wzorce w logu:** `\d+\s+failed`, `Error:\s*expect\(.*failed`, `Error:\s*expect\(received\)\.toBe`, `Error:\s*expect\(locator\)\.toBeVisible\(\) failed`, `TimeoutError:\s*locator\..*waiting for`, `Test timeout of \d+ms exceeded`
+* **Przyczyna:** Jeden lub więcej kroków testów automatycznych interfejsu (UI) zakończyło się błędem asercji (np. rozbieżność stanu koszyka w `localStorage`, niewidoczny element DOM po kliknięciu lub wyścig asynchroniczny z API/sesją w przeglądarce).
+* **Rozwiązanie:**
+  1. Sprawdź szczegóły błędu w logu zadania powyżej lub obejrzyj nagrania wideo i zrzuty ekranu w `gitIgnoreOwn/runtime/playwright/test-results/`.
+  2. Uruchom interaktywny raport Playwright w Centrali przyciskiem **„Raport Playwright (ui-test-report)”** lub poleceniem `bash ./scripts/control-center/control-center.sh ui-test-report`.
+  3. Jeśli błąd wynikał z wyścigu asynchronicznego (race condition) przy szybkiej interakcji (np. kliknięcie dodania do koszyka przed zresolwowaniem sesji klienta w `product-detail.js` lub przejście do podsumowania przed pobraniem wyceny `deliveryQuote` w `store-checkout.js`), upewnij się, że obietnice asynchroniczne (`restoreSession()`, `loadDeliveryQuote()`) są oczekiwane przed interakcją z formularzem.
+* **Szybka akcja w Centrali:** `ui-test-report`
+
+---
+
+## 10. Zamówienia i płatności (Order Service)
+
+### `GUEST_ORDER_LIMIT_EXCEEDED`
+* **Identyfikator:** `GUEST_ORDER_LIMIT_EXCEEDED`
+* **Wzorce w logu:** `Orders with a product subtotal above PLN 1000 require a customer account`, `ACCOUNT_REQUIRED`, `Nie udalo sie utworzyc zamowienia testowego`
+* **Przyczyna:** Próba złożenia zamówienia jako gość (`customerId: null`) na kwotę powyżej 1000 PLN. Polityka platformy (`GUEST_SUBTOTAL_LIMIT = 1000.00 PLN`) chroni sklep przed oszustwami i wymaga posiadania zarejestrowanego i zweryfikowanego konta klienta dla transakcji o wysokiej wartości.
+* **Rozwiązanie:**
+  1. W testach automatycznych (`app-verify`, `e2e`): użyj produktu o cenie poniżej 1000 PLN (np. produkt #1 Samsung 990 PRO - 699,99 PLN lub #2 RAM - 499,99 PLN), ustawiając `APP_VERIFY_PRODUCT_ID=1`.
+  2. W sklepie webowym: zaloguj się na konto klienta przed przejściem do kasy dla koszyka powyżej 1000 PLN.
+* **Szybka akcja w Centrali:** `app-verify`

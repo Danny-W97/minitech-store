@@ -37,6 +37,9 @@ public class OrderClient {
         }
     }
 
-    public record OrderSnapshot(Long id, List<OrderItemSnapshot> items, String status, Long customerId) {}
+    public record OrderSnapshot(Long id, List<OrderItemSnapshot> items, String status, Long customerId,String paymentState,boolean lifecycleReviewRequired) {
+        public OrderSnapshot(Long id,List<OrderItemSnapshot> items,String status,Long customerId,String paymentState) { this(id,items,status,customerId,paymentState,false); }
+        public OrderSnapshot(Long id,List<OrderItemSnapshot> items,String status,Long customerId) { this(id,items,status,customerId,null); }
+    }
     public record OrderItemSnapshot(Long productId) {}
 }

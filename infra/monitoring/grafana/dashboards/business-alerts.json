@@ -1,0 +1,175 @@
+{
+  "title": "Mini Order Platform — awarie biznesowe",
+  "uid": "minitech-business-alerts",
+  "schemaVersion": 39,
+  "editable": false,
+  "tags": [
+    "mini-order-platform",
+    "A35"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Zaległe zadania — max z replik",
+      "description": "Instrukcje reakcji: docs/A35_ALERTY_BIZNESOWE.md. Nie sumować replik czytających tę samą bazę.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "max by(application,queue) (platform_business_queue_count)",
+          "legendFormat": "{{application}} {{queue}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Wiek najstarszego zadania",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "max by(application,queue) (platform_business_queue_oldest_age_seconds)",
+          "legendFormat": "{{application}} {{queue}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kolektor: 0 = wynik nieznany",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "platform_business_collector_up",
+          "legendFormat": "{{instance}} {{queue}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Aktywne alarmy",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "targets": [
+        {
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 1551,
+      "type": "timeseries",
+      "title": "Redis pending — dostarczone bez ACK",
+      "description": "Brak serii oznacza wynik nieznany lub nieświeży. Nie zastępować braku zerem. Maksimum z replik, bez sumowania wspólnej grupy. Odczyt świeży do 120 s; szczegóły w docs/A35_REDIS_PENDING_LAG_155.md. Znacznik z przyszłości jest wykluczany.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "targets": [
+        {
+          "expr": "max by(stream,recipient) (platform_redis_stream_pending and on(instance,application,stream,recipient) ((platform_redis_stream_collector_up == 1) and on(instance,application,stream,recipient) (time() - platform_redis_stream_collector_last_success_timestamp_seconds <= 120) and on(instance,application,stream,recipient) (time() - platform_redis_stream_collector_last_success_timestamp_seconds >= 0) and on(instance,application,stream,recipient) (platform_redis_stream_group_present == 1)))",
+          "legendFormat": "{{stream}} {{recipient}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 1552,
+      "type": "timeseries",
+      "title": "Redis lag — jeszcze niedostarczone",
+      "description": "Brak serii oznacza wynik nieznany lub nieświeży. Nie zastępować braku zerem. Maksimum z replik, bez sumowania wspólnej grupy. Odczyt świeży do 120 s; szczegóły w docs/A35_REDIS_PENDING_LAG_155.md. Znacznik z przyszłości jest wykluczany.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "targets": [
+        {
+          "expr": "max by(stream,recipient) (platform_redis_stream_lag and on(instance,application,stream,recipient) ((platform_redis_stream_collector_up == 1) and on(instance,application,stream,recipient) (time() - platform_redis_stream_collector_last_success_timestamp_seconds <= 120) and on(instance,application,stream,recipient) (time() - platform_redis_stream_collector_last_success_timestamp_seconds >= 0) and on(instance,application,stream,recipient) (platform_redis_stream_group_present == 1)) and on(instance,application,stream,recipient) (platform_redis_stream_lag_known == 1))",
+          "legendFormat": "{{stream}} {{recipient}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 1553,
+      "type": "table",
+      "title": "Redis — stan odczytu per instancja",
+      "description": "collector_up=1: odczyt XINFO poprawny; group_present=1: grupa istnieje; lag_known=1: Redis podał lag. Brak/NaN nie oznacza zera. Wiek odczytu należy sprawdzać osobno. Wyłączony konsument nie rejestruje kolektora.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "targets": [
+        {
+          "expr": "platform_redis_stream_collector_up",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "expr": "platform_redis_stream_group_present",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "expr": "platform_redis_stream_lag_known",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
+        },
+        {
+          "expr": "time() - platform_redis_stream_collector_last_success_timestamp_seconds",
+          "format": "table",
+          "instant": true,
+          "refId": "D"
+        }
+      ]
+    }
+  ]
+}

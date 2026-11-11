@@ -20,7 +20,8 @@ public record NotificationResponse(
         String failureReason,
         Instant createdAt,
         Instant updatedAt,
-        Instant sentAt
+        Instant sentAt,
+        boolean contentCompacted
 ) {
 
     public static NotificationResponse from(Notification notification) {
@@ -30,14 +31,15 @@ public record NotificationResponse(
                 notification.getSourceId(),
                 notification.getRecipient(),
                 notification.getChannel(),
-                notification.getSubject(),
-                notification.getMessage(),
+                notification.isContentCompacted() ? "Content removed" : notification.getSubject(),
+                notification.isContentCompacted() ? "Content removed by retention policy." : notification.getMessage(),
                 notification.getStatus(),
                 notification.getProviderReference(),
                 notification.getFailureReason(),
                 notification.getCreatedAt(),
                 notification.getUpdatedAt(),
-                notification.getSentAt()
+                notification.getSentAt(),
+                notification.isContentCompacted()
         );
     }
 }

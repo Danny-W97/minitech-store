@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "stage": "A43.39",
+  "fullErasureComplete": false,
+  "fullA43Complete": false,
+  "retentionActivation": "A43.40",
+  "resources": {
+    "assistant-provider-copy": {
+      "owner": "platform-operations",
+      "status": "REQUIRED_MANUAL_EVIDENCE",
+      "handling": "Preview and one-use explicit confirmation for every configured endpoint; provider copies require scoped manual request and outcome evidence.",
+      "remainingLimit": "Actual provider account, configuration, recipients, terms and erasure evidence unknown.",
+      "procedure": "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+    },
+    "assistant-egress-approvals": {
+      "owner": "platform-operations",
+      "status": "IMPLEMENTED_BOUNDED_RAM",
+      "handling": "Session-bound single-use digests, 300 seconds, capacity 64; no stored payload or credentials.",
+      "remainingLimit": "Cannot undo in-flight delivery; expired entries inaccessible until lazy sweep/process end.",
+      "procedure": "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+    },
+    "mail-payment-providers": {
+      "owner": "notification-service/payment-service/platform-operations",
+      "status": "REQUIRED_MANUAL_EVIDENCE",
+      "handling": "Assess SMTP CC, SMTP Notification, Notification External API, payment provider and final recipients separately.",
+      "remainingLimit": "A05_DEFERRED; actual accounts/configuration/provider outcomes unknown.",
+      "procedure": "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+    },
+    "browser-downloads": {
+      "owner": "device-user/managed-device-administrator",
+      "status": "USER_MANAGED",
+      "handling": "User identifies downloads, attachments, synchronized and device backup copies; scoped manual handling.",
+      "remainingLimit": "No remote filesystem deletion or global erasure promise.",
+      "procedure": "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+    },
+    "historical-chat-proof": {
+      "owner": "authorized-support",
+      "status": "MANUAL_REVIEW",
+      "handling": "Independent alternative evidence for specific conversation, review/redact third-party data; insufficient proof stays unresolved.",
+      "remainingLimit": "No email matching, token recovery or automated export/erase.",
+      "procedure": "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+    },
+    "deleted-chat-status": {
+      "owner": "authorized-support",
+      "status": "MANUAL_REVIEW",
+      "handling": "Keep minimal existing request receipt; public token access ends with conversation; support verifies evidence separately.",
+      "remainingLimit": "No new token hash/status secret; MANUAL_REVIEW receipt does not prove execution.",
+      "procedure": "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+    }
+  },
+  "requiredEvidence": [
+    "actual-provider-configuration-and-recipients",
+    "provider-specific-request-and-outcome-evidence",
+    "authorized-case-process-and-evidence-custody",
+    "A05_DEFERRED"
+  ],
+  "sourceFiles": [
+    "scripts/control-center/web/cc_ai_delivery.py",
+    "scripts/control-center/web/cc_ai.py",
+    "scripts/control-center/web/cc_http.py",
+    "scripts/control-center/web/assistant-delivery-review.js",
+    "scripts/control-center/web/assistant-conversation.js",
+    "chat-service/src/main/java/org/demo/chatservice/privacy/ChatPrivacyRequestStore.java",
+    "chat-service/src/main/resources/db/migration/V6__conversation_privacy_requests.sql",
+    "scripts/control-center/web/cc_data.py",
+    "notification-service/src/main/java/org/demo/notificationservice/notification/SmtpNotificationDeliveryService.java",
+    "notification-service/src/main/java/org/demo/notificationservice/notification/ExternalApiNotificationDeliveryService.java",
+    "payment-service/src/main/resources/application.yaml"
+  ]
+}

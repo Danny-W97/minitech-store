@@ -21,6 +21,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
+    @org.junit.jupiter.api.AfterEach void clearCorrelationFixture() { org.slf4j.MDC.clear(); }
+
 
     @Mock
     private NotificationRepository notificationRepository;
@@ -37,13 +39,25 @@ class NotificationServiceTest {
     @InjectMocks
     private NotificationService notificationService;
 
+    private Notification saved;
+    @org.junit.jupiter.api.BeforeEach void stateStore() {
+        org.slf4j.MDC.clear();
+        org.springframework.test.util.ReflectionTestUtils.setField(notificationService,"states",new NotificationStateStore(notificationRepository,retryPolicy,deadLetterService,120000));
+        org.mockito.Mockito.lenient().when(notificationRepository.lockId(any())).thenAnswer(call -> Optional.ofNullable(saved));
+    }
+    private Notification save(org.mockito.invocation.InvocationOnMock call) {
+        saved=call.getArgument(0);
+        if(saved.getId()==null) org.springframework.test.util.ReflectionTestUtils.setField(saved,"id",1L);
+        return saved;
+    }
+
     @Test
     void notificationIsSentAndStored() {
-        when(notificationRepository.findByEventTypeAndSourceIdAndRecipient(
+        when(notificationRepository.lockKey(
                 NotificationEventType.PAYMENT_SUCCEEDED, 11L, "customer@example.com"
         )).thenReturn(Optional.empty());
         when(notificationRepository.save(any(Notification.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(this::save);
         when(deliveryService.deliver(any(Notification.class), eq(false)))
                 .thenReturn(NotificationDeliveryResult.sent("SMTP-12345678"));
 
@@ -64,11 +78,11 @@ class NotificationServiceTest {
 
     @Test
     void simulatedFailureCanBeRetried() {
-        when(notificationRepository.findByEventTypeAndSourceIdAndRecipient(
+        when(notificationRepository.lockKey(
                 NotificationEventType.PAYMENT_FAILED, 11L, "customer@example.com"
         )).thenReturn(Optional.empty());
         when(notificationRepository.save(any(Notification.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(this::save);
         when(deliveryService.deliver(any(Notification.class), eq(true)))
                 .thenReturn(NotificationDeliveryResult.failed(
                         "Notification delivery declined by the simulation"
@@ -91,11 +105,11 @@ class NotificationServiceTest {
     @Test
     void providerFailureSchedulesBoundedRetry() {
         Instant nextAttemptAt = Instant.now().plusSeconds(5);
-        when(notificationRepository.findByEventTypeAndSourceIdAndRecipient(
+        when(notificationRepository.lockKey(
                 NotificationEventType.PAYMENT_FAILED, 11L, "customer@example.com"
         )).thenReturn(Optional.empty());
         when(notificationRepository.save(any(Notification.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(this::save);
         when(deliveryService.deliver(any(Notification.class), eq(false)))
                 .thenReturn(NotificationDeliveryResult.failed("SMTP unavailable"));
         when(retryPolicy.nextAttemptAt(1)).thenReturn(nextAttemptAt);
@@ -129,7 +143,7 @@ class NotificationServiceTest {
                 "Payment for order 11 was confirmed."
         );
         existingNotification.markSent("SIM-12345678");
-        when(notificationRepository.findByEventTypeAndSourceIdAndRecipient(
+        when(notificationRepository.lockKey(
                 NotificationEventType.PAYMENT_SUCCEEDED, 11L, "customer@example.com"
         )).thenReturn(Optional.of(existingNotification));
 

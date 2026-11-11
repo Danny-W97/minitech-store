@@ -10,6 +10,8 @@ spring:
     password:
   jpa:
     open-in-view: false
+    properties:
+      hibernate.query.fail_on_pagination_over_collection_fetch: true
     hibernate:
       ddl-auto: create-drop
   flyway:
@@ -20,5 +22,9 @@ services:
     base-url: http://localhost:18081
   inventory:
     base-url: http://localhost:18083
+  delivery:
+    base-url: http://localhost:18088
   promotion:
     base-url: http://localhost:18089
+
+order.coupons.expiry-enabled: false

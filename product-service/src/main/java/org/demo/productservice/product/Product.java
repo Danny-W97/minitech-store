@@ -46,6 +46,9 @@ public class Product {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "price_revision", nullable = false)
+    private long priceRevision;
+
     @Column(nullable = false)
     private boolean active;
 
@@ -79,6 +82,7 @@ public class Product {
         this.model = model;
         this.technicalParameters = copyParameters(technicalParameters);
         this.price = price;
+        this.priceRevision = 1;
         this.active = active;
         this.imageUrl = imageUrl;
     }
@@ -112,7 +116,10 @@ public class Product {
         if (manufacturer != null) this.manufacturer = manufacturer;
         if (model != null) this.model = model;
         if (technicalParameters != null) this.technicalParameters = copyParameters(technicalParameters);
-        if (price != null) this.price = price;
+        if (price != null && this.price.compareTo(price) != 0) {
+            this.price = price;
+            this.priceRevision++;
+        }
         if (active != null) this.active = active;
         if (imageUrl != null) this.imageUrl = imageUrl;
     }
@@ -152,6 +159,8 @@ public class Product {
     public BigDecimal getPrice() {
         return price;
     }
+
+    public long getPriceRevision() { return priceRevision; }
 
     public boolean isActive() {
         return active;

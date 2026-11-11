@@ -37,6 +37,39 @@ public class InventoryClient {
             throw new InventoryServiceException("Could not reach Inventory Service", exception);
         }
     }
+    public void confirmDeferred(Long orderId,Long reservationId) {
+        if(reservationId==null) throw new InventoryServiceException("Deferred order has no inventory reservation");
+        try {
+            var result=resilientHttpExecutor.execute("inventory",() -> restClient.post()
+                    .uri("/inventory/reservations/{id}/confirm",reservationId).retrieve().body(Confirmation.class));
+            if(result==null || !orderId.equals(result.orderId()) || !reservationId.equals(result.reservationId()) || !"CONFIRMED".equals(result.status()))
+                throw new InventoryServiceException("Inventory did not confirm this order's reservation");
+        } catch(RestClientException error) { throw new InventoryServiceException("Could not confirm deferred inventory",error); }
+    }
+    public record Confirmation(Long reservationId,Long orderId,String status) {}
+
+    public void extendForCheckout(Long orderId,Long reservationId,java.time.Instant expiresAt) {
+        if(orderId==null || reservationId==null || expiresAt==null)
+            throw new InventoryServiceException("Stripe Checkout requires an active order reservation");
+        try {
+            var result=resilientHttpExecutor.execute("inventory",() -> restClient.post()
+                    .uri("/inventory/reservations/{id}/checkout-extension",reservationId)
+                    .body(new CheckoutExtension(orderId,expiresAt)).retrieve().body(Confirmation.class));
+            if(result==null || !orderId.equals(result.orderId()) || !reservationId.equals(result.reservationId()) || !"RESERVED".equals(result.status()))
+                throw new InventoryServiceException("Inventory did not extend this order's reservation");
+        } catch(RestClientException error) { throw new InventoryServiceException("Could not extend inventory for Stripe Checkout",error); }
+    }
+    public record CheckoutExtension(Long orderId,java.time.Instant expiresAt) {}
+    public void compensateStripe(Long orderId,Long reservationId) {
+        if(reservationId==null) throw new InventoryServiceException("Stripe compensation requires a reservation identity");
+        try {
+            var result=resilientHttpExecutor.execute("inventory",() -> restClient.post()
+                    .uri("/inventory/reservations/{id}/stripe-compensation",reservationId).body(java.util.Map.of("orderId",orderId))
+                    .retrieve().body(Confirmation.class));
+            if(result==null || !orderId.equals(result.orderId()) || !reservationId.equals(result.reservationId()) || !"RELEASED".equals(result.status()))
+                throw new InventoryServiceException("Inventory did not confirm Stripe compensation");
+        } catch(RestClientException error) { throw new InventoryServiceException("Stripe inventory compensation unavailable",error); }
+    }
 
     /**
      * Kept as a compatibility entry point for the payment flow. Retry policy

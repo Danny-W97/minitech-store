@@ -5,8 +5,6 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.List;
 
 /**
  * Provides a deterministic daily merchandising layer without storing mutable
@@ -21,10 +19,8 @@ public class DailyCatalogRotation {
     private static final int MIN_DISCOUNT_PERCENT = 5;
     private static final int MAX_DISCOUNT_PERCENT = 50;
 
-    public ProductOffer offerFor(Product product, List<Product> catalog) {
-        LocalDate rotationDate = LocalDate.now(ZoneOffset.UTC);
-        int size = Math.max(catalog.size(), 1);
-        int index = indexOf(product, catalog);
+    public ProductOffer offerFor(Product product, int index, int catalogSize, LocalDate rotationDate) {
+        int size = Math.max(catalogSize, 1);
         long day = rotationDate.toEpochDay();
 
         int newOffset = Math.floorMod(day, size);
@@ -58,15 +54,6 @@ public class DailyCatalogRotation {
                 newProduct,
                 rotationDate
         );
-    }
-
-    private int indexOf(Product product, List<Product> catalog) {
-        for (int index = 0; index < catalog.size(); index++) {
-            if (product.getId().equals(catalog.get(index).getId())) {
-                return index;
-            }
-        }
-        return 0;
     }
 
     public record ProductOffer(

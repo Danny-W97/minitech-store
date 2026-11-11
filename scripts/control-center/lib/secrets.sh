@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Secrets management, SOPS, age, and JWT rotation for Mini Order Platform Control Center
+source "$PROJECT_ROOT/scripts/control-center/lib/platform-auth.sh"
 
 secret_key_file() {
   printf '%s/%s.agekey' "$SECRET_KEY_DIRECTORY" "$1"
@@ -253,7 +254,7 @@ jwt_rotate() {
   key_file="$(secret_key_file "$profile")"
   encrypted_file="$(secret_encrypted_file "$profile")"
   temp_file="$(decrypt_profile_to_temp "$profile")" || return 1
-  encrypted_temp="$(mktemp "${TMPDIR:-/tmp}/mini-order-platform-secrets-jwt.XXXXXX")" || {
+  encrypted_temp="$(mktemp "$(dirname -- "$encrypted_file")/.mini-order-platform-secrets-jwt.XXXXXX")" || {
     rm -f -- "$temp_file"
     return 1
   }
@@ -268,19 +269,28 @@ jwt_rotate() {
   chmod 600 "$temp_file" "$encrypted_temp" "$private_der" "$public_der"
   trap 'rm -f -- "$temp_file" "$encrypted_temp" "$private_der" "$public_der"' RETURN
 
+  # Preserve old MFA derivation BEFORE replacing any JWT material, even on the first rotation.
+  python3 "$PROJECT_ROOT/scripts/security/credentials.py" "$temp_file" || return 1
+
   key_id="rsa-$(date -u +%Y%m%d%H%M%S)-$(openssl rand -hex 4)"
   if ! openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
-      -outform DER -out "$private_der" >/dev/null 2>&1; then
+      -out "$private_der" >/dev/null 2>&1; then
     printf '%sNie udalo sie wygenerowac prywatnego klucza RSA.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
   fi
+  # OpenSSL's RSA DER output can be PKCS#1; Java's PKCS8EncodedKeySpec requires PKCS#8.
+  if ! openssl pkcs8 -topk8 -nocrypt -in "$private_der" -outform DER -out "$public_der" >/dev/null 2>&1; then
+    printf 'Nie udalo sie zapisac klucza JWT w formacie PKCS#8.\n' >&2
+    return 1
+  fi
+  mv -f -- "$public_der" "$private_der" || return 1
   if ! openssl pkey -inform DER -in "$private_der" -pubout -outform DER -out "$public_der" >/dev/null 2>&1; then
     printf '%sNie udalo sie wygenerowac publicznego klucza RSA.%s\n' "$C_RED" "$C_RESET" >&2
     return 1
   fi
   private_key="$(platform_base64_file "$private_der")"
   public_key="$(platform_base64_file "$public_der")"
-  previous_public_keys="$(set -a; source "$temp_file"; printf '%s' "${CUSTOMER_JWT_PUBLIC_KEYS_JSON:-}")"
+  previous_public_keys="$(unset CUSTOMER_JWT_PUBLIC_KEYS_JSON; set -a; source "$temp_file"; printf '%s' "${CUSTOMER_JWT_PUBLIC_KEYS_JSON:-}")"
   merged_public_keys="$(JWT_OLD_PUBLIC_KEYS_JSON="$previous_public_keys" \
     JWT_NEW_PUBLIC_KEY="$public_key" JWT_NEW_KEY_ID="$key_id" python3 -c \
     'import json, os; value=os.environ.get("JWT_OLD_PUBLIC_KEYS_JSON", ""); data=json.loads(value) if value else {}; data[os.environ["JWT_NEW_KEY_ID"]]=os.environ["JWT_NEW_PUBLIC_KEY"]; print(json.dumps(data, separators=(",", ":")))')" || return 1
@@ -296,9 +306,17 @@ jwt_rotate() {
     printf '%sNie udalo sie zapisac rotacji JWT dla profilu %s.%s\n' "$C_RED" "$profile" "$C_RESET" >&2
     return 1
   fi
-  mv -f -- "$encrypted_temp" "$encrypted_file"
+  mv -f -- "$encrypted_temp" "$encrypted_file" || return 1
   printf '%sWygenerowano klucz JWT RSA dla profilu %s. Aktywny kid: %s. Poprzednie klucze publiczne pozostaly do weryfikacji tokenow.%s\n' \
     "$C_GREEN" "$profile" "$key_id" "$C_RESET"
+}
+
+mfa_rotate() {
+  local profile="${1:-$(active_profile)}"
+  secret_profile_supported "$profile" || return 2
+  secrets_tools_check || return 1
+  ensure_platform_auth "$profile" --rotate-mfa-key || return 1
+  printf 'Zapisano nowy niezalezny klucz MFA dla %s; poprzednie klucze zachowano. Zatrzymaj wszystkie instancje Customer Service i uruchom ponownie, aby wykonac migracje.\n' "$profile"
 }
 
 
@@ -322,6 +340,7 @@ secrets_validate() {
     local failures=0 variable
     local required_variables=(
       PRODUCT_DB_PASSWORD ORDER_DB_PASSWORD INVENTORY_DB_PASSWORD
+      CUSTOMER_MFA_ENCRYPTION_KEY_BASE64
       PAYMENT_DB_PASSWORD NOTIFICATION_DB_PASSWORD CUSTOMER_DB_PASSWORD DELIVERY_DB_PASSWORD PROMOTION_DB_PASSWORD WISHLIST_DB_PASSWORD REVIEW_DB_PASSWORD RECOMMENDATION_DB_PASSWORD CHAT_DB_PASSWORD RETURNS_DB_PASSWORD BILLING_DB_PASSWORD GRAFANA_ADMIN_PASSWORD
     )
     for variable in "${required_variables[@]}"; do
@@ -607,7 +626,7 @@ secrets_edit() {
 
 secret_web_variable_supported() {
   case "$1" in
-    PRODUCT_DB_PASSWORD|ORDER_DB_PASSWORD|INVENTORY_DB_PASSWORD|PAYMENT_DB_PASSWORD|NOTIFICATION_DB_PASSWORD|CUSTOMER_DB_PASSWORD|DELIVERY_DB_PASSWORD|PROMOTION_DB_PASSWORD|WISHLIST_DB_PASSWORD|REVIEW_DB_PASSWORD|RECOMMENDATION_DB_PASSWORD|CHAT_DB_PASSWORD|RETURNS_DB_PASSWORD|BILLING_DB_PASSWORD|CUSTOMER_JWT_SECRET|GRAFANA_ADMIN_PASSWORD|GRAFANA_ADMIN_USER|MAIL_HOST|MAIL_PORT|MAIL_USERNAME|MAIL_PASSWORD|MAIL_FROM|MAIL_SMTP_AUTH|MAIL_SMTP_STARTTLS_ENABLE|CHAT_SUPPORT_EMAIL)
+    PRODUCT_DB_PASSWORD|ORDER_DB_PASSWORD|INVENTORY_DB_PASSWORD|PAYMENT_DB_PASSWORD|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|NOTIFICATION_DB_PASSWORD|CUSTOMER_DB_PASSWORD|DELIVERY_DB_PASSWORD|PROMOTION_DB_PASSWORD|WISHLIST_DB_PASSWORD|REVIEW_DB_PASSWORD|RECOMMENDATION_DB_PASSWORD|CHAT_DB_PASSWORD|RETURNS_DB_PASSWORD|BILLING_DB_PASSWORD|CUSTOMER_JWT_SECRET|GRAFANA_ADMIN_PASSWORD|GRAFANA_ADMIN_USER|MAIL_HOST|MAIL_PORT|MAIL_USERNAME|MAIL_PASSWORD|MAIL_FROM|MAIL_SMTP_AUTH|MAIL_SMTP_STARTTLS_ENABLE|CHAT_SUPPORT_EMAIL)
       return 0
       ;;
     *)
@@ -844,8 +863,12 @@ decrypt_profile_to_temp() {
 load_profile_secrets() {
   local profile="$1"
   secret_profile_supported "$profile" || return 0
+  ensure_platform_auth "$profile" || return 1
   local temp_file
   temp_file="$(decrypt_profile_to_temp "$profile")" || return 1
+  # A retired key absent from this profile must not survive an earlier load in the parent shell.
+  local mfa_variable
+  for mfa_variable in ${!CUSTOMER_MFA_@}; do unset "$mfa_variable"; done
   set -a
   # shellcheck disable=SC1090
   source "$temp_file"

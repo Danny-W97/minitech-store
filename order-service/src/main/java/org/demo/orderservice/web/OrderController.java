@@ -1,5 +1,8 @@
 package org.demo.orderservice.web;
 
+import org.demo.platformsecurity.Access;
+import org.demo.platformsecurity.OrderAccess;
+
 import jakarta.validation.Valid;
 import org.demo.orderservice.order.OrderService;
 import org.demo.orderservice.order.OrderSagaService;
@@ -31,6 +34,8 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<OrderResponse> create(
+            @io.swagger.v3.oas.annotations.Parameter(description="Stable checkout key, bound to owner and canonical request. Reuse for retries; changed intent returns 409.",
+                    schema=@io.swagger.v3.oas.annotations.media.Schema(minLength=1,maxLength=100,pattern="^[!-~]+$"))
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateOrderRequest request
     ) {
@@ -38,13 +43,19 @@ public class OrderController {
     }
 
     @GetMapping
-    public List<OrderResponse> getAll() {
-        return orderService.getAll();
+    public ResponseEntity<List<OrderResponse>> getAll(@RequestParam(defaultValue = "0") long cursor,
+            @RequestParam(defaultValue = "50") int size, @RequestParam(required = false) org.demo.orderservice.order.OrderStatus status,
+            @RequestParam(defaultValue = "") String search) {
+        return orderService.list(null, status, null, search, new org.demo.platformsecurity.ListWindow(cursor, size)).response();
     }
 
     @GetMapping("/customer/{customerId}")
-    public List<OrderResponse> getForCustomer(@PathVariable Long customerId) {
-        return orderService.getForCustomer(customerId);
+    public ResponseEntity<List<OrderResponse>> getForCustomer(@PathVariable Long customerId,
+            @RequestParam(defaultValue = "0") long cursor, @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) org.demo.orderservice.order.OrderStatus status,
+            @RequestParam(required = false) Long productId) {
+        Access.customer(customerId);
+        return orderService.list(customerId, status, productId, "", new org.demo.platformsecurity.ListWindow(cursor, size)).response();
     }
 
     @GetMapping("/bestsellers")
@@ -54,6 +65,7 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public OrderResponse get(@PathVariable Long id) {
+        orderService.requireOwner(id);
         return orderService.get(id);
     }
 
@@ -67,6 +79,8 @@ public class OrderController {
             @PathVariable Long id,
             @Valid @RequestBody ChangeOrderStatusRequest request
     ) {
+        if (Access.actor().internal()) Access.require(request.status() == org.demo.orderservice.order.OrderStatus.PAID
+                || request.status() == org.demo.orderservice.order.OrderStatus.CANCELLED);
         return orderService.changeStatus(id, request.status());
     }
 }

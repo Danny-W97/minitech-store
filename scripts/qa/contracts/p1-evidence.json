@@ -1,0 +1,225 @@
+{
+  "description": "P1 evidence map, not a production-readiness declaration. Open work must remain visible.",
+  "findings": {
+    "A01": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "scripts/qa/access-control-e2e.py",
+          "marker": "including payment guards"
+        },
+        {
+          "path": "platform-security/src/test/java/org/demo/platformsecurity/AccessControlTest.java",
+          "marker": "class AccessControlTest"
+        }
+      ],
+      "ciCommands": [
+        "python3 scripts/qa/access-control-e2e.py"
+      ]
+    },
+    "A02": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "platform-security/src/test/java/org/demo/platformsecurity/AccessControlTest.java",
+          "marker": "class AccessControlTest"
+        }
+      ],
+      "ciCommands": [
+        "python3 scripts/qa/access-control-e2e.py"
+      ]
+    },
+    "A03": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "scripts/qa/unit/api-config.test.cjs",
+          "marker": "test("
+        }
+      ],
+      "ciCommands": [
+        "pnpm run test:unit"
+      ]
+    },
+    "A04": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "order-service/src/test/java/org/demo/orderservice/order/CheckoutRulesTest.java",
+          "marker": "guestLimitUsesAuthoritativeProductPricesBeforeDiscountOrDelivery"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/access-control-e2e.py"
+      ]
+    },
+    "A05": {
+      "state": "partial",
+      "evidence": [
+        {
+          "path": "payment-service/src/test/java/org/demo/paymentservice/payment/PaymentGatewayConfigurationTest.java",
+          "marker": "missingProductionProviderCannotApprovePayment"
+        },
+        {
+          "path": "payment-service/src/test/java/org/demo/paymentservice/payment/StripeSettlementRecoveryTest.java",
+          "marker": "lostRefundResponseIsReconciledByMetadataAndNeverPostsASecondRefund"
+        },
+        {
+          "path": "payment-service/src/test/java/org/demo/paymentservice/payment/StripeSettlementRecoveryTest.java",
+          "marker": "refundArrivingBeforePaidWebhookNeverStartsFulfillmentAndCanRecoverOrderHold"
+        },
+        {
+          "path": "order-service/src/test/java/org/demo/orderservice/order/StripeRefundHoldTest.java",
+          "marker": "shippingAndRefundHaveExactlyOneWinner"
+        },
+        {
+          "path": "inventory-service/src/test/java/org/demo/inventoryservice/inventory/StripeStockCompensationTest.java",
+          "marker": "compensatedConfirmedSaleIsRestockedExactlyOnceAcrossConcurrentRetries"
+        },
+        {
+          "path": "scripts/qa/stripe-payments-e2e.py",
+          "marker": "PASS A05:"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/stripe-payments-e2e.py",
+        "pnpm run test:unit"
+      ],
+      "remaining": "Application code for Stripe Checkout, signed canonical confirmation, full refunds and crash recovery is implemented and covered locally. The user must manually add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET to BOTH dev.env.sops and test.env.sops, configure the matching webhook, and complete external Stripe sandbox acceptance. Local protocol-fixture tests are not external sandbox evidence. Full business reversal of invoices/coupons/fulfillment remains the separate A11 extension beyond its accepted MVP."
+    },
+    "A06": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "order-service/src/test/java/org/demo/orderservice/order/OrderCreationTransactionTest.java",
+          "marker": "class OrderCreationTransactionTest"
+        },
+        {
+          "path": "order-service/src/test/java/org/demo/orderservice/order/OrderLifecycleTest.java",
+          "marker": "concurrentPaidAndCancelledHaveExactlyOneWinner"
+        },
+        {
+          "path": "scripts/qa/order-lifecycle-e2e.py",
+          "marker": "PASS A06:"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/order-lifecycle-e2e.py"
+      ]
+    },
+    "A07": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "inventory-service/src/test/java/org/demo/inventoryservice/inventory/InventoryConcurrencyTest.java",
+          "marker": "class InventoryConcurrencyTest"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify"
+      ]
+    },
+    "A08": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "payment-service/src/test/java/org/demo/paymentservice/payment/PaymentTransactionBoundaryTest.java",
+          "marker": "simultaneousFollowerReturnsTheExactCommittedResultWithoutRepeatingEffects"
+        },
+        {
+          "path": "scripts/qa/payment-replicas-e2e.py",
+          "marker": "PASS A08:"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/payment-replicas-e2e.py"
+      ]
+    },
+    "A09": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "payment-service/src/test/java/org/demo/paymentservice/followup/FollowUpRecoveryTest.java",
+          "marker": "unavailableDependenciesRemainDurableAndRecoverWithoutAnotherPaymentRequest"
+        },
+        {
+          "path": "scripts/qa/payment-follow-ups-e2e.py",
+          "marker": "PASS A09:"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/payment-follow-ups-e2e.py"
+      ]
+    },
+    "A10": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "payment-service/src/test/java/org/demo/paymentservice/payment/DeferredPaymentLifecycleTest.java",
+          "marker": "concurrentCollectionOnTwoThreadsReplaysTheSameRecordedResult"
+        },
+        {
+          "path": "scripts/qa/deferred-payments-e2e.py",
+          "marker": "PASS A10:"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/deferred-payments-e2e.py"
+      ]
+    },
+    "A11": {
+      "state": "done",
+      "scope": "Audit-recommended MVP alternative: block unsafe cancellation of paid/accepted orders; durably fence and compensate unpaid orders. A05 adds full Stripe refunds with durable financial holds; full reversal of invoices, coupons and fulfillment remains a separate domain extension.",
+      "evidence": [
+        {"path": "payment-service/src/test/java/org/demo/paymentservice/payment/CancellationFenceTest.java", "marker": "racingClaimAndCancellationCannotBothSucceed"},
+        {"path": "order-service/src/test/java/org/demo/orderservice/order/CancellationSafetyTest.java", "marker": "paidOrdersCannotBeCancelledWithOrWithoutASaga"},
+        {"path": "scripts/qa/cancellations-e2e.py", "marker": "PASS A11:"}
+      ],
+      "ciCommands": ["./mvnw --batch-mode -Pintegration verify", "python3 scripts/qa/cancellations-e2e.py"]
+    },
+    "A12": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "billing-service/src/test/java/org/demo/billingservice/billing/InvoiceOrderVerifierTest.java",
+          "marker": "class InvoiceOrderVerifierTest"
+        }
+      ],
+      "ciCommands": [
+        "./mvnw --batch-mode -Pintegration verify",
+        "python3 scripts/qa/access-control-e2e.py"
+      ]
+    },
+    "A21": {
+      "state": "done",
+      "evidence": [
+        {"path":"inventory-service/src/test/java/org/demo/inventoryservice/inventory/StockOperationTest.java","marker":"receivingConcurrentlyWithReservationPreservesBothDeltas"},
+        {"path":"scripts/qa/inventory-receipts-e2e.py","marker":"PASS A21:"},
+        {"path":"e2e/control-center/security.spec.ts","marker":"stock receipt keeps the same operation after a lost reply and page reload"}
+      ],
+      "ciCommands": ["./mvnw --batch-mode -Pintegration verify","python3 scripts/qa/inventory-receipts-e2e.py","pnpm run test:cc"]
+    },
+    "A22": {
+      "state": "done",
+      "evidence": [
+        {
+          "path": "customer-service/src/test/java/org/demo/customerservice/auth/JwtServiceRotationTest.java",
+          "marker": "rotationRetainsPreviousTokensUntilTheirPublicKeyIsRetired"
+        },
+        {
+          "path": "scripts/qa/mfa-key-rotation-e2e.py",
+          "marker": "def main("
+        }
+      ],
+      "ciCommands": [
+        "python3 scripts/qa/mfa-key-rotation-e2e.py --with-session-checks"
+      ]
+    }
+  }
+}

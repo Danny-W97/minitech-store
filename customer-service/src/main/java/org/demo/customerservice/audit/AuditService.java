@@ -1,6 +1,6 @@
 package org.demo.customerservice.audit;
 
-import org.demo.customerservice.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -21,8 +21,18 @@ public class AuditService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(String eventType, String actor, String resource, String outcome, String metadata) {
+        persist(null,eventType,actor,resource,outcome,metadata);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordForCustomer(Long customerId,String eventType,String actor,String resource,String outcome,String metadata) {
+        persist(customerId!=null && customerId>0?customerId:null,eventType,actor,resource,outcome,metadata);
+    }
+
+    private void persist(Long customerId,String eventType,String actor,String resource,String outcome,String metadata) {
         try {
             repository.save(new AuditEvent(
+                    customerId,
                     eventType,
                     safe(actor, "anonymous", 255),
                     safe(resource, "unknown", 120),

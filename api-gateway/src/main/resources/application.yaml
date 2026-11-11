@@ -6,9 +6,12 @@ spring:
   data:
     redis:
       url: ${REDIS_URL:redis://127.0.0.1:16379}
+      connect-timeout: ${GATEWAY_REDIS_CONNECT_TIMEOUT:500ms}
+      timeout: ${GATEWAY_REDIS_TIMEOUT:500ms}
 
 server:
   port: ${SERVER_PORT:18080}
+  forward-headers-strategy: none
 
 springdoc:
   api-docs:
@@ -110,8 +113,9 @@ frontend:
 
 resilience:
   http:
+    request-budget-ms: ${RESILIENCE_HTTP_REQUEST_BUDGET_MS:15000}
     connect-timeout-ms: ${RESILIENCE_HTTP_CONNECT_TIMEOUT_MS:1000}
-    read-timeout-ms: ${RESILIENCE_HTTP_READ_TIMEOUT_MS:15000}
+    read-timeout-ms: ${GATEWAY_HTTP_READ_TIMEOUT_MS:${RESILIENCE_HTTP_READ_TIMEOUT_MS:15000}}
   retry:
     max-attempts: ${RESILIENCE_RETRY_MAX_ATTEMPTS:3}
     initial-backoff-ms: ${RESILIENCE_RETRY_INITIAL_BACKOFF_MS:200}
@@ -127,8 +131,17 @@ resilience:
     max-wait-duration-ms: ${RESILIENCE_BULKHEAD_MAX_WAIT_DURATION_MS:0}
 
 gateway:
+  export:
+    max-concurrent: ${GATEWAY_EXPORT_MAX_CONCURRENT:2}
+    connect-timeout-ms: ${GATEWAY_EXPORT_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${GATEWAY_EXPORT_READ_TIMEOUT_MS:30000}
   rate-limit:
     enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
     requests-per-window: ${GATEWAY_RATE_LIMIT_REQUESTS_PER_WINDOW:120}
     window-seconds: ${GATEWAY_RATE_LIMIT_WINDOW_SECONDS:60}
     fail-open: ${GATEWAY_RATE_LIMIT_FAIL_OPEN:true}
+    trusted-proxy-cidrs: ${GATEWAY_TRUSTED_PROXY_CIDRS:}
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState

@@ -1,0 +1,22 @@
+# Trivy CVE ignore list for pinned base images and upstream libraries
+# Pinned Ubuntu 26.04 base image (apt/libapt-pkg7.0)
+CVE-2026-109518
+
+# Pinned Alpine 3.24 base image (libexpat)
+CVE-2026-113351
+CVE-2026-115506
+CVE-2026-117610
+CVE-2026-118370
+
+# Pinned Alpine 3.24 base image (libxslt)
+CVE-2026-87636
+CVE-2026-9947
+
+# Upstream Java dependencies (Spring WebMVC and Jackson)
+CVE-2026-47884
+CVE-2026-47890
+CVE-2026-89407
+CVE-2026-89425
+CVE-2026-68497
+CVE-2026-91776
+CVE-2026-91777

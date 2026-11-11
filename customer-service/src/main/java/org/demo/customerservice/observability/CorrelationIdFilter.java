@@ -6,28 +6,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
 @Component
-public class CorrelationIdFilter extends OncePerRequestFilter {
-
+public class CorrelationIdFilter extends org.demo.platformobservability.CorrelationIdFilter {
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
-        String correlationId = CorrelationIdContext.resolve(
-                request.getHeader(CorrelationIdContext.HEADER_NAME)
-        );
-        try (MDC.MDCCloseable ignored = MDC.putCloseable(CorrelationIdContext.MDC_KEY, correlationId);
-             MDC.MDCCloseable ignoredIp = MDC.putCloseable("auditClientIp", request.getRemoteAddr());
-             MDC.MDCCloseable ignoredUserAgent = MDC.putCloseable(
-                     "auditUserAgent", request.getHeader("User-Agent") == null ? "" : request.getHeader("User-Agent"))) {
-            response.setHeader(CorrelationIdContext.HEADER_NAME, correlationId);
-            filterChain.doFilter(request, response);
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        try (var ignoredIp = MDC.putCloseable("auditClientIp", request.getRemoteAddr());
+             var ignoredAgent = MDC.putCloseable("auditUserAgent",
+                     request.getHeader("User-Agent") == null ? "" : request.getHeader("User-Agent"))) {
+            super.doFilterInternal(request, response, chain);
         }
     }
 }

@@ -1,5 +1,8 @@
 package org.demo.deliveryservice.web;
 
+import org.demo.platformsecurity.Access;
+import org.demo.platformsecurity.OrderAccess;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,17 +22,24 @@ import java.util.List;
 @RequestMapping("/deliveries")
 @Tag(name = "Delivery", description = "Delivery methods and shipping quotes")
 public class DeliveryController {
+    private final OrderAccess orderAccess;
 
     private final DeliveryService deliveryService;
 
-    public DeliveryController(DeliveryService deliveryService) {
-        this.deliveryService = deliveryService;
+    public DeliveryController(DeliveryService deliveryService, OrderAccess orderAccess) {
+        this.deliveryService = deliveryService; this.orderAccess = orderAccess;
     }
 
     @GetMapping("/methods")
     @Operation(summary = "List active delivery methods")
     public List<DeliveryMethodResponse> methods() {
         return deliveryService.getMethods();
+    }
+
+    @GetMapping("/pickup-locations")
+    @Operation(summary = "List active store pickup locations")
+    public List<PickupLocationResponse> pickupLocations() {
+        return deliveryService.getPickupLocations();
     }
 
     @PostMapping("/quote")
@@ -48,6 +58,7 @@ public class DeliveryController {
     @GetMapping("/orders/{orderId}/tracking")
     @Operation(summary = "Get shipment tracking")
     public ShipmentResponse tracking(@PathVariable Long orderId) {
+        orderAccess.require(orderId);
         return deliveryService.tracking(orderId);
     }
 

@@ -78,6 +78,8 @@ type MockStore = {
   ordersByIdempotencyKey: Map<string, Record<string, unknown>>;
   paymentsByIdempotencyKey: Map<string, Record<string, unknown>>;
   failFirstPaymentResponseAfterCommit: boolean;
+  failFirstOrderResponseAfterCommit: boolean;
+  orderFailureReturned: boolean;
   paymentFailureReturned: boolean;
   inventoryOverrides: Map<number, number>;
   createdOrderCount: number;
@@ -89,6 +91,9 @@ type Fixtures = { mockStore: MockStore };
 
 export const test = base.extend<Fixtures>({
   mockStore: async ({ page }, use) => {
+    // Keep browser wall time monotonic in deterministic fixtures. Production keeps
+    // its strict future-activity rejection; tests can still advance this clock.
+    await page.clock.install({ time: new Date() });
     const store: MockStore = {
       sessionActive: false,
       wishlist: new Set<number>(),
@@ -97,6 +102,8 @@ export const test = base.extend<Fixtures>({
       ordersByIdempotencyKey: new Map(),
       paymentsByIdempotencyKey: new Map(),
       failFirstPaymentResponseAfterCommit: false,
+      failFirstOrderResponseAfterCommit: false,
+      orderFailureReturned: false,
       paymentFailureReturned: false,
       inventoryOverrides: new Map(),
       createdOrderCount: 0,
@@ -121,6 +128,7 @@ async function installMockApi(page: Page, store: MockStore) {
     const path = url.pathname.replace(/^\/api(?:\/v1)?/, '') || '/';
     const method = request.method();
 
+    if (path === '/customers/me/data-export/jobs' && method === 'GET') return json(route, {schemaVersion: 1, complete: false, jobs: []});
     if (path === '/customers/refresh' && method === 'POST') {
       return store.sessionActive
         ? json(route, sessionPayload())
@@ -147,6 +155,12 @@ async function installMockApi(page: Page, store: MockStore) {
       const product = PRODUCTS.find(row => row.id === Number(productMatch[1]));
       return product ? json(route, product) : json(route, { message: 'Not found' }, 404);
     }
+    if (path === '/inventory/items/batch' && method === 'GET') {
+      const ids = [...new Set((url.searchParams.get('productIds') || '').split(',').map(Number))];
+      return json(route, ids.map(productId => ({ productId,
+        availableQuantity: store.inventoryOverrides.get(productId) ?? (productId === 102 ? 5 : 12),
+        reservedQuantity: 0, soldQuantity: 0 })));
+    }
     const inventoryMatch = path.match(/^\/inventory\/items\/(\d+)$/);
     if (inventoryMatch) {
       const productId = Number(inventoryMatch[1]);
@@ -154,10 +168,13 @@ async function installMockApi(page: Page, store: MockStore) {
       return json(route, { productId, availableQuantity, reservedQuantity: 0 });
     }
     if (path.startsWith('/orders/bestsellers')) return json(route, [{ productId: 101, soldQuantity: 4 }]);
-    if (path === `/orders/customer/${CUSTOMER.id}` && method === 'GET') {
-      return json(route, [{
+    if ((path === `/orders/customer/${CUSTOMER.id}` || path === '/orders/9101') && method === 'GET') {
+      const order = {
         id: 9101,
         status: 'PAID',
+        paymentState: 'PAID',
+        lifecycleReviewRequired: false,
+        customerId: CUSTOMER.id,
         customerEmail: CUSTOMER.email,
         totalPrice: 499.99,
         createdAt: '2026-08-20T10:00:00Z',
@@ -166,6 +183,7 @@ async function installMockApi(page: Page, store: MockStore) {
         deliveryDate: '2026-08-22',
         deliveryAddress: CUSTOMER,
         items: [{
+          id: 91011,
           productId: 101,
           productName: 'Kingston Fury Beast 32GB',
           sku: 'RAM-KNG-FURY-32GB',
@@ -173,14 +191,18 @@ async function installMockApi(page: Page, store: MockStore) {
           unitPrice: 499.99,
           totalPrice: 499.99
         }]
-      }]);
+      };
+      return json(route, path === '/orders/9101' ? order : [order]);
     }
-    if (path.startsWith('/promotions/history/')) return json(route, { lowestPrice: 449.99 });
+    if (path.startsWith('/promotions/history/')) return json(route, {
+      days: 30, observedDays: 30, historyComplete: true, lowestPrice: 449.99
+    });
     if (path.startsWith('/recommendations/products/')) {
       return json(route, PRODUCTS.slice(1).map(product => ({ ...product, productId: product.id })));
     }
     if (path.startsWith('/reviews/products/') && path.endsWith('/summary')) return json(route, { count: 0, averageRating: 0 });
     if (path.startsWith('/reviews/products/')) return json(route, []);
+    if (path === '/deliveries/pickup-locations') return json(route, [{ code: 'WARSAW_STORE', name: 'MiniTech Store — Warszawa' }]);
     if (path === '/deliveries/methods') {
       return json(route, [
         { code: 'STANDARD_COURIER', name: 'Kurier standardowy', basePrice: 14.99 },
@@ -204,6 +226,8 @@ async function installMockApi(page: Page, store: MockStore) {
         methodCode: body.methodCode,
         name: pickup ? 'Odbiór osobisty' : 'Kurier standardowy',
         fulfillmentType: pickup ? 'STORE_PICKUP' : 'DELIVERY',
+        pickupLocationCode: pickup ? 'WARSAW_STORE' : null,
+        pickupLocation: pickup ? 'MiniTech Store — Warszawa' : null,
         deliveryCost,
         freeDelivery: pickup,
         etaMinDays: pickup ? 0 : 1,
@@ -226,14 +250,23 @@ async function installMockApi(page: Page, store: MockStore) {
       if (productMatch) return route.fulfill({ status: 204, body: '' });
       return json(route, [...store.wishlist].map(productId => ({ productId })));
     }
+    if (path === '/payments/config' && method === 'GET') {
+      return json(route, { provider: 'simulation', supportedMethods: ['CARD', 'BLIK', 'TRANSFER', 'CASH_ON_DELIVERY', 'CASH_AT_PICKUP'] });
+    }
     if (path === '/orders' && method === 'POST') {
       const body = request.postDataJSON();
       const key = request.headers()['idempotency-key'] || `missing-${store.orderId}`;
       let order = store.ordersByIdempotencyKey.get(key);
       if (!order) {
-        order = { id: store.orderId++, status: 'CREATED', productId: body.productId, quantity: body.quantity };
+        order = { id: store.orderId++, status: 'CONFIRMED', productId: body.productId, quantity: body.quantity,
+          customerId: body.customerId, customerEmail: body.customerEmail, deliveryMethod: body.deliveryMethod,
+          deliveryCost: body.deliveryCost, deliveryDate: body.deliveryDate };
         store.ordersByIdempotencyKey.set(key, order);
         store.createdOrderCount += 1;
+      }
+      if (store.failFirstOrderResponseAfterCommit && !store.orderFailureReturned) {
+        store.orderFailureReturned = true;
+        return json(route, { message: 'Downstream service is unavailable' }, 503);
       }
       return json(route, order, 201);
     }
@@ -242,7 +275,8 @@ async function installMockApi(page: Page, store: MockStore) {
       const key = request.headers()['idempotency-key'] || `order-${body.orderId}`;
       let payment = store.paymentsByIdempotencyKey.get(key);
       if (!payment) {
-        payment = { id: 5000 + store.createdPaymentCount + 1, orderId: body.orderId, status: 'SUCCEEDED' };
+        payment = { id: 5000 + store.createdPaymentCount + 1, orderId: body.orderId,
+          status: ['CASH_ON_DELIVERY', 'CASH_AT_PICKUP'].includes(body.paymentMethod) ? 'PENDING' : 'SUCCEEDED' };
         store.paymentsByIdempotencyKey.set(key, payment);
         store.createdPaymentCount += 1;
       }
@@ -260,13 +294,17 @@ async function installMockApi(page: Page, store: MockStore) {
       return json(route, {
         id: 81,
         ...request.postDataJSON(),
-        status: 'NEW',
+        status: 'REQUESTED',
         createdAt: '2026-08-20T12:00:00Z'
       }, 201);
     }
     if (path === '/chat/messages' && method === 'POST') {
       const body = request.postDataJSON();
       return json(route, { id: 77, ...body, replyMessage: null }, 201);
+    }
+    if (path === '/chat/messages/77/entries' && method === 'GET') {
+      return json(route, { entries: [{id:1,author:'CUSTOMER',initialMessage:true,message:'Czy produkt jest dostępny?',notificationStatus:'SENT',createdAt:'2026-10-26T12:00:00Z'},
+        ...(store.chatAnswered?[{id:2,author:'SUPPORT',initialMessage:false,message:'Tak, produkt jest dostępny.',notificationStatus:'SENT',createdAt:'2026-10-26T12:01:00Z'}]:[])], nextCursor:null,hasMore:false });
     }
     if (path === '/chat/messages/77' && method === 'GET') {
       return json(route, {

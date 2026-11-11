@@ -52,3 +52,14 @@ management:
     livenessstate.enabled: ${MANAGEMENT_HEALTH_LIVENESS_ENABLED:true}
     readinessstate.enabled: ${MANAGEMENT_HEALTH_READINESS_ENABLED:true}
   metrics.tags.application: ${spring.application.name}
+
+chat.outbox:
+  enabled: ${CHAT_OUTBOX_ENABLED:true}
+  fixed-delay-ms: ${CHAT_OUTBOX_FIXED_DELAY_MS:1000}
+  lease-ms: ${CHAT_OUTBOX_LEASE_MS:30000}
+  max-attempts: ${CHAT_OUTBOX_MAX_ATTEMPTS:20}
+spring.task.scheduling.pool.size: 2
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

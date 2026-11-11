@@ -2,7 +2,7 @@ package org.demo.apigateway.proxy;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.demo.apigateway.config.ResilientHttpExecutor;
-import org.demo.apigateway.observability.CorrelationIdContext;
+import org.demo.platformobservability.CorrelationIdContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpMethod;
@@ -102,6 +102,10 @@ public class GatewayProxy {
                 CorrelationIdContext.HEADER_NAME,
                 CorrelationIdContext.currentOrNew()
         );
+        targetHeaders.set(
+                CorrelationIdContext.TRACEPARENT_HEADER,
+                CorrelationIdContext.childTraceparent()
+        );
     }
 
     private ResponseEntity<byte[]> toResponse(
@@ -114,6 +118,10 @@ public class GatewayProxy {
                 headers.put(name, values);
             }
         });
+        String traceparent = org.slf4j.MDC.get(CorrelationIdContext.MDC_TRACEPARENT);
+        if (traceparent != null && headers.getFirst(CorrelationIdContext.TRACEPARENT_HEADER) == null) {
+            headers.set(CorrelationIdContext.TRACEPARENT_HEADER, traceparent);
+        }
         return ResponseEntity.status(response.getStatusCode())
                 .headers(headers)
                 .body(response.getBody().readAllBytes());

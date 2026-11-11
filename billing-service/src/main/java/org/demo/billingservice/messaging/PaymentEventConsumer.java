@@ -1,130 +1,48 @@
 package org.demo.billingservice.messaging;
 
-import org.demo.billingservice.billing.InvoiceRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.demo.platformevents.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Map;
-
 @Component
-@ConditionalOnProperty(name = "messaging.consumer.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name="messaging.consumer.enabled",havingValue="true",matchIfMissing=true)
 public class PaymentEventConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(PaymentEventConsumer.class);
-
-    private final StringRedisTemplate redisTemplate;
-    private final InvoiceRepository invoiceRepository;
+    private final RedisEventStreams stream;
+    private final PaymentEventInbox inbox;
+    private final RejectedEventStore rejected;
     private final String streamName;
-    private final String groupName;
-    private final String consumerName;
-    private boolean groupReady;
-
-    public PaymentEventConsumer(
-            StringRedisTemplate redisTemplate,
-            InvoiceRepository invoiceRepository,
-            @Value("${messaging.payment-stream}") String streamName,
-            @Value("${messaging.consumer.group:billing-service}") String groupName,
-            @Value("${messaging.consumer.name:billing-service}") String consumerName
-    ) {
-        this.redisTemplate = redisTemplate;
-        this.invoiceRepository = invoiceRepository;
-        this.streamName = streamName;
-        this.groupName = groupName;
-        this.consumerName = consumerName;
+    public PaymentEventConsumer(StringRedisTemplate redis,PaymentEventInbox inbox,RejectedEventStore rejected,
+            @Value("${messaging.payment-stream:payment-events}") String streamName,
+            @Value("${messaging.consumer.group:billing-service}") String group,
+            @Value("${messaging.consumer.name:billing-service}") String name,
+            @Value("${messaging.consumer.claim-idle-ms:60000}") long idle,
+            @Value("${messaging.retention.age-ms:604800000}") long retention,
+            @Value("${messaging.retention.required-groups:notification-service,billing-service}") String requiredGroups) {
+        this.streamName=streamName;this.inbox=inbox;this.rejected=rejected;
+        stream=new RedisEventStreams(redis,streamName,group,name,idle,retention,requiredGroups);
     }
-
-    @Scheduled(fixedDelayString = "${messaging.consumer.fixed-delay-ms:1000}")
+    @Scheduled(fixedDelayString="${messaging.consumer.fixed-delay-ms:1000}")
     public void consume() {
+        try { stream.poll(this::processRecord); }
+        catch(RuntimeException error) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Payment stream polling failed; records remain pending",error); }
+    }
+    void processRecord(MapRecord<String,?,?> record) {
+        var fields=EventIdentity.fields(record.getValue());
+        if("true".equals(fields.get("_bootstrap"))) { stream.acknowledge(record.getId());return; }
         try {
-            ensureConsumerGroup();
-            consumeBatch(ReadOffset.from("0-0"));
-            consumeBatch(ReadOffset.lastConsumed());
-        } catch (DataAccessException exception) {
-            log.warn("Payment event broker is unavailable for stream '{}' and group '{}': {}",
-                    streamName, groupName, exception.getMessage());
-        }
-    }
-
-    void processRecord(MapRecord<String, ?, ?> record) {
-        if ("true".equals(record.getValue().get("_bootstrap"))) {
-            acknowledge(record);
-            return;
-        }
-
-        try {
-            Map<?, ?> fields = record.getValue();
-            String eventType = String.valueOf(fields.get("eventType"));
-            String orderIdStr = String.valueOf(fields.get("orderId"));
-
-            if ("PAYMENT_SUCCEEDED".equalsIgnoreCase(eventType) && orderIdStr != null && !orderIdStr.isBlank()) {
-                Long orderId = Long.valueOf(orderIdStr);
-                boolean exists = invoiceRepository.findByOrderId(orderId).isPresent();
-                if (exists) {
-                    log.debug("Invoice for order #{} already exists.", orderId);
-                } else {
-                    log.info("Received PaymentSucceeded event for order #{}. Verified in billing repository.", orderId);
-                }
+            try {
+                PaymentEventData.parse(fields);
+                String id=EventIdentity.id(streamName,record.getId().getValue(),fields);
+                try { inbox.accept(id,fields); }
+                catch(org.springframework.dao.DataIntegrityViolationException insertRace) { inbox.accept(id,fields); }
+            } catch(IllegalArgumentException malformed) {
+                try { rejected.reject(streamName,record.getId().getValue(),fields,malformed.getMessage()); }
+                catch(org.springframework.dao.DataIntegrityViolationException insertRace) { rejected.reject(streamName,record.getId().getValue(),fields,malformed.getMessage()); }
             }
-            acknowledge(record);
-        } catch (Exception exception) {
-            log.warn("Error processing payment event {}: {}", record.getId(), exception.getMessage());
-            acknowledge(record);
-        }
-    }
-
-    private void ensureConsumerGroup() {
-        if (groupReady) {
-            return;
-        }
-
-        redisTemplate.opsForStream().add(StreamRecords.newRecord()
-                .ofMap(Map.of("_bootstrap", "true"))
-                .withStreamKey(streamName));
-        try {
-            redisTemplate.opsForStream().createGroup(
-                    streamName,
-                    ReadOffset.from("0-0"),
-                    groupName
-            );
-        } catch (DataAccessException exception) {
-            if (!isConsumerGroupAlreadyExists(exception)) {
-                throw exception;
-            }
-        }
-        groupReady = true;
-    }
-
-    private boolean isConsumerGroupAlreadyExists(Throwable exception) {
-        Throwable current = exception;
-        while (current != null) {
-            if (String.valueOf(current.getMessage()).contains("BUSYGROUP")) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private void consumeBatch(ReadOffset offset) {
-        List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream().read(
-                Consumer.from(groupName, consumerName),
-                StreamReadOptions.empty().count(20),
-                StreamOffset.create(streamName, offset)
-        );
-        if (records != null) {
-            records.forEach(this::processRecord);
-        }
-    }
-
-    private void acknowledge(MapRecord<String, ?, ?> record) {
-        redisTemplate.opsForStream().acknowledge(streamName, groupName, record.getId());
+            stream.acknowledge(record.getId());
+        } catch(RuntimeException error) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Event {} remains pending until its SQL commit/ACK succeeds",record.getId(),error); }
     }
 }

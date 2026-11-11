@@ -34,6 +34,7 @@ public class JwtService {
     private static final String RSA_ALGORITHM = "SHA256withRSA";
     private static final String RSA_HEADER_ALGORITHM = "RS256";
 
+    @org.springframework.beans.factory.annotation.Autowired private RestoreEpochStore restoreEpoch;
     private final ObjectMapper objectMapper;
     private final SecretKeySpec legacySigningKey;
     private final PrivateKey rsaSigningKey;
@@ -81,6 +82,14 @@ public class JwtService {
             if (!rsaVerificationKeys.containsKey(activeKeyId)) {
                 throw new IllegalStateException("Active JWT key is missing from CUSTOMER_JWT_PUBLIC_KEYS_JSON");
             }
+            try {
+                String probe = "MiniTech JWT key pair validation";
+                if (!verify(probe, encoder.encodeToString(sign(probe)), rsaVerificationKeys.get(activeKeyId))) {
+                    throw new GeneralSecurityException();
+                }
+            } catch (GeneralSecurityException exception) {
+                throw new IllegalStateException("Active JWT private and public keys do not match");
+            }
         } else {
             this.rsaMode = false;
             this.activeKeyId = "legacy";
@@ -107,6 +116,7 @@ public class JwtService {
     }
 
     public String createAccessToken(CustomerPrincipal principal, String authenticationMethod) {
+        if(restoreEpoch!=null&&!restoreEpoch.permitsLogin())throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Restored environment requires reconciliation");
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(accessTokenTtlSeconds);
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -115,6 +125,7 @@ public class JwtService {
         payload.put("iat", now.getEpochSecond());
         payload.put("exp", expiresAt.getEpochSecond());
         payload.put("typ", "access");
+        payload.put("auth_epoch",restoreEpoch==null?"legacy":restoreEpoch.current());
         payload.put("jti", UUID.randomUUID().toString());
         payload.put("amr", authenticationMethod == null || authenticationMethod.isBlank()
                 ? List.of("pwd") : List.of(authenticationMethod.split("\\+")));
@@ -168,6 +179,7 @@ public class JwtService {
             if (!"access".equals(payload.path("typ").asText(""))) {
                 return Optional.empty();
             }
+            if(restoreEpoch!=null&&(!restoreEpoch.permitsLogin()||!restoreEpoch.current().equals(payload.path("auth_epoch").asText("legacy"))))return Optional.empty();
             long expiresAt = payload.path("exp").asLong(0);
             long customerId = Long.parseLong(payload.path("sub").asText());
             String email = payload.path("email").asText("");
@@ -178,6 +190,16 @@ public class JwtService {
         } catch (Exception exception) {
             return Optional.empty();
         }
+    }
+
+    public java.util.Set<String> authenticationMethods(String token) {
+        if(parseAccessToken(token).isEmpty())return java.util.Set.of();
+        try {
+            var methods=objectMapper.readTree(tokenDecoder.decode(token.split("\\.")[1])).path("amr");
+            java.util.Set<String> result=new java.util.HashSet<>();
+            if(methods.isArray())for(var method:methods)if(method.isTextual())result.add(method.asText());
+            return java.util.Set.copyOf(result);
+        }catch(Exception invalid){return java.util.Set.of();}
     }
 
     public Map<String, Object> jwks() {
@@ -253,9 +275,11 @@ public class JwtService {
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             encodedKeys.forEach((keyId, encodedKey) -> {
                 try {
-                    keys.put(keyId, keyFactory.generatePublic(
-                            new X509EncodedKeySpec(secretDecoder.decode(encodedKey))
-                    ));
+                    var key = keyFactory.generatePublic(new X509EncodedKeySpec(secretDecoder.decode(encodedKey)));
+                    if (!(key instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048) {
+                        throw new GeneralSecurityException("RSA JWT keys require at least 2048 bits");
+                    }
+                    keys.put(keyId, key);
                 } catch (Exception exception) {
                     throw new IllegalStateException("Invalid public JWT key for kid " + keyId, exception);
                 }

@@ -15,7 +15,8 @@ public record DeliveryQuoteRequest(
         @NotBlank @Size(max = 20) String postalCode,
         @NotNull @Positive Integer itemCount,
         @NotNull @DecimalMin("0.00") @Digits(integer = 17, fraction = 2) BigDecimal subtotal,
-        LocalDate requestedDate
+        LocalDate requestedDate,
+        @Size(max = 80) String pickupLocation
 ) {
     public DeliveryQuoteRequest(
             String methodCode,
@@ -23,6 +24,11 @@ public record DeliveryQuoteRequest(
             Integer itemCount,
             BigDecimal subtotal
     ) {
-        this(methodCode, postalCode, itemCount, subtotal, null);
+        this(methodCode, postalCode, itemCount, subtotal, null, null);
+    }
+
+    public DeliveryQuoteRequest(String methodCode, String postalCode, Integer itemCount,
+                                BigDecimal subtotal, LocalDate requestedDate) {
+        this(methodCode, postalCode, itemCount, subtotal, requestedDate, null);
     }
 }

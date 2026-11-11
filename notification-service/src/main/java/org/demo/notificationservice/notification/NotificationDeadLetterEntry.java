@@ -21,6 +21,10 @@ public class NotificationDeadLetterEntry {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    private Long rowVersion;
+
     @Column(name = "notification_id", nullable = false, unique = true)
     private Long notificationId;
 
@@ -31,24 +35,33 @@ public class NotificationDeadLetterEntry {
     @Column(name = "source_id", nullable = false)
     private Long sourceId;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String recipient;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private NotificationChannel channel;
 
-    @Column(nullable = false, length = 120)
+    @Column(length = 120)
     private String subject;
 
-    @Column(nullable = false, length = 1000)
+    @Column(length = 6000)
     private String message;
+
+    @Column(name = "content_compacted_at")
+    private Instant contentCompactedAt;
+
+    public boolean isContentCompacted() { return contentCompactedAt != null; }
+
+    public void requireReplayContent() {
+        if (isContentCompacted()) throw new IllegalStateException("Resolved dead-letter content is compacted");
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private DeadLetterStatus status;
 
-    @Column(name = "failure_reason", nullable = false, length = 500)
+    @Column(name = "failure_reason", length = 500)
     private String failureReason;
 
     @Column(name = "attempt_count", nullable = false)
@@ -67,6 +80,7 @@ public class NotificationDeadLetterEntry {
     }
 
     public NotificationDeadLetterEntry(Notification notification) {
+        notification.requireDeliveryContent();
         this.notificationId = notification.getId();
         this.eventType = notification.getEventType();
         this.sourceId = notification.getSourceId();
@@ -80,6 +94,8 @@ public class NotificationDeadLetterEntry {
     }
 
     public void refreshFrom(Notification notification) {
+        requireReplayContent();
+        notification.requireDeliveryContent();
         this.failureReason = notification.getFailureReason();
         this.attemptCount = notification.getAttemptCount();
         this.status = DeadLetterStatus.OPEN;
@@ -87,6 +103,7 @@ public class NotificationDeadLetterEntry {
     }
 
     public void markResolved() {
+        if (status == DeadLetterStatus.RESOLVED) return;
         this.status = DeadLetterStatus.RESOLVED;
         this.resolvedAt = Instant.now();
     }

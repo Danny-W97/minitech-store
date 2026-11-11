@@ -6,7 +6,7 @@
     <meta name="description" content="MiniTech Store — pełny katalog produktów technologicznych">
     <title>MiniTech Store — katalog</title>
     <meta http-equiv="Cache-Control" content="no-store">
-    <link rel="stylesheet" href="styles.css?v=20260820-35">
+    <link rel="stylesheet" href="styles.css?v=20261028-a43-32">
 </head>
 <body data-page="catalog">
 <div class="page-shell">
@@ -133,7 +133,7 @@
                 <button class="secondary-button" id="refresh-products" type="button">Odśwież katalog</button>
             </div>
 
-            <div class="catalog-message" id="catalog-message" role="status"></div>
+            <div class="catalog-message" id="catalog-message" role="status" tabindex="-1" role="status"></div>
             <div class="product-grid" id="product-grid"></div>
         </section>
 
@@ -168,7 +168,7 @@
                 <div class="section-heading compact">
                     <div class="checkout-heading-copy">
                         <p class="eyebrow">02 / ORDER SERVICE</p>
-                        <h2>Finalizacja zamówienia</h2>
+                        <h2 id="checkout-title" tabindex="-1">Finalizacja zamówienia</h2>
                     </div>
                     <button class="secondary-button" id="checkout-back" type="button">Wróć do koszyka</button>
                     <p class="form-hint checkout-mode-text" id="checkout-mode-text"></p>
@@ -208,7 +208,7 @@
                     </label>
                     <label id="pickup-location-field" hidden>
                         Punkt odbioru
-                        <input id="pickup-location" type="text" value="MiniTech Store — Warszawa" readonly>
+                        <select id="pickup-location"><option value="">Ładowanie punktów odbioru…</option></select>
                     </label>
                     <label>
                         Dzień dostawy lub odbioru
@@ -290,6 +290,7 @@
                             <option value="BLIK">BLIK (symulacja)</option>
                             <option value="CASH_ON_DELIVERY">Gotówka przy odbiorze</option>
                             <option value="TRANSFER">Przelew (symulacja)</option>
+                            <option value="CASH_AT_PICKUP">Gotówka w punkcie odbioru</option>
                         </select>
                     </label>
                     <button class="primary-button full-width" id="checkout-to-summary" type="button">Przejdź do podsumowania</button>
@@ -299,7 +300,7 @@
                 <section class="checkout-summary-step" id="checkout-summary-step" hidden aria-labelledby="checkout-summary-step-title">
                     <div class="checkout-step-heading">
                         <span>03</span>
-                        <div><p class="eyebrow">PODSUMOWANIE</p><h3 id="checkout-summary-step-title">Sprawdź zamówienie przed opłaceniem</h3></div>
+                        <div><p class="eyebrow">PODSUMOWANIE</p><h3 id="checkout-summary-step-title" tabindex="-1">Sprawdź zamówienie przed opłaceniem</h3></div>
                     </div>
                     <div class="checkout-summary-items" id="checkout-summary-items"></div>
                     <div class="checkout-summary-details">
@@ -330,7 +331,7 @@
                 <div class="cart-heading">
                     <div>
                         <p class="eyebrow">TWÓJ KOSZYK</p>
-                        <h2>Koszyk</h2>
+                        <h2 id="cart-title" tabindex="-1">Koszyk</h2>
                     </div>
                     <button class="text-button" id="clear-cart" type="button">Wyczyść</button>
                 </div>
@@ -354,11 +355,11 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="checkout-choice-modal" id="checkout-choice-modal" hidden>
-    <div class="checkout-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="checkout-choice-title">
+<dialog class="checkout-choice-modal" id="checkout-choice-modal" aria-labelledby="checkout-choice-title" hidden>
+    <div class="checkout-choice-dialog">
         <button class="modal-close" id="checkout-choice-close" type="button" aria-label="Zamknij">×</button>
         <p class="eyebrow">ORDER SERVICE</p>
-        <h2 id="checkout-choice-title">Jak chcesz kupić?</h2>
+        <h2 id="checkout-choice-title" tabindex="-1">Jak chcesz kupić?</h2>
         <p class="form-hint">Wybierz sposób zakupu, a następnie uzupełnij finalizację zamówienia.</p>
         <p class="form-hint">Przy koszyku do 1 000 zł konto nie jest wymagane — możesz kupić jako gość.</p>
         <div class="checkout-choice-actions">
@@ -366,13 +367,13 @@
             <button class="secondary-button full-width" id="checkout-choice-guest" type="button">Kupuję jako gość</button>
         </div>
     </div>
-</div>
+</dialog>
 
-<div class="auth-modal" id="auth-modal" hidden>
-    <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+<dialog class="auth-modal" id="auth-modal" aria-labelledby="auth-title" hidden>
+    <div class="auth-dialog">
         <button class="modal-close" id="auth-close" type="button" aria-label="Zamknij">×</button>
         <p class="eyebrow">KONTO MINITECH</p>
-        <h2 id="auth-title">Zaloguj się</h2>
+        <h2 id="auth-title" tabindex="-1">Zaloguj się</h2>
         <div class="auth-mode-label" id="auth-mode-selector">
             <span>Wybierz operację</span>
             <div class="auth-choice" role="group" aria-label="Operacja konta">
@@ -412,7 +413,7 @@
             <p class="eyebrow">DODATKOWA WERYFIKACJA</p>
             <h3>Potwierdź logowanie</h3>
             <p class="form-hint" id="auth-mfa-help">Wpisz kod z aplikacji uwierzytelniającej albo użyj kodu odzyskiwania.</p>
-            <label id="auth-mfa-code-label">Kod MFA<input id="auth-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6"></label>
+            <label id="auth-mfa-code-label">Kod MFA<input id="auth-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" required></label>
             <button class="primary-button full-width" id="auth-mfa-submit" type="button">Potwierdź kod</button>
             <button class="secondary-button full-width" id="auth-mfa-passkey" type="button" hidden>Użyj passkey</button>
             <p class="account-status" id="auth-mfa-status" role="status"></p>
@@ -482,32 +483,35 @@
         <button class="secondary-button full-width" id="auth-logout" type="button" hidden>Wyloguj</button>
         <p class="account-status" id="account-status" role="status"></p>
     </div>
-</div>
+</dialog>
 
-<div class="success-modal" id="success-modal" hidden>
-    <div class="success-dialog" role="dialog" aria-modal="true" aria-labelledby="success-title">
+<dialog class="success-modal" id="success-modal" aria-labelledby="success-title" hidden>
+    <div class="success-dialog">
         <button class="modal-close" id="success-close" type="button" aria-label="Zamknij">×</button>
         <p class="eyebrow">ZAMÓWIENIE ZAKOŃCZONE</p>
-        <h2 id="success-title">Dziękujemy za zakup!</h2>
+        <h2 id="success-title" tabindex="-1">Dziękujemy za zakup!</h2>
         <p id="success-message">Płatność została potwierdzona, a potwierdzenie wysłano e-mailem.</p>
         <p class="form-hint">W środowisku dev wiadomość możesz sprawdzić w Mailpit.</p>
         <a class="primary-button" href="http://127.0.0.1:18025" target="_blank" rel="noreferrer">Otwórz Mailpit</a>
     </div>
-</div>
+</dialog>
 
-<div class="compare-modal" id="compare-modal" hidden>
-    <div class="compare-dialog" role="dialog" aria-modal="true" aria-labelledby="compare-dialog-title">
+<dialog class="compare-modal" id="compare-modal" aria-labelledby="compare-dialog-title" hidden>
+    <div class="compare-dialog">
         <button class="modal-close" id="compare-close" type="button" aria-label="Zamknij">×</button>
         <p class="eyebrow">PRODUCT SERVICE</p>
-        <h2 id="compare-dialog-title">Porównanie produktów</h2>
+        <h2 id="compare-dialog-title" tabindex="-1">Porównanie produktów</h2>
         <p class="form-hint">Parametry techniczne pochodzą z katalogu Product Service.</p>
         <div id="compare-table"></div>
     </div>
-</div>
+</dialog>
 
-    <script src="i18n.js?v=20260822-1"></script>
+    <script src="api-config.js?v=20261026-2"></script>
+    <script type="module" src="i18n.js?v=20261028-a43-32"></script>
     <script src="session-timeout.js?v=20260820-1"></script>
-    <script src="app.js?v=20260820-38"></script>
-    <script src="chat-widget.js?v=20260819-2"></script>
+    <script src="catalog-data.js?v=20261024-1"></script>
+    <script type="module" src="dialogs.js?v=20261028-a43-32"></script>
+    <script type="module" src="app.js?v=20261028-a43-32-complete"></script>
+    <script type="module" src="chat-widget.js?v=20261026-a42-10"></script>
 </body>
 </html>

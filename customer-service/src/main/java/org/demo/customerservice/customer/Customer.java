@@ -8,11 +8,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "customers")
+@DynamicUpdate
 public class Customer {
 
     @Id
@@ -99,7 +101,8 @@ public class Customer {
             int maximumAttempts,
             long windowSeconds
     ) {
-        if (enabled || verificationTokenHash == null || verificationExpiresAt == null) {
+        // An expired hash can be purged; the expiry remains the pending-registration marker.
+        if (enabled || verificationExpiresAt == null) {
             return false;
         }
         if (verificationLastSentAt != null

@@ -17,6 +17,8 @@ public record DeliveryQuoteResponse(
         int etaMaxDays,
         String fulfillmentType,
         List<LocalDate> availableDates,
-        LocalDate selectedDate
+        LocalDate selectedDate,
+        String pickupLocationCode,
+        String pickupLocation
 ) {
 }

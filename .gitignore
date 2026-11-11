@@ -90,3 +90,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Private documents
+CV_*
+*.odg

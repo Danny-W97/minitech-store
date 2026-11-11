@@ -1,6 +1,5 @@
 package org.demo.recommendationservice.recommendation;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.demo.recommendationservice.web.RecommendationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -13,7 +12,6 @@ import java.util.List;
 
 @Component
 public class OrderHistoryClient {
-    private static final ParameterizedTypeReference<List<OrderSnapshot>> ORDERS = new ParameterizedTypeReference<>() {};
     private final RestClient restClient;
 
     public OrderHistoryClient(RestClient.Builder builder,
@@ -21,20 +19,22 @@ public class OrderHistoryClient {
         this.restClient = builder.baseUrl(orderServiceBaseUrl).build();
     }
 
-    public List<OrderSnapshot> getCustomerOrders(Long customerId) {
+    public java.util.Set<Long> purchasedProducts(Long customerId, List<Long> productIds) {
+        var purchased = new java.util.HashSet<Long>();
         try {
-            List<OrderSnapshot> orders = restClient.get()
-                    .uri("/orders/customer/{customerId}", customerId)
-                    .retrieve().body(ORDERS);
-            return orders == null ? List.of() : orders;
+            for (int offset = 0; offset < productIds.size(); offset += 100) {
+                var batch = productIds.subList(offset, Math.min(offset + 100, productIds.size()));
+                List<Long> result = restClient.get().uri(builder -> builder
+                        .path("/internal/orders/customer/{id}/purchased-products")
+                        .queryParam("productIds", batch.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")))
+                        .build(customerId)).retrieve().body(new ParameterizedTypeReference<List<Long>>() {});
+                if (result == null || !batch.containsAll(result)) throw new RecommendationException(HttpStatus.SERVICE_UNAVAILABLE, "Nieprawidłowa historia zakupów.");
+                purchased.addAll(result);
+            }
+            return purchased;
         } catch (RestClientException exception) {
             throw new RecommendationException(HttpStatus.SERVICE_UNAVAILABLE, "Order Service jest niedostępny.");
         }
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record OrderSnapshot(String status, List<OrderItemSnapshot> items) {}
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record OrderItemSnapshot(Long productId) {}
 }

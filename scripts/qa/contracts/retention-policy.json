@@ -1,0 +1,4197 @@
+{
+  "schemaVersion": 1,
+  "stage": "A43.40",
+  "policyVersion": "a43.40-2026-11-02.8",
+  "stageComplete": false,
+  "runtimeActivation": false,
+  "fullA43Complete": false,
+  "fullErasureComplete": false,
+  "decisions": {
+    "technical-profile": {
+      "status": "approved",
+      "date": "2026-10-30",
+      "evidence": "explicit-user-answer-A43.40",
+      "periods": {
+        "audit": 7776000,
+        "recommendation-log": 604800,
+        "invoice-outbox-content": 2592000,
+        "payment-outbox-contact": 2592000,
+        "rejected-inbox-content": 2592000,
+        "sent-notification-content": 2592000,
+        "resolved-dlq-content": 2592000,
+        "job-logs": 1209600,
+        "backup-sets": 1209600
+      }
+    },
+    "commercial-periods": {
+      "status": "partial",
+      "date": "2026-10-30",
+      "evidence": "D01/P01 financial exceptions unresolved and protected; D02/P02 commercial redaction 365 days then minimum 90 days from confirmed redaction with dependency guards; field/state mapping not implemented"
+    },
+    "replay-markers": {
+      "status": "approved",
+      "date": "2026-10-30",
+      "evidence": "explicit-user-answer: no automatic TTL; retire all copies/replay sources first"
+    },
+    "streams": {
+      "status": "partial",
+      "date": "2026-10-30",
+      "evidence": "D04 7 days and required billing-service/notification-service; D05 planned 30 days and no intended dev/test consumers; actual groups/pending and consumerless design pending"
+    },
+    "security-sql": {
+      "status": "approved",
+      "date": "2026-10-30",
+      "evidence": "D03=A explicit user approval of existing SQL 7 days; clocks eligibility active-method protection and worker enablement unchanged",
+      "ageDays": 7
+    },
+    "previous-decisions": {
+      "status": "approved",
+      "evidence": "A43.31, A43.33-A43.39 explicit decisions; scopes and access TTL unchanged"
+    },
+    "existing-behavior": {
+      "status": "preserved",
+      "evidence": "existing technical limits/domain lifecycle, no new retention decision or configuration"
+    },
+    "other-copies": {
+      "status": "partial",
+      "evidence": "D07-D18/P03-P09 recorded in decisionReceipt; P09 exceptions unresolved, independent copy and SAFE tool pending, deferred scopes protected"
+    }
+  },
+  "policies": {
+    "commercial-records": {
+      "decision": "commercial-periods",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: event starting the commercial retention period"
+      },
+      "purpose": "D01 chronione; D02/P02 uzgodnione 365 dni redakcji i 90 dni minimum od jej potwierdzenia. Zakres pol, stany i dowody zaleznosci do wdrozenia; bez nowego kasowania po wieku.",
+      "action": "preserve-no-age-delete",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_FINANSE_I_ZDARZENIA.md"
+      ]
+    },
+    "replay-markers": {
+      "decision": "replay-markers",
+      "retention": {
+        "kind": "conditional-no-ttl",
+        "seconds": null,
+        "startsAt": "Documented retirement of every applicable backup, producer, delayed retry and replay source; separate scoped review"
+      },
+      "purpose": "Ochrona przed odtworzeniem konta, duplikacją i ponowieniem skutku; dane nadal pseudonimowe.",
+      "action": "preserve-no-automatic-expiry",
+      "guards": [
+        "all-copy-and-replay-sources-retired-evidence",
+        "no-age-only-delete",
+        "no-marker-expiry-worker"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "platform-security/src/main/java/org/demo/platformsecurity/privacy/PrivacyFenceStore.java",
+        "platform-security/src/main/java/org/demo/platformsecurity/privacy/FinancePolicy.java",
+        "scripts/backup/privacy-journal.py"
+      ]
+    },
+    "profile-lifetime": {
+      "decision": "previous-decisions",
+      "retention": {
+        "kind": "event",
+        "seconds": null,
+        "startsAt": "Confirmed account request, independent journal and all required service fences"
+      },
+      "purpose": "Profil i trwałe poświadczenia konta do uzgodnionego usunięcia; bez kasowania po samej bezczynności.",
+      "action": "existing-account-protocol",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "platform-security/src/main/java/org/demo/platformsecurity/privacy/CoreCleanupSql.java",
+        "platform-security/src/main/resources/privacy/customer-cleanup.json"
+      ]
+    },
+    "content-lifetime": {
+      "decision": "previous-decisions",
+      "retention": {
+        "kind": "event",
+        "seconds": null,
+        "startsAt": "Owner operation or confirmed fenced account cleanup; reviews retain minimal deduplication markers"
+      },
+      "purpose": "Wishlist, recenzje i treści konta w uzgodnionym cyklu właściciela.",
+      "action": "existing-content-protocol",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "platform-security/src/main/resources/privacy/review-cleanup.sql",
+        "platform-security/src/main/resources/privacy/wishlist-cleanup.sql"
+      ]
+    },
+    "chat-manual": {
+      "decision": "previous-decisions",
+      "retention": {
+        "kind": "event",
+        "seconds": null,
+        "startsAt": "Specific conversation proof and authorized manual review; no automatic email matching"
+      },
+      "purpose": "Rozmowy i minimalny wniosek czatu w osobnej procedurze A43.39.",
+      "action": "manual-no-auto-erase",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+      ]
+    },
+    "reference-lifecycle": {
+      "decision": "existing-behavior",
+      "retention": {
+        "kind": "existing-lifecycle",
+        "seconds": null,
+        "startsAt": "Explicit reviewed domain retirement; no new age-based expiry"
+      },
+      "purpose": "Konfiguracja, katalog, sekwencje i stany współdzielone nie są rekordem profilu klienta.",
+      "action": "preserve-existing-lifecycle",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_REJESTR_CYKLU_ZYCIA_DANYCH.md"
+      ]
+    },
+    "operational-review": {
+      "decision": "other-copies",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: reconciliation, scope and retention start require review"
+      },
+      "purpose": "Chronić nieuzgodnione stany i kopie techniczne; brak nowego TTL rekordów.",
+      "action": "manual-no-age-delete",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_KLASYFIKACJA_DANYCH_TECHNICZNYCH.md"
+      ]
+    },
+    "security-sql": {
+      "decision": "security-sql",
+      "retention": {
+        "kind": "duration",
+        "seconds": 604800,
+        "startsAt": "Existing SQL GREATEST/COALESCE and whole-family eligibility"
+      },
+      "purpose": "D03: zatwierdzone 7 dni dla kwalifikujacych sie zakonczonych danych bezpieczenstwa; bez zmiany SQL i wlaczenia workera.",
+      "action": "preserve-current-security-cleanup",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation",
+        "whole-refresh-family-protection",
+        "active-MFA-and-credentials-protected",
+        "existing-SQL-clocks-and-worker-enablement-unchanged"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "customer-service/src/main/java/org/demo/customerservice/retention/SecurityRetentionRepository.java",
+        "customer-service/src/main/resources/application.yaml"
+      ]
+    },
+    "audit": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 7776000,
+        "startsAt": "audit_events.occurred_at"
+      },
+      "purpose": "Ograniczona historia bezpieczeństwa; wiek od zdarzenia, nie od ostatniego odczytu.",
+      "action": "existing-purge",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "customer-service/src/main/java/org/demo/customerservice/audit/retention/AuditRetentionRepository.java"
+      ]
+    },
+    "recommendation-log": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 604800,
+        "startsAt": "recommendation_requests.requested_at"
+      },
+      "purpose": "Opcjonalny szczegółowy log rekomendacji; metryki agregowane osobno.",
+      "action": "existing-purge",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "recommendation-service/src/main/java/org/demo/recommendationservice/recommendation/RecommendationRequestRepository.java"
+      ]
+    },
+    "invoice-outbox-content": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 2592000,
+        "startsAt": "GREATEST(published_at, created_at), status PUBLISHED, no processing lease"
+      },
+      "purpose": "Zbędny payload opublikowanej faktury; rekord i event_id pozostają.",
+      "action": "existing-compact",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "billing-service/src/main/java/org/demo/billingservice/messaging/retention/InvoiceOutboxRetentionRepository.java"
+      ]
+    },
+    "payment-outbox-contact": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 2592000,
+        "startsAt": "GREATEST(published_at, created_at), status PUBLISHED, no processing lease"
+      },
+      "purpose": "Zbędny recipient/delivery_address, bez usuwania event_key i fingerprintów.",
+      "action": "existing-compact",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "payment-service/src/main/java/org/demo/paymentservice/outbox/retention/PaymentOutboxRetentionRepository.java"
+      ]
+    },
+    "rejected-inbox-content": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 2592000,
+        "startsAt": "received_at; status REJECTED, related_id IS NULL"
+      },
+      "purpose": "Tylko payload/error odrzuconych niepowiązanych komunikatów.",
+      "action": "existing-compact",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "billing-service/src/main/java/org/demo/billingservice/messaging/retention/RejectedInboxRetentionRepository.java",
+        "notification-service/src/main/java/org/demo/notificationservice/messaging/retention/RejectedInboxRetentionRepository.java"
+      ]
+    },
+    "sent-notification-content": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 2592000,
+        "startsAt": "GREATEST(sent_at, created_at, updated_at); SENT and no retry/lease/failure"
+      },
+      "purpose": "Tylko subject/message; sam okres nie usuwa recipient, ID i deduplikacji.",
+      "action": "existing-compact",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "notification-service/src/main/java/org/demo/notificationservice/notification/retention/SentNotificationRetentionRepository.java"
+      ]
+    },
+    "resolved-dlq-content": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 2592000,
+        "startsAt": "GREATEST(resolved_at, created_at, updated_at) and corresponding SENT notification age"
+      },
+      "purpose": "Tylko treść uzgodnionych RESOLVED; otwarte DLQ są chronione.",
+      "action": "existing-compact",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "notification-service/src/main/java/org/demo/notificationservice/notification/retention/ResolvedDeadLetterRetentionRepository.java"
+      ]
+    },
+    "export-result": {
+      "decision": "previous-decisions",
+      "retention": {
+        "kind": "duration",
+        "seconds": 3600,
+        "startsAt": "account_export_jobs.created_at; cancel blocks access immediately"
+      },
+      "purpose": "Tymczasowy wynik i zadanie eksportu, bez przedłużania przez wznowienie.",
+      "action": "existing-batched-expiry",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "customer-service/src/main/java/org/demo/customerservice/export/jobs/ExportJobStore.java"
+      ]
+    },
+    "account-request": {
+      "decision": "replay-markers",
+      "retention": {
+        "kind": "conditional-no-ttl",
+        "seconds": null,
+        "startsAt": "Retirement proof of backup/replay sources; status capability expires separately after 7 days"
+      },
+      "purpose": "Minimalny protokół konta i bariery; 7-dniowy dostęp nie jest TTL wiersza.",
+      "action": "preserve-no-automatic-expiry",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_PROTOKOL_USUWANIA_KONTA.md"
+      ]
+    },
+    "job-logs": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 1209600,
+        "startsAt": "Certified closed time AND state/log mtime; outside history, no writer/reference"
+      },
+      "purpose": "Tylko certyfikowane zamknięte pary logów CC.",
+      "action": "existing-file-purge",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "scripts/control-center/web/cc_job_logs.py"
+      ]
+    },
+    "backup-sets": {
+      "decision": "technical-profile",
+      "retention": {
+        "kind": "duration",
+        "seconds": 1209600,
+        "startsAt": "Set: authenticated manifest finishedAt; legacy encrypted dump: existing find -mtime +14 semantics"
+      },
+      "purpose": "Całe rozpoznane szyfrowane zestawy i stare dumpy; nie aktywny Redis/AOF, rejestr i klucze.",
+      "action": "existing-whole-copy-purge",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "scripts/backup/platform-recovery.py",
+        "scripts/control-center/lib/backups.sh"
+      ]
+    },
+    "payment-stream": {
+      "decision": "streams",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: stream IDs plus all actual group frontiers and pending"
+      },
+      "purpose": "D04: planowane 7 dni i wymagane grupy billing-service/notification-service; rzeczywiste grupy, pending i replay dev/test nadal niepotwierdzone.",
+      "action": "preserve-current-stream-behavior",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "billing-service/src/main/resources/application.yaml",
+        "notification-service/src/main/resources/application.yaml"
+      ]
+    },
+    "invoice-stream": {
+      "decision": "streams",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: required recipients and stream retention window"
+      },
+      "purpose": "D05: planowane 30 dni, brak zamierzonych odbiorcow dev/test; rzeczywisty brak i projekt bezpiecznej retencji bez konsumentow do weryfikacji. Nie omijac ochrony grup.",
+      "action": "preserve-current-stream-behavior",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "billing-service/src/main/resources/redis/invoice-stream-retention.lua"
+      ]
+    },
+    "runtime-limits": {
+      "decision": "existing-behavior",
+      "retention": {
+        "kind": "existing-limits",
+        "seconds": null,
+        "startsAt": "Existing TTL/capacity and session end, per source; not business data retention"
+      },
+      "purpose": "PDF 15min; CC sesja 30min idle/8h absolute; zgoda AI 5min; dotychczasowe wyzwania i rate limits.",
+      "action": "preserve-existing-technical-limits",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "scripts/control-center/web/panel_security.py",
+        "scripts/control-center/web/cc_ai_delivery.py",
+        "billing-service/src/main/resources/application.yaml",
+        "customer-service/src/main/java/org/demo/customerservice/mfa/MfaService.java",
+        "customer-service/src/main/java/org/demo/customerservice/mfa/WebAuthnService.java"
+      ]
+    },
+    "provider-copies": {
+      "decision": "other-copies",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: actual provider account, recipients and scope-specific evidence"
+      },
+      "purpose": "Kopie u AI/SMTP/External API/płatności; A05 pozostaje odłożone.",
+      "action": "manual-provider-procedure",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+      ]
+    },
+    "device-copies": {
+      "decision": "other-copies",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: user/managed-device policy; pending checkout and operator intents require reconciliation"
+      },
+      "purpose": "Nie usuwać Downloads, koszyka gościa, tokenu czatu ani nieuzgodnionego klucza ponowienia po samym wieku.",
+      "action": "manual-device-procedure",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md",
+        "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md"
+      ]
+    },
+    "log-monitoring-copies": {
+      "decision": "other-copies",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: actual log driver, collector, volume and monitoring retention"
+      },
+      "purpose": "Limity rozmiaru nie są docelowym okresem; nie usuwać wolumenów.",
+      "action": "manual-backend-procedure",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docker-compose.monitoring.yaml",
+        "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md"
+      ]
+    },
+    "keyrings-and-legacy": {
+      "decision": "other-copies",
+      "retention": {
+        "kind": "unresolved",
+        "seconds": null,
+        "startsAt": "UNRESOLVED: migration, dependent ciphertext/backups and scoped manual assessment"
+      },
+      "purpose": "Klucze, legacy historia i snapshoty wymagają własnej polityki; brak automatycznego purge.",
+      "action": "manual-protected-copy-procedure",
+      "guards": [
+        "existing-eligibility-and-locks",
+        "no-new-runtime-activation"
+      ],
+      "exceptions": [
+        "active-or-unreconciled-process",
+        "reviewed-preservation-hold"
+      ],
+      "copies": "independent-copy-policy",
+      "privacyRequestHandling": "existing-A43.33-A43.39-unchanged",
+      "sources": [
+        "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md"
+      ]
+    }
+  },
+  "tables": {
+    "billing-service/account_privacy_fences": {
+      "owner": "billing-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "billing-service/commerce_privacy_locks": {
+      "owner": "billing-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "billing-service/event_identity_aliases": {
+      "owner": "billing-service",
+      "columns": [
+        "alias_id",
+        "canonical_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "billing-service/event_inbox": {
+      "owner": "billing-service",
+      "columns": [
+        "diagnostics_compacted_at",
+        "error",
+        "event_id",
+        "order_id",
+        "payload",
+        "payload_hash",
+        "received_at",
+        "related_id",
+        "status"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {
+        "payload": "rejected-inbox-content",
+        "error": "rejected-inbox-content",
+        "payload_hash": "replay-markers",
+        "event_id": "replay-markers"
+      },
+      "existingClassificationRules": [
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "billing-service/invoice_corrections": {
+      "owner": "billing-service",
+      "columns": [
+        "correction_gross",
+        "correction_net",
+        "correction_number",
+        "correction_vat",
+        "created_at",
+        "final_gross",
+        "final_net",
+        "final_vat",
+        "id",
+        "idempotency_key",
+        "invoice_id",
+        "ledger_version",
+        "order_id",
+        "original_gross",
+        "original_net",
+        "original_vat",
+        "reason"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-billing",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "billing-service/invoice_items": {
+      "owner": "billing-service",
+      "columns": [
+        "id",
+        "invoice_id",
+        "position_no",
+        "product_id",
+        "product_name",
+        "quantity",
+        "sku",
+        "total_price",
+        "unit_price"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-billing",
+        "subject-relation"
+      ]
+    },
+    "billing-service/invoice_outbox_events": {
+      "owner": "billing-service",
+      "columns": [
+        "attempts",
+        "created_at",
+        "event_id",
+        "id",
+        "last_error",
+        "next_attempt_at",
+        "order_id",
+        "payload",
+        "payload_compacted_at",
+        "privacy_safe",
+        "processing_token",
+        "processing_until",
+        "published_at",
+        "status"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {
+        "payload": "invoice-outbox-content",
+        "id": "replay-markers",
+        "event_id": "replay-markers"
+      },
+      "existingClassificationRules": [
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "billing-service/invoice_sequences": {
+      "owner": "billing-service",
+      "columns": [
+        "next_val",
+        "series"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "billing-service/invoices": {
+      "owner": "billing-service",
+      "columns": [
+        "billing_kind",
+        "buyer_name",
+        "city",
+        "company_name",
+        "country",
+        "created_at",
+        "currency",
+        "customer_email",
+        "customer_id",
+        "delivery_cost",
+        "discount_amount",
+        "gross_amount",
+        "id",
+        "invoice_number",
+        "net_amount",
+        "order_id",
+        "postal_code",
+        "status",
+        "street",
+        "tax_id",
+        "vat_amount"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-billing",
+        "technical-state"
+      ]
+    },
+    "chat-service/account_privacy_fences": {
+      "owner": "chat-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "chat-service/chat_entries": {
+      "owner": "chat-service",
+      "columns": [
+        "author",
+        "conversation_id",
+        "created_at",
+        "id",
+        "initial_message",
+        "message",
+        "request_key"
+      ],
+      "defaultPolicy": "chat-manual",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-chat",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "chat-service/chat_messages": {
+      "owner": "chat-service",
+      "columns": [
+        "access_token_hash",
+        "created_at",
+        "customer_email",
+        "customer_name",
+        "id",
+        "last_entry_id",
+        "message",
+        "notification_status",
+        "replied_at",
+        "reply_entry_id",
+        "reply_message",
+        "reply_notification_status",
+        "status",
+        "subject",
+        "updated_at"
+      ],
+      "defaultPolicy": "chat-manual",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "export-chat",
+        "technical-state"
+      ]
+    },
+    "chat-service/chat_notification_outbox": {
+      "owner": "chat-service",
+      "columns": [
+        "attempts",
+        "created_at",
+        "delivery_status",
+        "entry_id",
+        "event_type",
+        "last_error",
+        "next_attempt_at",
+        "notification_id",
+        "processing_token",
+        "processing_until",
+        "source_id",
+        "status"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "chat-service/chat_privacy_requests": {
+      "owner": "chat-service",
+      "columns": [
+        "conversation_id",
+        "created_at",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "chat-manual",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-protocol"
+      ]
+    },
+    "customer-service/account_export_chunks": {
+      "owner": "customer-service",
+      "columns": [
+        "byte_count",
+        "data_json",
+        "job_id",
+        "read_finished_at",
+        "read_started_at",
+        "sequence_no",
+        "sha256",
+        "task_id"
+      ],
+      "defaultPolicy": "export-result",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-coordinator",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "customer-service/account_export_jobs": {
+      "owner": "customer-service",
+      "columns": [
+        "created_at",
+        "customer_id",
+        "expires_at",
+        "id",
+        "part_count",
+        "policy_hash",
+        "recorded_bytes",
+        "request_id",
+        "run_token",
+        "run_until",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "export-result",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-coordinator",
+        "technical-state"
+      ]
+    },
+    "customer-service/account_export_tasks": {
+      "owner": "customer-service",
+      "columns": [
+        "attempts",
+        "cursor_value",
+        "detail_id",
+        "error_code",
+        "id",
+        "job_id",
+        "kind",
+        "parent_id",
+        "request_ids",
+        "state"
+      ],
+      "defaultPolicy": "export-result",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-coordinator",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "customer-service/account_privacy_fences": {
+      "owner": "customer-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "customer-service/account_privacy_requests": {
+      "owner": "customer-service",
+      "columns": [
+        "account_cleanup_pending",
+        "account_cleanup_policy_hash",
+        "commerce_cleanup_pending",
+        "commerce_cleanup_policy_hash",
+        "confirmed_at",
+        "created_at",
+        "customer_id",
+        "finance_attempts",
+        "finance_code",
+        "finance_orders",
+        "finance_pending",
+        "finance_policy_hash",
+        "finance_prepared_orders",
+        "finance_retry_at",
+        "finance_retry_generation",
+        "finance_state",
+        "id",
+        "journal_receipt",
+        "phase",
+        "plan_hash",
+        "preview_expires_at",
+        "preview_key",
+        "restore_imported",
+        "run_token",
+        "run_until",
+        "status_expires_at",
+        "status_token_hash"
+      ],
+      "defaultPolicy": "account-request",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "privacy-protocol",
+        "restore-journal",
+        "technical-state"
+      ]
+    },
+    "customer-service/account_privacy_services": {
+      "owner": "customer-service",
+      "columns": [
+        "attempts",
+        "cleanup_attempts",
+        "cleanup_code",
+        "cleanup_cursor",
+        "cleanup_retry_at",
+        "cleanup_state",
+        "code",
+        "data_action",
+        "fence_state",
+        "request_id",
+        "retry_at",
+        "service"
+      ],
+      "defaultPolicy": "account-request",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-protocol",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "customer-service/audit_events": {
+      "owner": "customer-service",
+      "columns": [
+        "actor",
+        "client_ip",
+        "correlation_id",
+        "event_type",
+        "id",
+        "metadata",
+        "occurred_at",
+        "outcome",
+        "resource",
+        "subject_customer_id",
+        "user_agent"
+      ],
+      "defaultPolicy": "audit",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-security",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "customer-service/customer_recovery_codes": {
+      "owner": "customer-service",
+      "columns": [
+        "code_hash",
+        "created_at",
+        "customer_id",
+        "id",
+        "used_at"
+      ],
+      "defaultPolicy": "security-sql",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "export-security",
+        "subject-relation"
+      ]
+    },
+    "customer-service/customer_totp_methods": {
+      "owner": "customer-service",
+      "columns": [
+        "created_at",
+        "customer_id",
+        "enabled",
+        "enrollment_expires_at",
+        "id",
+        "last_used_time_step",
+        "secret_ciphertext",
+        "updated_at"
+      ],
+      "defaultPolicy": "security-sql",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "export-security",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "customer-service/customers": {
+      "owner": "customer-service",
+      "columns": [
+        "city",
+        "country",
+        "created_at",
+        "email",
+        "enabled",
+        "first_name",
+        "id",
+        "last_name",
+        "password_hash",
+        "phone_number",
+        "postal_code",
+        "street",
+        "updated_at",
+        "verification_expires_at",
+        "verification_last_sent_at",
+        "verification_resend_count",
+        "verification_resend_window_started_at",
+        "verification_token_hash"
+      ],
+      "defaultPolicy": "profile-lifetime",
+      "fieldPolicies": {
+        "verification_token_hash": "security-sql",
+        "verification_expires_at": "security-sql",
+        "verification_last_sent_at": "security-sql",
+        "verification_resend_count": "security-sql",
+        "verification_resend_window_started_at": "security-sql"
+      },
+      "existingClassificationRules": [
+        "auth-material",
+        "export-customer-profile",
+        "technical-state"
+      ]
+    },
+    "customer-service/password_reset_tokens": {
+      "owner": "customer-service",
+      "columns": [
+        "created_at",
+        "customer_id",
+        "expires_at",
+        "id",
+        "token_hash",
+        "used_at"
+      ],
+      "defaultPolicy": "security-sql",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-lifecycle-manual",
+        "auth-material",
+        "subject-relation"
+      ]
+    },
+    "customer-service/refresh_tokens": {
+      "owner": "customer-service",
+      "columns": [
+        "auth_method",
+        "created_at",
+        "customer_id",
+        "expires_at",
+        "family_id",
+        "id",
+        "revoked_at",
+        "rotated_at",
+        "token_hash"
+      ],
+      "defaultPolicy": "security-sql",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-lifecycle-manual",
+        "auth-material",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "customer-service/restore_security_state": {
+      "owner": "customer-service",
+      "columns": [
+        "auth_epoch",
+        "id",
+        "ledger_id",
+        "phase",
+        "restored_at",
+        "verification_key_hash"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "restore-journal"
+      ]
+    },
+    "customer-service/user_credentials": {
+      "owner": "customer-service",
+      "columns": [
+        "attestation_client_data_json",
+        "attestation_object",
+        "authenticator_transports",
+        "backup_eligible",
+        "backup_state",
+        "created",
+        "credential_id",
+        "export_id",
+        "label",
+        "last_used",
+        "public_key",
+        "public_key_credential_type",
+        "signature_count",
+        "user_entity_user_id",
+        "uv_initialized"
+      ],
+      "defaultPolicy": "profile-lifetime",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "export-security",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "delivery-service/account_privacy_fences": {
+      "owner": "delivery-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "delivery-service/commerce_privacy_locks": {
+      "owner": "delivery-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker"
+      ]
+    },
+    "delivery-service/delivery_methods": {
+      "owner": "delivery-service",
+      "columns": [
+        "active",
+        "base_price",
+        "code",
+        "created_at",
+        "description",
+        "eta_max_days",
+        "eta_min_days",
+        "free_delivery_from",
+        "id",
+        "name",
+        "updated_at"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "delivery-service/pickup_locations": {
+      "owner": "delivery-service",
+      "columns": [
+        "active",
+        "code",
+        "name"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "delivery-service/shipments": {
+      "owner": "delivery-service",
+      "columns": [
+        "carrier",
+        "created_at",
+        "id",
+        "method_code",
+        "order_id",
+        "progress_revision",
+        "status",
+        "sync_attempts",
+        "sync_error",
+        "sync_next_attempt_at",
+        "sync_state",
+        "sync_token",
+        "sync_until",
+        "tracking_number",
+        "updated_at"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-delivery",
+        "manual-context",
+        "technical-state"
+      ]
+    },
+    "inventory-service/account_privacy_fences": {
+      "owner": "inventory-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "inventory-service/commerce_privacy_locks": {
+      "owner": "inventory-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker"
+      ]
+    },
+    "inventory-service/inventory_items": {
+      "owner": "inventory-service",
+      "columns": [
+        "available_quantity",
+        "created_at",
+        "id",
+        "product_id",
+        "reserved_quantity",
+        "sold_quantity",
+        "updated_at",
+        "version"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "inventory-service/inventory_reservation_items": {
+      "owner": "inventory-service",
+      "columns": [
+        "id",
+        "product_id",
+        "quantity",
+        "reservation_id"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-inventory"
+      ]
+    },
+    "inventory-service/inventory_reservations": {
+      "owner": "inventory-service",
+      "columns": [
+        "created_at",
+        "expires_at",
+        "id",
+        "order_id",
+        "status",
+        "updated_at"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-inventory"
+      ]
+    },
+    "inventory-service/inventory_stock_operations": {
+      "owner": "inventory-service",
+      "columns": [
+        "available_before",
+        "available_quantity",
+        "before_version",
+        "created_at",
+        "id",
+        "kind",
+        "operation_id",
+        "product_id",
+        "quantity",
+        "reserved_quantity",
+        "sold_quantity",
+        "version"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "notification-service/account_privacy_copy_locks": {
+      "owner": "notification-service",
+      "columns": [
+        "customer_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "notification-service/account_privacy_fences": {
+      "owner": "notification-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "notification-service/commerce_privacy_locks": {
+      "owner": "notification-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "notification-service/event_identity_aliases": {
+      "owner": "notification-service",
+      "columns": [
+        "alias_id",
+        "canonical_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "notification-service/event_inbox": {
+      "owner": "notification-service",
+      "columns": [
+        "diagnostics_compacted_at",
+        "error",
+        "event_id",
+        "order_id",
+        "payload",
+        "payload_hash",
+        "received_at",
+        "related_id",
+        "status"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {
+        "payload": "rejected-inbox-content",
+        "error": "rejected-inbox-content",
+        "payload_hash": "replay-markers",
+        "event_id": "replay-markers"
+      },
+      "existingClassificationRules": [
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "notification-service/notification_dead_letters": {
+      "owner": "notification-service",
+      "columns": [
+        "attempt_count",
+        "channel",
+        "content_compacted_at",
+        "created_at",
+        "event_type",
+        "failure_reason",
+        "id",
+        "message",
+        "notification_id",
+        "recipient",
+        "resolved_at",
+        "row_version",
+        "source_id",
+        "status",
+        "subject",
+        "updated_at"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {
+        "subject": "resolved-dlq-content",
+        "message": "resolved-dlq-content",
+        "failure_reason": "resolved-dlq-content"
+      },
+      "existingClassificationRules": [
+        "business-copy",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "notification-service/notifications": {
+      "owner": "notification-service",
+      "columns": [
+        "attempt_count",
+        "channel",
+        "content_compacted_at",
+        "correlation_id",
+        "created_at",
+        "event_type",
+        "failure_reason",
+        "id",
+        "invoice_id",
+        "message",
+        "next_attempt_at",
+        "privacy_redacted",
+        "processing_token",
+        "processing_until",
+        "provider_reference",
+        "recipient",
+        "recipient_hash",
+        "sent_at",
+        "source_id",
+        "status",
+        "subject",
+        "subject_customer_id",
+        "updated_at"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {
+        "subject": "sent-notification-content",
+        "message": "sent-notification-content"
+      },
+      "existingClassificationRules": [
+        "export-notification",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "order-service/account_privacy_fences": {
+      "owner": "order-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "order-service/commerce_privacy_locks": {
+      "owner": "order-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker"
+      ]
+    },
+    "order-service/commerce_retention_evidence": {
+      "owner": "order-service",
+      "columns": [
+        "field_scope_hash",
+        "generation",
+        "kind",
+        "order_id",
+        "phase",
+        "policy",
+        "reconciled_at",
+        "redacted_at",
+        "source",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_jobs": {
+      "owner": "order-service",
+      "columns": [
+        "attempts",
+        "code",
+        "created_at",
+        "current",
+        "customer_hold_revision",
+        "customer_id",
+        "eligible_at",
+        "generation",
+        "next_attempt_at",
+        "order_hold_revision",
+        "order_id",
+        "order_version",
+        "phase",
+        "policy",
+        "preparation_predecessor",
+        "proof_revision",
+        "run_token",
+        "run_until",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/finance_privacy_consents": {
+      "owner": "order-service",
+      "columns": [
+        "customer_id",
+        "journal_receipt",
+        "policy_hash",
+        "request_id",
+        "retry_generation",
+        "scan_after"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker",
+        "restore-journal"
+      ]
+    },
+    "order-service/finance_privacy_jobs": {
+      "owner": "order-service",
+      "columns": [
+        "attempts",
+        "code",
+        "cursor",
+        "customer_id",
+        "order_id",
+        "order_version",
+        "request_id",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "state",
+        "step"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "order-service/finance_privacy_receipts": {
+      "owner": "order-service",
+      "columns": [
+        "order_id",
+        "order_version",
+        "request_id",
+        "service"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "order-service/order_items": {
+      "owner": "order-service",
+      "columns": [
+        "id",
+        "order_id",
+        "product_id",
+        "product_name",
+        "quantity",
+        "sku",
+        "total_price",
+        "unit_price"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-order",
+        "subject-relation"
+      ]
+    },
+    "order-service/order_sagas": {
+      "owner": "order-service",
+      "columns": [
+        "attempt_count",
+        "created_at",
+        "id",
+        "last_error",
+        "next_attempt_at",
+        "order_id",
+        "processing_token",
+        "processing_until",
+        "state",
+        "updated_at",
+        "version"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "order-service/orders": {
+      "owner": "order-service",
+      "columns": [
+        "checkout_principal",
+        "checkout_request_hash",
+        "collection_reference",
+        "coupon_expires_at",
+        "coupon_next_attempt_at",
+        "coupon_reservation_verified",
+        "created_at",
+        "customer_email",
+        "customer_id",
+        "deferred_payment_id",
+        "deferred_payment_method",
+        "delivery_city",
+        "delivery_cost",
+        "delivery_country",
+        "delivery_date",
+        "delivery_first_name",
+        "delivery_last_name",
+        "delivery_method",
+        "delivery_phone",
+        "delivery_postal_code",
+        "delivery_revision",
+        "delivery_slot",
+        "delivery_status",
+        "delivery_street",
+        "delivery_tracking_number",
+        "discount_amount",
+        "fulfillment_type",
+        "guest_access_token_hash",
+        "id",
+        "idempotency_key",
+        "inventory_reservation_id",
+        "invoice_requested",
+        "lifecycle_review_required",
+        "pickup_location",
+        "privacy_redacted",
+        "product_id",
+        "promotion_code",
+        "quantity",
+        "refund_payment_id",
+        "refund_state",
+        "status",
+        "total_price",
+        "unit_price",
+        "updated_at",
+        "version"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "business-copy",
+        "export-order",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "payment-service/account_privacy_fences": {
+      "owner": "payment-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "payment-service/commerce_privacy_locks": {
+      "owner": "payment-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "finance-marker"
+      ]
+    },
+    "payment-service/payment_follow_ups": {
+      "owner": "payment-service",
+      "columns": [
+        "attempts",
+        "created_at",
+        "id",
+        "kind",
+        "last_error_code",
+        "next_attempt_at",
+        "order_id",
+        "payload",
+        "processing_token",
+        "processing_until",
+        "replay_count",
+        "result_id",
+        "status",
+        "updated_at"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "payment-service/payment_order_gates": {
+      "owner": "payment-service",
+      "columns": [
+        "cancelled",
+        "order_id"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "payment-service/payment_outbox_events": {
+      "owner": "payment-service",
+      "columns": [
+        "amount",
+        "attempts",
+        "correlation_id",
+        "created_at",
+        "delivery_address",
+        "event_key",
+        "event_type",
+        "id",
+        "identity_version",
+        "invoice_id",
+        "last_error",
+        "next_attempt_at",
+        "order_id",
+        "payload_compacted_at",
+        "processing_token",
+        "processing_until",
+        "published_at",
+        "recipient",
+        "status",
+        "stored_event_id",
+        "updated_at"
+      ],
+      "defaultPolicy": "operational-review",
+      "fieldPolicies": {
+        "recipient": "payment-outbox-contact",
+        "delivery_address": "payment-outbox-contact",
+        "id": "replay-markers",
+        "event_key": "replay-markers"
+      },
+      "existingClassificationRules": [
+        "business-copy",
+        "identity-email-key",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "payment-service/payment_refunds": {
+      "owner": "payment-service",
+      "columns": [
+        "amount",
+        "attempts",
+        "automatic",
+        "business_completed",
+        "business_outcome",
+        "created_at",
+        "currency",
+        "id",
+        "intent_id",
+        "last_error",
+        "next_attempt_at",
+        "operation_id",
+        "order_id",
+        "payment_id",
+        "processing_token",
+        "processing_until",
+        "provider_refund_id",
+        "reason",
+        "request_key",
+        "requested_by",
+        "status",
+        "submitted_at",
+        "updated_at"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-payment",
+        "manual-context",
+        "technical-state"
+      ]
+    },
+    "payment-service/payments": {
+      "owner": "payment-service",
+      "columns": [
+        "amount",
+        "checkout_session_id",
+        "checkout_url",
+        "collected_at",
+        "collection_reference",
+        "created_at",
+        "currency",
+        "failure_reason",
+        "id",
+        "idempotency_key",
+        "order_id",
+        "payment_method",
+        "processing_token",
+        "processing_until",
+        "provider_declined",
+        "provider_reference",
+        "request_fingerprint",
+        "result_recorded_at",
+        "status",
+        "stripe_compensation_required",
+        "stripe_error",
+        "stripe_external_hold",
+        "stripe_external_refund_id",
+        "stripe_intent_id",
+        "stripe_next_attempt_at",
+        "stripe_paid_at",
+        "updated_at"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "auth-material",
+        "export-payment",
+        "manual-context",
+        "technical-state"
+      ]
+    },
+    "payment-service/stripe_webhook_receipts": {
+      "owner": "payment-service",
+      "columns": [
+        "event_id",
+        "event_type",
+        "outcome",
+        "payment_id",
+        "received_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "product-service/account_privacy_fences": {
+      "owner": "product-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "product-service/catalog_layout": {
+      "owner": "product-service",
+      "columns": [
+        "id",
+        "product_count",
+        "revision"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "product-service/product_price_history_events": {
+      "owner": "product-service",
+      "columns": [
+        "campaign_code",
+        "catalog_index",
+        "catalog_size",
+        "discount_percent",
+        "effective_price",
+        "id",
+        "layout_revision",
+        "price_revision",
+        "product_id",
+        "recorded_at",
+        "regular_price",
+        "rotation_date",
+        "source_type"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "product-service/products": {
+      "owner": "product-service",
+      "columns": [
+        "active",
+        "category",
+        "created_at",
+        "id",
+        "image_url",
+        "manufacturer",
+        "model",
+        "name",
+        "price",
+        "price_revision",
+        "sku",
+        "technical_parameters",
+        "updated_at"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "promotion-service/account_privacy_fences": {
+      "owner": "promotion-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "promotion-service/commerce_privacy_locks": {
+      "owner": "promotion-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker"
+      ]
+    },
+    "promotion-service/coupon_reservations": {
+      "owner": "promotion-service",
+      "columns": [
+        "accepted_at",
+        "code",
+        "created_at",
+        "discount_amount",
+        "expires_at",
+        "order_id",
+        "state",
+        "subtotal",
+        "updated_at",
+        "version"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-promotion",
+        "technical-state"
+      ]
+    },
+    "promotion-service/promotion_campaigns": {
+      "owner": "promotion-service",
+      "columns": [
+        "active",
+        "code",
+        "created_at",
+        "id",
+        "max_discount_percent",
+        "min_discount_percent",
+        "name",
+        "new_product_count",
+        "promotion_count",
+        "updated_at",
+        "valid_from",
+        "valid_to"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "promotion-service/promotion_codes": {
+      "owner": "promotion-service",
+      "columns": [
+        "active",
+        "code",
+        "created_at",
+        "description",
+        "discount_percent",
+        "id",
+        "max_redemptions",
+        "maximum_discount_amount",
+        "minimum_order_value",
+        "redeemed_count",
+        "updated_at",
+        "valid_from",
+        "valid_to"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "promotion-service/promotion_price_history": {
+      "owner": "promotion-service",
+      "columns": [
+        "campaign_code",
+        "discount_percent",
+        "id",
+        "product_id",
+        "promotional_price",
+        "recorded_at",
+        "regular_price",
+        "rotation_date"
+      ],
+      "defaultPolicy": "reference-lifecycle",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "reference-global"
+      ]
+    },
+    "promotion-service/promotion_redemptions": {
+      "owner": "promotion-service",
+      "columns": [
+        "code",
+        "id",
+        "order_id",
+        "redeemed_at"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-promotion"
+      ]
+    },
+    "recommendation-service/account_privacy_fences": {
+      "owner": "recommendation-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "recommendation-service/recommendation_requests": {
+      "owner": "recommendation-service",
+      "columns": [
+        "customer_id",
+        "id",
+        "requested_at",
+        "result_count",
+        "source_product_id",
+        "strategy"
+      ],
+      "defaultPolicy": "recommendation-log",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-recommendation",
+        "subject-relation"
+      ]
+    },
+    "returns-service/account_privacy_fences": {
+      "owner": "returns-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "returns-service/commerce_privacy_locks": {
+      "owner": "returns-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker"
+      ]
+    },
+    "returns-service/return_events": {
+      "owner": "returns-service",
+      "columns": [
+        "action",
+        "actor_ref",
+        "created_at",
+        "expected_version",
+        "from_status",
+        "id",
+        "note",
+        "operation_id",
+        "order_status",
+        "payment_state",
+        "return_id",
+        "revision",
+        "to_status"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-returns",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "returns-service/return_lines": {
+      "owner": "returns-service",
+      "columns": [
+        "id",
+        "order_item_id",
+        "ordered_quantity",
+        "product_id",
+        "product_name",
+        "quantity",
+        "return_id"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-returns",
+        "subject-relation"
+      ]
+    },
+    "returns-service/return_requests": {
+      "owner": "returns-service",
+      "columns": [
+        "created_at",
+        "customer_email",
+        "customer_id",
+        "description",
+        "id",
+        "moderation_note",
+        "order_id",
+        "order_verified_at",
+        "privacy_redacted",
+        "reason",
+        "request_hash",
+        "request_type",
+        "status",
+        "updated_at",
+        "version"
+      ],
+      "defaultPolicy": "commercial-records",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-returns",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "review-service/account_privacy_fences": {
+      "owner": "review-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "review-service/review_privacy_keys": {
+      "owner": "review-service",
+      "columns": [
+        "customer_id",
+        "order_id",
+        "product_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "subject-relation"
+      ]
+    },
+    "review-service/reviews": {
+      "owner": "review-service",
+      "columns": [
+        "content",
+        "created_at",
+        "customer_id",
+        "id",
+        "moderation_note",
+        "order_id",
+        "product_id",
+        "rating",
+        "status",
+        "title",
+        "updated_at"
+      ],
+      "defaultPolicy": "content-lifetime",
+      "fieldPolicies": {
+        "id": "replay-markers",
+        "customer_id": "replay-markers",
+        "order_id": "replay-markers",
+        "product_id": "replay-markers"
+      },
+      "existingClassificationRules": [
+        "export-review",
+        "manual-context",
+        "subject-relation",
+        "technical-state"
+      ]
+    },
+    "wishlist-service/account_privacy_fences": {
+      "owner": "wishlist-service",
+      "columns": [
+        "customer_id",
+        "request_id",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "privacy-marker",
+        "subject-relation"
+      ]
+    },
+    "wishlist-service/wishlist_items": {
+      "owner": "wishlist-service",
+      "columns": [
+        "created_at",
+        "customer_id",
+        "id",
+        "product_id"
+      ],
+      "defaultPolicy": "content-lifetime",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "export-wishlist",
+        "subject-relation"
+      ]
+    },
+    "returns-service/commerce_retention_change_outbox": {
+      "owner": "returns-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "returns-service/commerce_retention_source_state": {
+      "owner": "returns-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "inventory-service/commerce_retention_source_state": {
+      "owner": "inventory-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "inventory-service/commerce_retention_change_outbox": {
+      "owner": "inventory-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "promotion-service/commerce_retention_source_state": {
+      "owner": "promotion-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "promotion-service/commerce_retention_change_outbox": {
+      "owner": "promotion-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "delivery-service/commerce_retention_source_state": {
+      "owner": "delivery-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "delivery-service/commerce_retention_change_outbox": {
+      "owner": "delivery-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "payment-service/commerce_retention_source_state": {
+      "owner": "payment-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "payment-service/commerce_retention_change_outbox": {
+      "owner": "payment-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "billing-service/commerce_retention_source_state": {
+      "owner": "billing-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "billing-service/commerce_retention_change_outbox": {
+      "owner": "billing-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "notification-service/commerce_retention_source_state": {
+      "owner": "notification-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "generation",
+        "invalidated",
+        "local_open_seen",
+        "local_reconciled_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "restore_blocked",
+        "retention_fence_token",
+        "retention_fence_until",
+        "source_revision",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "notification-service/commerce_retention_change_outbox": {
+      "owner": "notification-service",
+      "columns": [
+        "attempts",
+        "binding_epoch",
+        "code",
+        "created_at",
+        "generation",
+        "order_id",
+        "order_version",
+        "phase",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "sent_at",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_bindings": {
+      "owner": "order-service",
+      "columns": [
+        "attempts",
+        "bound_epoch",
+        "code",
+        "created_at",
+        "expected_epoch",
+        "generation",
+        "invalidated",
+        "order_id",
+        "order_version",
+        "phase",
+        "policy",
+        "restore_blocked",
+        "retry_at",
+        "run_token",
+        "run_until",
+        "source",
+        "source_revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_order_state": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "open_seen",
+        "order_id",
+        "process_revision",
+        "reconciled_at",
+        "restore_blocked",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_payment_evidence": {
+      "owner": "order-service",
+      "columns": [
+        "binding_epoch",
+        "created_at",
+        "event_count",
+        "event_hash",
+        "expectation_hash",
+        "generation",
+        "order_id",
+        "phase",
+        "policy",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_scopes": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "restore_blocked",
+        "revision",
+        "scope_type",
+        "subject_id",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_holds": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "reason_code",
+        "request_id",
+        "scope_type",
+        "subject_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_source_receipts": {
+      "owner": "order-service",
+      "columns": [
+        "binding_epoch",
+        "case_state",
+        "generation",
+        "hold_state",
+        "observation_hash",
+        "observed_at",
+        "order_id",
+        "order_version",
+        "phase",
+        "policy",
+        "receipt_id",
+        "recorded_at",
+        "retry_state",
+        "source",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_intents": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "customer_hold_revision",
+        "generation",
+        "intent_id",
+        "last_request_id",
+        "order_hold_revision",
+        "order_id",
+        "order_version",
+        "phase",
+        "policy",
+        "prepared_proof_revision",
+        "restore_blocked",
+        "revision",
+        "state",
+        "updated_at"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_intent_events": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "intent_id",
+        "request_id",
+        "revision",
+        "state"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_observation_rounds": {
+      "owner": "order-service",
+      "columns": [
+        "cleanup_only",
+        "created_at",
+        "finished_at",
+        "intent_id",
+        "intent_revision",
+        "ordinal",
+        "recovery_attempts",
+        "recovery_token",
+        "recovery_until",
+        "restore_blocked",
+        "round_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_observation_leases": {
+      "owner": "order-service",
+      "columns": [
+        "binding_epoch",
+        "recorded_at",
+        "release_confirmed_at",
+        "round_id",
+        "source",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "returns-service/commerce_retention_fence_tokens": {
+      "owner": "returns-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "payment-service/commerce_retention_fence_tokens": {
+      "owner": "payment-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "inventory-service/commerce_retention_fence_tokens": {
+      "owner": "inventory-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "promotion-service/commerce_retention_fence_tokens": {
+      "owner": "promotion-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "delivery-service/commerce_retention_fence_tokens": {
+      "owner": "delivery-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "billing-service/commerce_retention_fence_tokens": {
+      "owner": "billing-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "notification-service/commerce_retention_fence_tokens": {
+      "owner": "notification-service",
+      "columns": [
+        "binding_epoch",
+        "fence_token",
+        "order_id",
+        "released"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "returns-service/commerce_retention_source_holds": {
+      "owner": "returns-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "promotion-service/commerce_retention_source_holds": {
+      "owner": "promotion-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "delivery-service/commerce_retention_source_holds": {
+      "owner": "delivery-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "payment-service/commerce_retention_source_holds": {
+      "owner": "payment-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "inventory-service/commerce_retention_source_holds": {
+      "owner": "inventory-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "notification-service/commerce_retention_source_holds": {
+      "owner": "notification-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "billing-service/commerce_retention_source_holds": {
+      "owner": "billing-service",
+      "columns": [
+        "created_at",
+        "guard",
+        "hold_id",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_requests": {
+      "owner": "order-service",
+      "columns": [
+        "case_reference",
+        "created_at",
+        "guard",
+        "order_id",
+        "reason_code",
+        "request_id",
+        "restore_blocked",
+        "root_hold_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_source_requests": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "request_id",
+        "source",
+        "source_request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_delivery_attempts": {
+      "owner": "order-service",
+      "columns": [
+        "attempt_id",
+        "attempt_no",
+        "created_at",
+        "request_id",
+        "source"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_delivery_receipts": {
+      "owner": "order-service",
+      "columns": [
+        "attempt_id",
+        "recorded_at",
+        "request_id",
+        "source",
+        "source_hold_id",
+        "source_request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_probes": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "probe_id",
+        "probe_no",
+        "request_id",
+        "source",
+        "source_hold_id",
+        "source_request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_probe_results": {
+      "owner": "order-service",
+      "columns": [
+        "binding_epoch",
+        "code",
+        "observed_at",
+        "probe_id",
+        "recorded_at",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_probe_resolutions": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "probe_id",
+        "replacement_probe_id",
+        "resolution_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_repair_intents": {
+      "owner": "order-service",
+      "columns": [
+        "basis_probe_id",
+        "created_at",
+        "intent_id",
+        "request_id",
+        "source",
+        "source_hold_id",
+        "source_request_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "returns-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "returns-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "inventory-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "inventory-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "promotion-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "promotion-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "delivery-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "delivery-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "payment-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "payment-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "billing-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "billing-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "notification-service/commerce_retention_hold_restoration_receipts": {
+      "owner": "notification-service",
+      "columns": [
+        "binding_epoch",
+        "case_authorization_id",
+        "command_hash",
+        "created_at",
+        "hold_id",
+        "intent_id",
+        "order_id",
+        "source_request_id",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_restoration_attempts": {
+      "owner": "order-service",
+      "columns": [
+        "attempt_id",
+        "attempt_no",
+        "case_authorization_id",
+        "created_at",
+        "intent_id",
+        "mode",
+        "scope_hash"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_restoration_results": {
+      "owner": "order-service",
+      "columns": [
+        "attempt_id",
+        "binding_epoch",
+        "code",
+        "observed_at",
+        "recorded_at",
+        "source_revision"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_restoration_stops": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "intent_id",
+        "stop_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_review_versions": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "expires_at",
+        "history_hash",
+        "ordinal",
+        "protocol",
+        "request_id",
+        "result_hash",
+        "review_id",
+        "reviewed_at",
+        "scope_hash",
+        "version_hash"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    },
+    "order-service/commerce_retention_hold_review_steps": {
+      "owner": "order-service",
+      "columns": [
+        "created_at",
+        "expires_at",
+        "intent_id",
+        "prepared_history_hash",
+        "prepared_result_hash",
+        "prepared_scope_hash",
+        "probe_id",
+        "review_id",
+        "source",
+        "step_id"
+      ],
+      "defaultPolicy": "replay-markers",
+      "fieldPolicies": {},
+      "existingClassificationRules": [
+        "commerce-retention-protocol"
+      ]
+    }
+  },
+  "redis": {
+    "payment-stream": {
+      "owners": [
+        "payment-service",
+        "notification-service",
+        "billing-service"
+      ],
+      "patterns": [
+        "${PAYMENT_EVENT_STREAM:payment-events}"
+      ],
+      "policy": "payment-stream",
+      "runtimeEvidence": "pending"
+    },
+    "invoice-stream": {
+      "owners": [
+        "billing-service"
+      ],
+      "patterns": [
+        "${INVOICE_EVENT_STREAM:invoice-events}"
+      ],
+      "policy": "invoice-stream",
+      "runtimeEvidence": "pending"
+    },
+    "login-protection": {
+      "owners": [
+        "customer-service"
+      ],
+      "patterns": [
+        "security:login:failures:*",
+        "security:login:lock:*"
+      ],
+      "policy": "runtime-limits",
+      "runtimeEvidence": "pending"
+    },
+    "mfa-challenges": {
+      "owners": [
+        "customer-service"
+      ],
+      "patterns": [
+        "customer:mfa:login:*",
+        "customer:mfa:enrollment:*",
+        "customer:mfa:webauthn:registration:*",
+        "customer:mfa:webauthn:login:*"
+      ],
+      "policy": "runtime-limits",
+      "runtimeEvidence": "pending"
+    },
+    "gateway-rate-limit": {
+      "owners": [
+        "api-gateway"
+      ],
+      "patterns": [
+        "security:rate-limit:v2:*"
+      ],
+      "policy": "runtime-limits",
+      "runtimeEvidence": "pending"
+    },
+    "privacy-stream-publication-fences": {
+      "owners": [
+        "payment-service",
+        "billing-service"
+      ],
+      "patterns": [
+        "privacy:stream:<configured-stream>:order:<order_id>"
+      ],
+      "policy": "replay-markers",
+      "runtimeEvidence": "pending"
+    }
+  },
+  "copies": {
+    "platform-recovery-bundles": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "backup",
+      "policy": "backup-sets",
+      "runtimeEvidence": "pending"
+    },
+    "legacy-database-backups": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "backup",
+      "policy": "backup-sets",
+      "runtimeEvidence": "pending"
+    },
+    "redis-durability": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "backup",
+      "policy": "keyrings-and-legacy",
+      "runtimeEvidence": "pending"
+    },
+    "cc-job-output": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "job-logs",
+      "runtimeEvidence": "pending"
+    },
+    "cc-dispatch-history": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "keyrings-and-legacy",
+      "runtimeEvidence": "pending"
+    },
+    "cc-ai-settings": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "keyrings-and-legacy",
+      "runtimeEvidence": "pending"
+    },
+    "application-logs": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "log-monitoring-copies",
+      "runtimeEvidence": "pending"
+    },
+    "monitoring-storage": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "log-monitoring-copies",
+      "runtimeEvidence": "pending"
+    },
+    "pdf-memory-cache": {
+      "owners": [
+        "billing-service"
+      ],
+      "kind": "runtime",
+      "policy": "runtime-limits",
+      "runtimeEvidence": "pending"
+    },
+    "browser-state": {
+      "owners": [
+        "frontend"
+      ],
+      "kind": "browser",
+      "policy": "device-copies",
+      "runtimeEvidence": "pending"
+    },
+    "browser-downloads": {
+      "owners": [
+        "frontend",
+        "billing-service",
+        "customer-service",
+        "wishlist-service",
+        "review-service",
+        "recommendation-service",
+        "order-service",
+        "delivery-service",
+        "returns-service",
+        "payment-service",
+        "chat-service",
+        "notification-service",
+        "inventory-service",
+        "promotion-service"
+      ],
+      "kind": "browser",
+      "policy": "device-copies",
+      "runtimeEvidence": "pending"
+    },
+    "assistant-provider-copy": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "external",
+      "policy": "provider-copies",
+      "runtimeEvidence": "pending"
+    },
+    "mail-payment-providers": {
+      "owners": [
+        "notification-service",
+        "payment-service",
+        "platform-operations"
+      ],
+      "kind": "external",
+      "policy": "provider-copies",
+      "runtimeEvidence": "pending"
+    },
+    "service-keyrings": {
+      "owners": [
+        "customer-service",
+        "payment-service",
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "keyrings-and-legacy",
+      "runtimeEvidence": "pending"
+    },
+    "cc-operator-sessions": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "runtime-limits",
+      "runtimeEvidence": "pending"
+    },
+    "account-export-chunks": {
+      "owners": [
+        "customer-service"
+      ],
+      "kind": "runtime",
+      "policy": "export-result",
+      "runtimeEvidence": "pending"
+    },
+    "account-privacy-protocol": {
+      "owners": [
+        "billing-service",
+        "chat-service",
+        "customer-service",
+        "delivery-service",
+        "inventory-service",
+        "notification-service",
+        "order-service",
+        "payment-service",
+        "product-service",
+        "promotion-service",
+        "recommendation-service",
+        "returns-service",
+        "review-service",
+        "wishlist-service"
+      ],
+      "kind": "runtime",
+      "policy": "account-request",
+      "runtimeEvidence": "pending"
+    },
+    "independent-privacy-journal": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "replay-markers",
+      "runtimeEvidence": "pending"
+    },
+    "cc-browser-intents": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "browser",
+      "policy": "device-copies",
+      "runtimeEvidence": "pending"
+    },
+    "assistant-egress-approvals": {
+      "owners": [
+        "platform-operations"
+      ],
+      "kind": "runtime",
+      "policy": "runtime-limits",
+      "runtimeEvidence": "pending"
+    }
+  },
+  "sourceHashes": {
+    "billing-service/src/main/java/org/demo/billingservice/messaging/retention/InvoiceOutboxRetentionRepository.java": "b87ae4a49d8c3602f7cacbf743b8f177c0a959c1dbc74d5edf70ab87a57322a0",
+    "billing-service/src/main/java/org/demo/billingservice/messaging/retention/RejectedInboxRetentionRepository.java": "646a061d589156f326b88cfa710debc58b964218a9fcbf0cea09a2e8686c36ae",
+    "billing-service/src/main/resources/application.yaml": "01f57598c4045e16d09a431a34b5aceb62de988360808e722b34c5d5611fd033",
+    "billing-service/src/main/resources/redis/invoice-stream-retention.lua": "a50ac9a453de83c3c387e9cf523b95afef292c7500a4ac865c4fd0a1603d3253",
+    "compose.apps.yaml": "dd6edc04fe0e0a3bb46f0e4436be6244ee8b249477be0d92486fb0de2fd5eb00",
+    "customer-service/src/main/java/org/demo/customerservice/audit/retention/AuditRetentionRepository.java": "df2048105c1ab929252910fab9acb59c7de2f896711b734f4b3a84adc0750581",
+    "customer-service/src/main/java/org/demo/customerservice/export/jobs/ExportJobStore.java": "accd072f17a5fe11a25c736af21d98c25deaeb29f9adbb7afba43c456c9b4d0e",
+    "customer-service/src/main/java/org/demo/customerservice/mfa/MfaService.java": "44230b902879d016f015df72f22f512a4247bc59af1a826f9a75ec512005cf9a",
+    "customer-service/src/main/java/org/demo/customerservice/mfa/WebAuthnService.java": "3a9bc45a35ae3da07f503dbb3e6364539e7de4df47dfb7f9f809eb5a615babfa",
+    "customer-service/src/main/java/org/demo/customerservice/retention/SecurityRetentionRepository.java": "92b565c24c3bff4496c3577754f5c238bf81867b3f4baa0a3c41be00496edd7b",
+    "customer-service/src/main/resources/application.yaml": "27ac2afe46175acf1e6ee03780b67890ab2a95ec4933049fb450c8e9703f4d53",
+    "deploy/k8s/base/configmap.yaml": "ba06bed91e79ce33d042ad2ba93ed981388e1f3329a3e0892488f6ceccacfcbc",
+    "docker-compose.monitoring.yaml": "0cd84db6cd6fff17ce8b2bcdd05450f17ab32146b6f00641aa40d147ec0a604a",
+    "docs/A43_DOSTAWCY_PLIKI_I_DOWODY_CZATU.md": "e25a9300b201a85b2899bcba582f787af17ea4ff87a79cbfbf93b8fdab3499a6",
+    "docs/A43_FINANSE_I_ZDARZENIA.md": "dbaf7965330a9ac27de64e6b2667ff0b58ae1d47c74d81165ceea36c4b6797bc",
+    "docs/A43_KLASYFIKACJA_DANYCH_TECHNICZNYCH.md": "57275bf7c5d5af76e6c0fb9058be545bfb84f094833485213ba14acc5c7f0a53",
+    "docs/A43_KOPIE_WEWNETRZNE_I_STAN_URZADZEN.md": "ae985c8b3474908cf9796b215662bfbb48a662a02c1a5467b2af86c2c4675908",
+    "docs/A43_PROTOKOL_USUWANIA_KONTA.md": "bbef7d0c59f9faad6fbcdbaa2fc837cd1b534d88750c5ef5c7c4bab05d293fbe",
+    "docs/A43_REJESTR_CYKLU_ZYCIA_DANYCH.md": "80dd4be157aa84b2591b15da40be80781ce61802adedfe21f83f42c3337f9452",
+    "notification-service/src/main/java/org/demo/notificationservice/messaging/retention/RejectedInboxRetentionRepository.java": "ccf51e490d4dc57225f2d1cadda47bbeb28a5fbfb877b2f7a507b537b7b20ceb",
+    "notification-service/src/main/java/org/demo/notificationservice/notification/retention/ResolvedDeadLetterRetentionRepository.java": "7ba5acde32eaf82be4316ea89ce28beca61fd2b1bb1eb466b5a6e2202ef630bf",
+    "notification-service/src/main/java/org/demo/notificationservice/notification/retention/SentNotificationRetentionRepository.java": "5b2323fa0baa1df320dd9757ab2a49310581879bb63e977a24b2690198baa3f1",
+    "notification-service/src/main/resources/application.yaml": "e605dbf844965fa3cdabc5166b20937c2e7c2aa7f2ccfe53a01ec0da748cceba",
+    "payment-service/src/main/java/org/demo/paymentservice/outbox/retention/PaymentOutboxRetentionRepository.java": "37fead2d7d0a6b739cee44b94ab276828a46a9e1f9046ee695781af94f166863",
+    "payment-service/src/main/resources/application.yaml": "212df095735cd3e3aaedfd9b2c312ff52d172d083b3838a04830fac1c21744a3",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CoreCleanupSql.java": "a6ea05c1994056457a232f114d12eebc138c942731a25939bc114a3542dfe127",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/FinancePolicy.java": "1a953930b286617977a633daed80bfd041688e2c3b32170224b352b94f5cd815",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PrivacyFenceStore.java": "31ab1182e5a0d1c1edb043f863a100555931bf268a1eee1eb2b786dd2a82a5a8",
+    "platform-security/src/main/resources/privacy/customer-cleanup.json": "798516efc8388c967792ccb2601bb661025500fd8c408aab05d8b4ec161afa70",
+    "platform-security/src/main/resources/privacy/review-cleanup.sql": "b1c6e5f0450f8893be863a627ad6b3c0ead6b0d82408402b8581601ad560b11e",
+    "platform-security/src/main/resources/privacy/wishlist-cleanup.sql": "d884b73616a04cab68b28a2023f9022776b5291e5feb48e32e887b4cae25d6b5",
+    "recommendation-service/src/main/java/org/demo/recommendationservice/recommendation/RecommendationRequestRepository.java": "680d85cd33a88e697d1cfa90bf7f7ee9a91f81555b47db1c2ed751d334f4e1bf",
+    "recommendation-service/src/main/resources/application.yaml": "f10ad4eae01f7982f17997b4253e0e115054fa563b611a75857b7eb00fbda489",
+    "scripts/backup/platform-recovery.py": "a8f482d042adfbfa22dc25f0d906aec3162d396b12a0b61626501d519804b6b6",
+    "scripts/backup/privacy-journal.py": "da6cfa393a377d347fdc6bd1906174437e13694815d89941781ba25f5def9d73",
+    "scripts/control-center/lib/backups.sh": "a244fbd806c3e0be34af11afbb792639d8708d61d10747d8af934753a00f9738",
+    "scripts/control-center/lib/core.sh": "e01031f4aa538bcecbaa7c0bbab66deacfce87beb09fcf83f266ba2348a6d87d",
+    "scripts/control-center/web/cc_ai_delivery.py": "1dd4633aa3c160a29ced5146373e15043b9e07a53fb080bfc4402d4ba25ae220",
+    "scripts/control-center/web/cc_job_logs.py": "e539865b4f0282e16e31ff30970db00789db95935af4cb1a4f84814beca93d02",
+    "scripts/control-center/web/panel_security.py": "aa3151fad8a164e08a0f3221ed19afd79016f9ad57334ac541897e4540844566",
+    "scripts/qa/contracts/data-lifecycle.json": "a5d20541a402f2f72ae28ab2f1a398c6b624784d07a17d92abaa6fb844bea490",
+    "scripts/qa/contracts/external-copies.json": "e63ebfc9f3e03f5a927420ecc1839ab00a128a69e19e7838ec44caa2c7874479",
+    "scripts/qa/contracts/technical-data-classification.json": "101f02695cd210316222d4ab16fcef23f7f944dd02f227c93174dc46413873a2",
+    "scripts/qa/contracts/retention-decisions.json": "86c5aa4cd1bf904b06cf32cdba868e00ec8a2ca5204692616eeb3475bcf345bc",
+    "order-service/src/main/resources/db/migration/V14__saga_processing_lease.sql": "e7498c419edcbe83f3b1b08dda459e4c42d3e6caf85ae7d5bef04217c558a724",
+    "returns-service/src/main/resources/db/migration/V3__verified_return_workflow.sql": "3a7d1e71085787b1b2c590643b39398b84ebf539f38e9b3cb8b7e2c53db935ce",
+    "delivery-service/src/main/resources/db/migration/V3__create_shipments.sql": "5e15fd5bf4f2ecfca1c4d1648b7bc074a88a632bb8290ffa64a3082ffd32db53",
+    "delivery-service/src/main/resources/db/migration/V4__charge_delivery_for_courier_and_parcel_locker.sql": "821eb4d3621b10d7eccf81f920440c5afb655fb517eb25a22ab827c58d7ffb16",
+    "inventory-service/src/main/resources/db/migration/V3__seed_extended_demo_inventory.sql": "93957c2221e662a87e2de8cb1f2e040cc6bf26252c71f802ea335a17024fd856",
+    "order-service/src/main/resources/db/migration/V15__deferred_payment_fulfillment.sql": "9120c2015345f2baeeeca88eda09ecb723ba4649fc59d8d9a710660b13ea3ba4",
+    "returns-service/src/main/java/org/demo/returnsservice/privacy/ReturnsCommerceCleanup.java": "1266d53b0091e59b52b4bda9b095a3fde192a8d039dd6f978e26ee05cd3cb34e",
+    "scripts/qa/commerce-retention-check.py": "6709597a8fb5452cebb34403f026c30038e602e524385244255dd5760edcc797",
+    "order-service/src/main/resources/db/migration/V12__add_guest_order_access.sql": "535f0b2da705ba863d63567fc7292a17f7c71d9b9579dc20fb023487b8e7dd56",
+    "promotion-service/src/main/resources/db/migration/V4__create_promotion_redemptions.sql": "d009df6a5008812e5f2ac79b7a83f5c60b440190e28774b06b2cb1d73020654e",
+    "inventory-service/src/main/resources/db/migration/V5__seed_more_demo_inventory.sql": "c4ad2e703995f2e712ae9f9cf4918c3f0ac39bee28ff799d50299110afa93a73",
+    "inventory-service/src/main/resources/db/migration/V10__account_privacy_fences.sql": "3781e1bfd05316c2f7965e0035c1e6014beff714519eda69a82d8710307974fc",
+    "order-service/src/main/resources/db/migration/V3__add_inventory_reservation_id.sql": "0d1561d05b09b63d78f7c3eaec9c2e381e49a461539cca5a6a1af2ecb6d938d2",
+    "order-service/src/main/resources/db/migration/V26__restore_journal_receipts.sql": "e701a9b8c0f5552fd39244be423239061d0beb0962affa5be7b7535d150d380d",
+    "promotion-service/src/main/resources/db/migration/V3__create_promotion_codes.sql": "ddfcfa611ce526edf7f9dcb32ce9102cd9877c157705cf31844370646a825a48",
+    "order-service/src/main/resources/db/migration/V24__commerce_privacy_guards.sql": "11c5037779e6893d700015efd3c50d5498473a75b2364522c0f54b63051eebe4",
+    "order-service/src/main/resources/db/migration/V20__checkout_request_identity.sql": "1116bb787c7d8a2f9536828fabfb1c38ea21ccf5133edd6a75ff13238aa578b2",
+    "inventory-service/src/main/resources/db/migration/V8__stock_operations.sql": "8c77ad621ac6e4912653090bd4855441d846e5e505f7868e70c5c07fdd7ba4c0",
+    "order-service/src/main/resources/db/migration/V23__account_privacy_fences.sql": "181ff8f5c9913a829f99c7adfd79c5ce19943a45c5e169be246b032d82f0ec0b",
+    "delivery-service/src/main/resources/db/migration/V1__create_delivery_methods.sql": "8beac725d217647b3ce3c5ec0643cf11a4f5f4b7d072f9221ee4518be049d7b2",
+    "delivery-service/src/main/resources/db/migration/V6__shipment_order_synchronization.sql": "2236b44366483d162777e18a7ebc51fddcbce6884bbef18913a9e6f728f8aa44",
+    "delivery-service/src/main/resources/db/migration/V2__seed_delivery_methods.sql": "857841efb40161a62d24bd814ed0ef507f27a85ed28756c4254f7f8dadc2e3e3",
+    "order-service/src/main/resources/db/migration/V1__create_orders.sql": "f1695b6ef219f56c725e728baf48af17cc02f2cee86a90a49b4371c59886ba9d",
+    "delivery-service/src/main/java/org/demo/deliveryservice/privacy/DeliveryCommerceCleanup.java": "6980172f8a701f952ca0a553b3645af5b879230c62c8e8b929f125886efb5b98",
+    "order-service/src/main/resources/db/migration/V19__coupon_expiry.sql": "89200a36d1743778f76ebc770a38105476692db64d656b42973dce80a232d033",
+    "order-service/src/main/resources/db/migration/V6__create_order_sagas.sql": "fc9b5af56b84fa93f58f991149ef3136428ecd973e5048f4bf140da68656f9b3",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionAssessment.java": "04ae428aa16e95bab7a7b3efa9158cff84d60dd0ffda91ff56373dcb4c65f252",
+    "returns-service/src/main/resources/db/migration/V5__commerce_privacy_guards.sql": "f2de42222089784321f66f0d78b3d3c8eff5a513aed6e8712e989aed47c96cb6",
+    "returns-service/src/main/resources/db/migration/V2__index_return_windows.sql": "8dc46a556713b287e5d279927e5946425ff289b81a61849161c50bf2c3d322b4",
+    "promotion-service/src/main/resources/db/migration/V9__commerce_privacy_guards.sql": "04e5955f40fc40652706df57e1975d5d94aae16f900ce0107c86c967ac407a84",
+    "inventory-service/src/main/resources/db/migration/V7__add_sold_quantity.sql": "1d8586746e9383accb3983fd0674e22efb92aeffe776273a41ea20e144467570",
+    "returns-service/src/main/resources/db/migration/V4__account_privacy_fences.sql": "b2d53181d04c3244c1236fee30f2d26f63f05ad67ce19ff4de49c3e0e48c675e",
+    "promotion-service/src/main/resources/db/migration/V8__account_privacy_fences.sql": "3781e1bfd05316c2f7965e0035c1e6014beff714519eda69a82d8710307974fc",
+    "order-service/src/main/resources/db/migration/V17__stripe_refund_hold.sql": "c79bdd97469f8792cc51191cd2fc55f1a1cd66f89393421ee9c05339ef6617ff",
+    "inventory-service/src/main/resources/db/migration/V2__seed_demo_inventory.sql": "bb9407fda6912c462fdf8b6eaf4d261e2df4a5bead63afff820fc7fbc9ff541e",
+    "order-service/src/main/resources/db/migration/V11__add_delivery_phone.sql": "e7a03635d725a3e49581084c3ebda13504d80424efc6f0382a7380919d8d3e0e",
+    "order-service/src/main/resources/db/migration/V16__order_lifecycle_reconciliation.sql": "243ee062b498041e5dec574de54b8acbc0f171b7b7d430307a0e2d1a05ebb9a4",
+    "promotion-service/src/main/resources/db/migration/V6__coupon_reservations.sql": "d2d922f97764186e4c4f7035aa2b8fedc429a169b45b8375019b674c2c0443a5",
+    "order-service/src/main/resources/db/migration/V8__add_delivery_selection.sql": "af3d310c4b7e56407c9e6094e3adc4814d05d0097330eb5d651eabebc8d8aaca",
+    "order-service/src/main/resources/db/migration/V10__add_invoice_requested.sql": "7a4548fdad3b3306492aea0ba9bcb1f7100780fc4419b77e82e50fd89e58eb2a",
+    "order-service/src/main/resources/db/migration/V21__business_queue_metrics.sql": "53b4ab31ea6476c66c12652456fb9f2b79624af9d1b2b5cd693812918e23d030",
+    "order-service/src/main/resources/db/migration/V4__add_customer_and_delivery_details.sql": "13a5204ca33720aa3e1282bf59af8f2096b40263e78e7c0359ceb6a1f0fb3128",
+    "order-service/src/main/resources/db/migration/V18__delivery_progress.sql": "b77c0562e9c0b824de127d006c1f0a3e1e2c448e48950a768a0beef61ad285f7",
+    "inventory-service/src/main/resources/db/migration/V11__commerce_privacy_guards.sql": "feba382a84e0055f9e737a71e24f5a476b8908940d0f922310ddc3a0d3010f60",
+    "returns-service/src/main/resources/db/migration/V1__create_return_requests.sql": "8a275a6bc42f993b27df1454b5514d093f36d2b4f59b66e8bd5e9adc9866b6e1",
+    "promotion-service/src/main/resources/db/migration/V2__seed_daily_rotation.sql": "93f07eb6e319d799f4058502d438a04ef32556d13e31b1cd741a63058e435c56",
+    "delivery-service/src/main/resources/db/migration/V5__create_pickup_locations.sql": "96be7ab63b0fa0180d24c9afecd7efe387f770b5c7e6ecc14859f5a87c0ff36e",
+    "scripts/qa/contracts/commerce-retention.json": "46099cb76282db7ae76343afdddca8cbe0b022743c557640a3e50b8e3ab7cccd",
+    "promotion-service/src/main/java/org/demo/promotionservice/privacy/PromotionCommerceCleanup.java": "b5be86e1104638d6a85ac254c1eceb32d3bbe98f018be0d5ec6845b8c73a34a1",
+    "inventory-service/src/main/resources/db/migration/V6__seed_ten_products_per_category_inventory.sql": "c15dc3e4c64d44471ce14c74006e7ed3641ca2dcf5a549a524281e1294b0257f",
+    "inventory-service/src/main/java/org/demo/inventoryservice/privacy/InventoryCommerceCleanup.java": "87d508751717eec3c19d1b2189b5ae92683cd7e93ba27f41f382afa578cda9e1",
+    "order-service/src/main/resources/db/migration/V2__create_order_items.sql": "419465a33846b4954f2ea172d9a53796613f737dd9b76cdccdbbde7553444a4e",
+    "order-service/src/main/resources/db/migration/V7__add_promotion_discount.sql": "6f61bf7b16528cf591366ebbbd4a930a3eca305be2c929a0b4c69330fdf37171",
+    "promotion-service/src/main/resources/db/migration/V1__create_promotions.sql": "89bfa3881daa4880a37c7687bdc469989f964971a49f327e61b82349bc399983",
+    "promotion-service/src/main/resources/db/migration/V5__add_promotion_rules.sql": "3757dff2ee94b033667bd944537d7a66f575d1f51a1cb04c4e58d2161d6c5daa",
+    "order-service/src/main/resources/db/migration/V22__index_order_item_export.sql": "d6cedf148b9c616b409953987c7d83b3d618508aa9a1725cf7c746addd41bea6",
+    "order-service/src/main/resources/db/migration/V25__finance_privacy_protocol.sql": "2d0db7bc7752ee64ea37f588f01b0d68912aad77543eab077bc9d212cf02eece",
+    "order-service/src/main/resources/db/migration/V9__add_delivery_schedule.sql": "4010d2e193d8f8fcae60cf6008c743867b29317c6c23b2d7e9717b69f06d1a0a",
+    "inventory-service/src/main/resources/db/migration/V9__index_reservation_item_export.sql": "6042211257e527a1153e7e8289b14084fa07d200fa8181bba50acfb8004fcce5",
+    "delivery-service/src/main/resources/db/migration/V8__commerce_privacy_guards.sql": "a39d13f92802d4ece059848f1b96cde029aca7f711fb5d0e8dd4a585ffb4dab0",
+    "promotion-service/src/main/resources/db/migration/V7__index_redemption_order_export.sql": "04bce5f8c1503745e0bd98c78f8447beec68164b5cd3ecbca2c8483fed43417a",
+    "order-service/src/main/java/org/demo/orderservice/privacy/OrderPrivacySource.java": "c0bb9e90c3d853cbac3151cc9eeba5cf592201ceabea2d7d9c7effcab68fe1dc",
+    "order-service/src/main/resources/db/migration/V13__index_order_windows.sql": "f5afad9cc7a0fe30fefe7113c900630085b45412c20e66f8f0bc5636130192d6",
+    "inventory-service/src/main/resources/db/migration/V1__create_inventory.sql": "a71608de0ee7f4331475a687db52c9c5a53c80e2ec12645f107efaa26b0bbee3",
+    "order-service/src/main/resources/db/migration/V5__add_order_idempotency_key.sql": "7af88dce014c1629d0af780f1984393436edfb66be3f7ecefe2c160cf4f3b71d",
+    "inventory-service/src/main/resources/db/migration/V4__add_reservation_expiration.sql": "ccccd2bc7cd4ef9c7490ad839585cb53e4e7d40fa7c9836edb7b665c7b3f4c9a",
+    "delivery-service/src/main/resources/db/migration/V7__account_privacy_fences.sql": "3781e1bfd05316c2f7965e0035c1e6014beff714519eda69a82d8710307974fc",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionJobs.java": "91d2638a36db438dfd5f908299c45eeb85e07793111519417c2c911a02fbbbf0",
+    "order-service/src/main/resources/db/migration/V27__commerce_retention_assessment.sql": "dbffef3978371450b5002f328aa071624da4b8c5b55002caad59915afc48d097",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionInvalidationController.java": "843272ad9c2d45e5d844c06d6e1585fd8dece4f1d2f8c928887ad5faa691fb28",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionInvalidationClient.java": "4d61e2d7bd9abde1d58067658fbd6933385a80e7bdd3b52aa2f830b663b83535",
+    "scripts/backup/privacy-restore.py": "bf301fc7f8e548f23c6bd159e89f8cf99dbecdebc4b67d6994c39cdf2c785135",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionSourceOutbox.java": "7d3ec331a199aab8399f8ee821a2a53f99ef87409320ad453d7774a1e95a6207",
+    "returns-service/src/main/resources/db/migration/V6__commerce_retention_source_outbox.sql": "636fbc1ea66dc2fc3c675cdfa322bb2530129a19457cd2d3fd98e994ef40de40",
+    "inventory-service/src/main/resources/db/migration/V12__commerce_retention_source_outbox.sql": "d2c61d6acc6fd844d39516d332a45043a4ce51f9d1b98eaa60c9dc38d5e976e4",
+    "promotion-service/src/main/resources/db/migration/V10__commerce_retention_source_outbox.sql": "d216b150026f9acf6b6b102f9b0dcb2e296bbd5e3c786cdcfe650b79c1322f62",
+    "delivery-service/src/main/resources/db/migration/V9__commerce_retention_source_outbox.sql": "c7e7933d5355912584661a05db76c37db2fe1faf14680066040ec7d04ae27dbe",
+    "billing-service/src/main/resources/db/migration/V7__durable_event_inbox.sql": "cf7ad4615c60d2c9c5aeda580fb64b95c212fa70ed755fc10880d90601cdbc28",
+    "payment-service/src/main/resources/db/migration/V16__business_queue_metrics.sql": "f500d1eb14540231ab0270ae9fbe78714f2bc5dd79c7b9589ade4c1cc8d450b5",
+    "notification-service/src/main/resources/db/migration/V8__durable_event_inbox.sql": "cf7ad4615c60d2c9c5aeda580fb64b95c212fa70ed755fc10880d90601cdbc28",
+    "billing-service/src/main/resources/db/migration/V2__add_invoice_items.sql": "9d4f4e5ba1edd3103f8af3ad32d29a827f7ada5ecfb8b06a61fa8bcd43af2276",
+    "payment-service/src/main/resources/db/migration/V17__published_outbox_contact_retention.sql": "04531770663fe01f3a705cdccaecc946054889270967ea8bf890e42a8b6cc5c0",
+    "payment-service/src/main/resources/db/migration/V7__index_payment_windows.sql": "d306aba5ca8aeaf1b81fbf1b4fab18cb1eba890453904103a1592f3383596e84",
+    "payment-service/src/main/resources/db/migration/V9__outbox_publication_lease.sql": "5815ed3d06a6a07129540f14d5126ecbed272661e25b480caee5dfc9a8b3c52d",
+    "notification-service/src/main/resources/db/migration/V7__notification_delivery_lease.sql": "eb705466685328962017dff8fc8541ebe762cdb3045789e5fed12bff3e4001b2",
+    "notification-service/src/main/resources/db/migration/V2__add_notification_retry_state.sql": "a3d585583846c48a8d16db5d31c8a9f7b17da0dacc84fc623cd2a2c851c93266",
+    "payment-service/src/main/resources/db/migration/V8__payment_processing_lease.sql": "e97b711b1eeff8ba79da8e46e6a2cdca54238df20c678a0546e7bc808e409f6f",
+    "billing-service/src/main/resources/db/migration/V1__create_invoices.sql": "e836d009f20337784eaddec5d4128a4943c809072ff6df85c348b267705f5f20",
+    "payment-service/src/main/resources/db/migration/V4__add_payment_idempotency_key.sql": "d42ee64c6f3f7b4fd95b9fa35d2b3642b1e376f3f6fe059bf501238ead9f5c61",
+    "billing-service/src/main/resources/db/migration/V9__business_queue_metrics.sql": "db0836f321f726c50c7edf60df6847b59bb0b0f4ee5cdd5649b4006f5e9123dc",
+    "billing-service/src/main/resources/db/migration/V10__published_outbox_payload_retention.sql": "9221b22534872b3c31565ef2e266469ba479a092859db7b13c5d86f1a4d16ce3",
+    "payment-service/src/main/resources/db/migration/V18__account_privacy_fences.sql": "3781e1bfd05316c2f7965e0035c1e6014beff714519eda69a82d8710307974fc",
+    "payment-service/src/main/resources/db/migration/V21__commerce_retention_source_outbox.sql": "23e2bc9ddfe5ecacedef0c8553433c543af38cd626af4a3ebf12322f72e31767",
+    "payment-service/src/main/resources/db/migration/V11__durable_payment_follow_ups.sql": "1002846bed0946848fa3e9b4290778b0a1e943da728d25df1d547e39e51843d9",
+    "payment-service/src/main/resources/db/migration/V1__create_payments.sql": "5fc7efe496362b49aeb18827d3aa4b9d82417e1a053248f55d709025d3f4aafe",
+    "notification-service/src/main/resources/db/migration/V15__event_identity_aliases.sql": "315bb743ccc9c9f7e2666501f2cef82e3b87ac392d928e890d57dca8dd91de48",
+    "payment-service/src/main/resources/db/migration/V14__stripe_checkout_webhooks.sql": "8fb64f1efa3e27b64823a8ecf99284442b093c99543bc636126ffd073a8850a5",
+    "billing-service/src/main/resources/db/migration/V5__index_billing_windows.sql": "3db086573182d24e309ea693860a30201a75939aa760978baf60b00200a0c455",
+    "billing-service/src/main/resources/db/migration/V16__commerce_retention_source_outbox.sql": "fa879eff512bd82499d74ef18b8088b724fffaf156a3a25f1491d56f6181cafd",
+    "payment-service/src/main/resources/db/migration/V6__add_invoice_id_to_outbox.sql": "5fb2e6b65302dd2f0b95fa4ca77164f459e4788f81ae92c97d7466bd713ce549",
+    "notification-service/src/main/resources/db/migration/V11__rejected_inbox_diagnostics_retention.sql": "8adb0dd3fc01a01889670cf9551575c51cddbaa4436da30c888826e6401c4bd8",
+    "billing-service/src/main/resources/db/migration/V12__account_privacy_fences.sql": "3781e1bfd05316c2f7965e0035c1e6014beff714519eda69a82d8710307974fc",
+    "billing-service/src/main/resources/db/migration/V13__event_identity_aliases.sql": "315bb743ccc9c9f7e2666501f2cef82e3b87ac392d928e890d57dca8dd91de48",
+    "payment-service/src/main/resources/db/migration/V15__stripe_recovery_and_refunds.sql": "e73605ef924f9bcc7941f3d9d648cde8583ae286fee6f0f7bdba4e8044856912",
+    "payment-service/src/main/resources/db/migration/V2__create_payment_outbox_events.sql": "783fab2746273721abf696cbccea8a5e9594884f87a69195f4c1dfe049a24577",
+    "notification-service/src/main/resources/db/migration/V12__sent_notification_content_retention.sql": "62eb5142cb1a9c1efb41ec59392a180bd3e907b5109b2b0b1a435201e985a0d5",
+    "billing-service/src/main/resources/db/migration/V3__index_invoices_created_at.sql": "bbb4ee9563c925420539d01bd1fc82d1bdc479f16c8ea33f226e52ed94e25fbf",
+    "notification-service/src/main/resources/db/migration/V1__create_notifications.sql": "e600dd09b44dc11dc73974d2beab59a9a3ee7f64f39904859f29656326f7fbf8",
+    "billing-service/src/main/resources/db/migration/V14__finance_privacy_guards.sql": "6a78375369c9a25f6a5858e29334bdc383219790bf9ac1f0a296db41f95fe2cf",
+    "payment-service/src/main/resources/db/migration/V3__add_delivery_address_to_outbox.sql": "45844c653cec46e3ce21c972d84e7a7a99b056e0aacd8e3fbe6b45e8b4dc128c",
+    "billing-service/src/main/resources/db/migration/V4__add_invoice_sequences_and_corrections.sql": "505c632a8ab335b88557ea9a384b30027aca1a44f7d4e051b8f3420b617a8233",
+    "billing-service/src/main/resources/db/migration/V15__inbox_privacy_guard.sql": "48ae60490dd516004be597eb154d143a6a58b866a7c16d27d1a67c5ff25b2910",
+    "notification-service/src/main/resources/db/migration/V5__add_invoice_id_to_notifications.sql": "32d7278d62ca0a760c02c4bf2c028b3bca3df9a82499bd1f151e22309190ea2d",
+    "notification-service/src/main/resources/db/migration/V14__account_privacy_fences.sql": "3781e1bfd05316c2f7965e0035c1e6014beff714519eda69a82d8710307974fc",
+    "payment-service/src/main/resources/db/migration/V12__deferred_collection.sql": "ec7fcc24bd02819aebeaa7827cba35c0cef467b12ed3b501b0cfd2058d84c1ef",
+    "payment-service/src/main/resources/db/migration/V5__add_correlation_id_to_outbox.sql": "eb491632c7c3ca146d56c4c04bd25cc951f935fb4bab070c303cd8101b8ede84",
+    "notification-service/src/main/resources/db/migration/V3__create_notification_dead_letters.sql": "9eff1dcab2f3a9493c8e6539f5b9cc1d79f46a3f77e8feed0c2a5f6744ef32cb",
+    "payment-service/src/main/resources/db/migration/V10__payment_command_result.sql": "ebafc0261ceeb519880b41ed8b615615febf4b33e6cd671aa19de5595597e2c6",
+    "notification-service/src/main/resources/db/migration/V18__commerce_retention_source_outbox.sql": "c9110fd00e65c713f167d2c8caeb920d959b5843267c97d399ea13b7eca4a8c2",
+    "payment-service/src/main/resources/db/migration/V20__finance_privacy_guards.sql": "5d1edf89e37857bb3aff933fe6f487c50db28127c19221fd9425a7e2519e229b",
+    "notification-service/src/main/resources/db/migration/V13__resolved_dead_letter_content_retention.sql": "41b600c3faa625ec40ca97597313644611bd16f0a12c504631e62ea950204611",
+    "payment-service/src/main/resources/db/migration/V13__payment_cancellation_fence.sql": "e220e8329c781f1b7933258be45223f3a71948238d6e54f8f98aef5c7c906dff",
+    "notification-service/src/main/resources/db/migration/V16__finance_privacy_guards.sql": "0d0ae6fa98d87cc9578e743dcfcc826a50fade1ff971762c68535dcf45e97ceb",
+    "notification-service/src/main/resources/db/migration/V4__add_correlation_id_to_notifications.sql": "c321a1c971246b363ad5e07f6bd254165413b8e085f00accc31439307b9277d6",
+    "notification-service/src/main/resources/db/migration/V9__business_queue_metrics.sql": "70bc44a26e0069328f8075f17970e579e554bf8aa3cdc9d5004da12ced331a61",
+    "billing-service/src/main/resources/db/migration/V6__invoice_outbox.sql": "5978adf0a47b93fb1f3b0ef325bf7df838a20ee823304cbafaf44412268cf89b",
+    "billing-service/src/main/resources/db/migration/V11__rejected_inbox_diagnostics_retention.sql": "8adb0dd3fc01a01889670cf9551575c51cddbaa4436da30c888826e6401c4bd8",
+    "notification-service/src/main/resources/db/migration/V17__inbox_privacy_guard.sql": "0a2de8dadbb57264743ce3e8d46fa33c70599c4e003fd80eb218756113c26703",
+    "notification-service/src/main/resources/db/migration/V10__full_chat_notification_bodies.sql": "e7edb594c3e6f6233e4268579ec3920a7d195857f758627d2faffcad6cb93a0f",
+    "billing-service/src/main/resources/db/migration/V8__cumulative_correction_ledger.sql": "bd26692b0e6dd7ee7e110b652cfb751118e33c7016980c9700495bffdefa484a",
+    "notification-service/src/main/resources/db/migration/V6__index_notification_windows.sql": "21a3965144adeaf12d0a7b3aa69a7c00839801ede72518aaea1e8f66185b4dfd",
+    "payment-service/src/main/resources/db/migration/V19__versioned_payment_identity.sql": "3e60d2cb3881fba4fbcfd0228577393c99981e3d234b73dd7dd9a3fb032d2880",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionBindings.java": "ec26cd63ab2d1ee0686153622cc4e43bf21c7f8d33dc3378ab6cb87ca715d835",
+    "order-service/src/main/resources/db/migration/V28__commerce_retention_bindings.sql": "0c0894ef0642b6acf212679814074c468120fd22c193336a3ee59cb93313d4d2",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionBindingProtocol.java": "8f1f09f3eda43251674b38a7749aa70ec7827ffe8df025ef6077c9e2d1c2a973",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionBindingClient.java": "c4c7b24055277b3be35c706add7353795d189215ad6105f0004dfa8f73e49955",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionSourceController.java": "7549973d42dc4a95dd478ac945871378c017c29e4c04ba4ae6590b5cab412ab5",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionSourceConfiguration.java": "91c2d808a40efe0649cfecc0d24e1a951cf36e9c7314befa3e30b5089299821f",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionBindingConfiguration.java": "5c12b7aca1665965335b19acb63397eb65425320117cd4a8f42777f1f74cb7d7",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionBindingPublisher.java": "336baecbf8f28ba9f9f6ecb76318568d626d2969069dedbc785378bc14817e19",
+    "platform-security/src/main/java/org/demo/platformsecurity/RoutePolicy.java": "195948f5b82c5c4e6faa684fc63e9db553c35b4e15e6c51c86adccd09b416e3f",
+    "billing-service/src/main/java/org/demo/billingservice/BillingServiceApplication.java": "12c4fc9ea52d37d629c994afc13ef12b8a39b7a2b79dbeaaba36888f6e981274",
+    "delivery-service/src/main/java/org/demo/deliveryservice/DeliveryServiceApplication.java": "6b5048452e6646ba8a1f14433f1be4e189549031bdfa7e0420b1f70c7b2ca891",
+    "returns-service/src/main/java/org/demo/returnsservice/ReturnsServiceApplication.java": "d082a351535d2e958c4bc56a8f94f36a75436bc6393afaf8a4a2108a2003172b",
+    "payment-service/src/main/java/org/demo/paymentservice/PaymentServiceApplication.java": "c81f40f4a0dfc010674a3bd23ea87beab1cf499a7f752a6cfccfcdedf9010896",
+    "promotion-service/src/main/java/org/demo/promotionservice/PromotionServiceApplication.java": "bc916a510c6ed55f5dc233496cb56dd3a3fe4a5576dd9e96241f340c0a31eb5b",
+    "inventory-service/src/main/java/org/demo/inventoryservice/InventoryServiceApplication.java": "3e503ea1da2cad45f7207a2860ab4901e45ff57781f5a766a71a08fa0de79ce4",
+    "notification-service/src/main/java/org/demo/notificationservice/NotificationServiceApplication.java": "76cab50cb0a0fa432c5b3ae98ed6370d43a04f4606c14f3cdf56c6227251ce82",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionOrderEvidence.java": "9f933c1d34a46895d60f246c8f1fdaf1d896ad66826749f06b02d036fd54e810",
+    "order-service/src/main/resources/db/migration/V29__trusted_order_retention_clock.sql": "e6424014a3f8ff64a51815987a654b0359edfcc3e45e3e2e5926433400adc09b",
+    "inventory-service/src/main/java/org/demo/inventoryservice/privacy/InventoryRetentionEvidence.java": "5273e4a1c5d6246da8b10114c9c021faa884aabef2ddd17ffd6af7ad5ef7840e",
+    "inventory-service/src/main/resources/db/migration/V13__trusted_inventory_retention_clock.sql": "50f2ab89193f136a28a7c799513f185db125fd31441997516eecb75fd7f78255",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/InventoryRetentionProtocol.java": "127a36c7fa3e81ada0ac5acab36b52865b4584991224a2797e16f7d74f6bdcf6",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/InventoryRetentionClient.java": "d575e18b7b2d3537d6d64110265f594e0774e72486e35370947eb9e1c4008095",
+    "inventory-service/src/main/java/org/demo/inventoryservice/privacy/InventoryRetentionController.java": "d2ffb19a3e766d9880f9bd8903fa8bd1a0e084eb7a1341d9655895d4913761e7",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionInventoryCollector.java": "b0372339ab57d35e901c35179a672607fad82cac9b70ad85321e6007e20ecc47",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionInventoryConfiguration.java": "7fdad7b0dfe825022b4570f4ff257fa59d4eeb355c21f6628dc35760cff35cac",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionProtocol.java": "561be236c5c07bcb3cb87444db94b6c8a061d8b2fe4edcd52e0a0115a2794906",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionClient.java": "9897b7962a38ef1170b1a08584478ef4b2cae9ac358d898d60105eaf0d696220",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionEvidence.java": "8fffd791106ea08e1921acd55d2f08f6dfface846b20ff77c4be0ec93f0407d2",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionConfiguration.java": "44f0db924fc92d16e342ebc5b014d66017f890c94e688d5d532b766500b689a2",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionPeerCollector.java": "1fa029de3ab902ab5c5bdf0f79feaedec4d3abfcd57f07e8c8980973ad6037c6",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionPeerConfiguration.java": "9128f65f24f90aeda2360c21abdcf34206e719ca42e31861f6438e3117006c31",
+    "order-service/src/main/resources/db/migration/V30__peer_retention_receipts.sql": "f9ad9d5ccd5313e8b465417d010ea8c9ecc4f33c37be5bab11dddcee1b4c7c05",
+    "returns-service/src/main/resources/db/migration/V7__trusted_peer_retention_clock.sql": "b7783c530f7467bc43bbbc5c175e79ea7f2af9b7f9113c513cd3763fd5a370ab",
+    "payment-service/src/main/resources/db/migration/V22__trusted_peer_retention_clock.sql": "2bdb568caf50c7266a862c8f775fdb84d838e99da2e74ddfe843993bd7363023",
+    "promotion-service/src/main/resources/db/migration/V11__trusted_peer_retention_clock.sql": "71f9087f0575beda9ef180252cefe75cf2d6a233b5f4b10036f9bfeb84ccdade",
+    "delivery-service/src/main/resources/db/migration/V10__trusted_peer_retention_clock.sql": "5a0f880467b4dde604c0cb9b00b407daa22cb443675faa762e1bae6d005902ac",
+    "billing-service/src/main/resources/db/migration/V17__trusted_peer_retention_clock.sql": "08f7944cccbbcc5367a794013be9a8cd4f24c451f0a0573cbbf0664c5a657374",
+    "notification-service/src/main/resources/db/migration/V19__trusted_peer_retention_clock.sql": "43ab5deae1bbc7dbda0123f255cf2c0bf4e401bd7d9dbc4e497181a73be6142f",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHolds.java": "b2a39abb732b0f138b31507453c7a6f56d5b4ea8bcbb469516a3fc4a219e1e38",
+    "order-service/src/main/resources/db/migration/V31__commerce_retention_holds.sql": "95aad65e14161d07871006113d4504aa7a277b20282d6520bc2ffc14c9d23210",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionWorkflow.java": "4dd0ccb1bfc9f129ef9b35a1a1673c23345ad0c6ac0e62b15382102e7bedae25",
+    "order-service/src/main/resources/db/migration/V32__retention_preparation_predecessor.sql": "86e9b52c6305f048a4dfc637215abfab5cfcb79c2fc5e7a9706f4b6b5878916a",
+    "order-service/src/main/resources/db/migration/V33__index_retention_claim_candidates.sql": "b34d4efecc0828bc90b20d66a9f54054ca313761a756cdf6ea6a6daf6d4dfc75",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionClaimScalePostgresIT.java": "3dd04a597b59cb8b7cd9c8c98e69c6a26d560059f22ffa6601ee3cd023954b01",
+    "platform-security/src/main/resources/privacy/commerce-retention-field-scope.json": "46fc1c016c9cf8c712572936201a28f14ddf5598da1460898cc3551ca3dba5bb",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionFieldScope.java": "ef1a38c1fa6f095813f755c19af47c259d854ec04adcd5ed27113ff5a2fdab9d",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionFieldScopeEvidence.java": "5263923af8d4b0a04d66d5643d9b85142a05f00f3abcf57da1b7e0ec9b57b6e5",
+    "order-service/src/main/resources/db/migration/V34__retention_field_scope_evidence.sql": "a6d83560c6d48bf4cb8600e59564d11f5298505fdc1a3f37a5a71b408224cf02",
+    "platform-security/src/test/java/org/demo/platformsecurity/privacy/CommerceRetentionFieldScopeTest.java": "08faf8bc1580908112e1144920e9164779a80ba97fe7f3d8357e03f2661437ea",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionWorkflowPostgresIT.java": "9f7cbf177f4dbef1a8344a19dc5a3c224af691bac24fbf447634490c716b56e3",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionPeersPostgresIT.java": "77194579998f5ac630a1f7d9de4ae14024141543b3a2d2e4c5d901588f9e7a53",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionFenceProtocol.java": "bc041c37af83d5a2409a158e934ed0296ce6758dc3c813dd780acdb79ba43f3d",
+    "billing-service/src/main/resources/db/migration/V18__durable_retention_write_fence.sql": "1b3079ec53973fa622785007115e21be9d56cdc109add7a9211d432f24551bb0",
+    "delivery-service/src/main/resources/db/migration/V12__durable_retention_write_fence.sql": "b0168d564cd39912e790bb275719bfba956034b751f8191ef53744820b7f5086",
+    "inventory-service/src/main/resources/db/migration/V14__durable_retention_write_fence.sql": "df4e175ca6adfd92c5bd5b7053291c4a70d5a73a5437a003a3701abb36dbcf23",
+    "notification-service/src/main/resources/db/migration/V20__durable_retention_write_fence.sql": "06de15e69b783b6fe7c73c036ccb6af7824bc52d74c4d4e819cc5667fad24e0e",
+    "payment-service/src/main/resources/db/migration/V23__durable_retention_write_fence.sql": "f211cbb21f75fa91f075857b026c5da61b3b81b0492663362922184175e3fad5",
+    "promotion-service/src/main/resources/db/migration/V12__durable_retention_write_fence.sql": "21249ae98dfd37f389773aa34d075e079b865ef8a0ed58f4e331d7a54654461f",
+    "returns-service/src/main/resources/db/migration/V9__durable_retention_write_fence.sql": "9039cdb6ff4d2fc6603771a8a1cc11056049f05e0dc7183909447cc2a400e68f",
+    "order-service/src/main/resources/db/migration/V36__irreversible_retention_redaction.sql": "0d11d71844ba21041322b65b47e625fa6bbeb64928dd65f807cb2e7426924b19",
+    "returns-service/src/main/resources/db/migration/V10__irreversible_retention_redaction.sql": "747883aaa62d648ce1e1a2cdb9b58424897a2459f0e6bd48752b3b1c42b1f086",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionWriteFence.java": "b5557ba907d72d722633262c46c776f4f6dd304c53bd6a630b74c93f6980f0ea",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionExecution.java": "4a98bf8b18dd780c6cc451043a1d14c57ab5eb151ea5f402d086d8f16f7e0bb2",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/OperationalRetentionGuard.java": "8cb3a1967e870758d5a70cd0b4cedf1408ce0bfe86c5ce61a9e1b60a7b1a9fb5",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/OperationalLogRetention.java": "2303f8b65b51cffbb4527748f7ea7c63a227382084e4e8bb9c94941d815283ff",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/ManualCaseProcedureService.java": "0b54871d5c32682168baddc4b3c9e87936563186ef0273aa217a202732a5d691",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionRedactionWorker.java": "6f22f588730bfed40d8df3a1ef5b407f4993f3a0697abadb8bfaf38c03d17f2c",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionMinimumRemovalWorker.java": "cd2a0ea8bcb807897347c3e1e12411e89d1380d0a42ce0b02b3cd9f34507f2b9",
+    "returns-service/src/main/java/org/demo/returnsservice/privacy/ReturnsCommerceRetentionRedactionWorker.java": "fefaf3694d955e5095c1856ca2b20889f38e6d4385a8aa821b5ff4c7857c2835",
+    "delivery-service/src/main/java/org/demo/deliveryservice/privacy/DeliveryCommerceRetentionRedactionWorker.java": "be7fb831698382c8a1cf23a55bf42765b3c7b3ae64e55f9d3c8b6e7ad159e64a",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionJobsPostgresIT.java": "2d670fb9cbe6396c3a35b7037b9977c974c7bc94ffd422d93c80606bf0809cf2",
+    "order-service/src/main/resources/db/migration/V37__invalidate_retention_on_content_changes.sql": "983ee83b099fde3e2c80a0eb8a61e391ecf114e8d2a2df70c832524d32ebc36a",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionGuardProtocol.java": "2b69683f2f377a7e13e02727009c1752e2819528bb9a5a8bc4ce3e32f288510c",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/PeerRetentionGuardEvidence.java": "cb1ddc84d9bdaa39b67f4b5810b39378d922775f40416086583382bb4d0b82fa",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionSourceGuardCollector.java": "3b1b2916a3a2207deb9b19ece1839e001e0257bbf70a5de13172c4dcaf6a8f54",
+    "platform-security/src/test/java/org/demo/platformsecurity/privacy/PeerRetentionGuardProtocolTest.java": "9f60a76019e31c2d9fbf9ceafdb76064018d368775200567a7905a2876778de1",
+    "order-service/src/test/java/org/demo/orderservice/privacy/RetentionGuardHttpFixture.java": "ec81ef4679ae59a77d4cdba809bdb70ad4b1a60df2e5a5d5af436dcab8b64e67",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionSourceReceipts.java": "cfdb0493e436ba23fd9a667a95efff85f58c92852a060390133f92b99fe4c2c0",
+    "order-service/src/main/resources/db/migration/V38__source_guard_observation_receipts.sql": "5bef7957aa0929cd7d551fa4dae6621071b25e6011b2dbffe459f9cc9c37a21e",
+    "scripts/qa/privacy-recovery-e2e.py": "7d7eea08e9046f6bb6e188affb8885816d91d5a4b8a56be9627569d7957d6706",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionIntents.java": "7c61018f38ad9c739fc0b284b6899b5ec48e99f7c03562bccd3c5fb79ec45111",
+    "order-service/src/main/resources/db/migration/V39__retention_intent_registry.sql": "8e78de22d1231a5c90079eefeccd790e7aa68531f191891f71b5154a3166f5be",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionIntentsPostgresIT.java": "8c707798e700277cbc45890bbd4e6dc6f004890f5173d1056a17bae51bffb595",
+    "scripts/qa/unit/test_retention_intent_restore.py": "b08d9936cec3dda1d40e81e3b78258acd0bfbe2832ff8a3c018e57c4e6561c8b",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionIntentHttpPostgresIT.java": "5ffd43c5cf2f95c7b8e23c1eacd2f35250aba1da1fba440024520c319b4ee9cd",
+    "order-service/src/test/java/org/demo/orderservice/privacy/RetentionIntentHttpFixture.java": "297d2cf7dc216da9197778f5e9e8f8a948518b14e23cf16b3c532db9227bad2a",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionObservationRounds.java": "1cdde2432e0ef5af94ef178fd68541e29053aab98b855d3bd2f566bc0678f14b",
+    "order-service/src/main/resources/db/migration/V40__retention_observation_rounds.sql": "7a44f6236ab22aa9496f84dc27056b954f40a7251e5e8840019c84e5f2386098",
+    "scripts/qa/unit/test_retention_observation_restore.py": "84a988b44c70d8a0f8672baff719fc01071cc7c429aabc0c4bced72c530bba99",
+    "payment-service/src/main/resources/db/migration/V24__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "inventory-service/src/main/resources/db/migration/V15__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "promotion-service/src/main/resources/db/migration/V13__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "delivery-service/src/main/resources/db/migration/V13__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "billing-service/src/main/resources/db/migration/V19__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "notification-service/src/main/resources/db/migration/V21__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "returns-service/src/main/resources/db/migration/V11__retention_fence_replay_markers.sql": "8f0b7e204470e3ec7737664d638c18bbc5f51afc075bb9a5d9a7311f85be415f",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionRoundRecovery.java": "edd16d02bdd930cfba88055fd43f42471a5012a3618fb29fbce2d06f7c00e2dd",
+    "order-service/src/main/resources/db/migration/V41__retention_round_recovery_claim.sql": "c2d723f618744163931eb0b8362d0308f37ed9d5da162eb5a251b88675515245",
+    "order-service/src/main/resources/db/migration/V42__inventory_guard_observation_receipt.sql": "0ec393fc9c0b278247e2a938b623b9e96adb13d9cc462d8fe44c9e8de02cbf15",
+    "returns-service/src/main/resources/db/migration/V12__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/CommerceRetentionSourceHolds.java": "a6abec8d97905fc1359df3b30ceba3d604d70af51487d210110c3dd60d28ea0c",
+    "order-service/src/main/resources/db/migration/V43__source_hold_observation_state.sql": "dfd3ed1f033a2a620902f535ed31f3df2ec2f0c200252926adb0702742236de7",
+    "promotion-service/src/main/resources/db/migration/V14__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "payment-service/src/main/resources/db/migration/V25__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "billing-service/src/main/resources/db/migration/V20__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "notification-service/src/main/resources/db/migration/V22__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "delivery-service/src/main/resources/db/migration/V14__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "inventory-service/src/main/resources/db/migration/V16__durable_source_retention_holds.sql": "9b6a2e0eb60edbb9c8ed2af67a5fe90244bf8be2854bf9f9774eb428a39e7938",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldIntake.java": "fb1e21f167d79576b9b8469e2452091e8b11ba3b13e98e32b9fd2e07d0c36911",
+    "order-service/src/main/resources/db/migration/V44__retention_hold_request_intake.sql": "1f6e5bddc7693b4133a1c15797db53d306a3311b0ed33ce2c9b40c979bbe760b",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldIntakePostgresIT.java": "1a6e74b2323f97265ae3e5dcdb6023d74bbf2de908ee29e3508a92fdeeb9de3d",
+    "scripts/qa/unit/test_retention_hold_intake_restore.py": "91ac34cfd0d0bcd42b915539efc5aa1c2c71b30cca3449339667f813244889b6",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldDeliveryProtocol.java": "9b0d2d1375837b7cfd16c8b5edfdedb6052b0598d4ed01296513f9c142701adb",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldDeliveryReceiver.java": "89ab39bb46886fcb8547ecfd8ee835536eb64eb77a9b56f3ef8792ebf9764ab4",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldDeliveryConfiguration.java": "49ca3f796f95b3716b800fd740aeab919096b7b3f4bf1ff7ea588ca21208a37b",
+    "platform-security/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports": "7a1649785600c637485205e7c89ea1df98bb415ec7e1d55406fbbb75dca6c28f",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldDelivery.java": "74a74004615cec3413718caffbb44d04530a1616c69c373b8ea4ff51b15f31aa",
+    "order-service/src/main/resources/db/migration/V45__retention_hold_delivery_history.sql": "50c58163c44b643dbffb35c0530db9b90d6bf8c85d54500ffeff3f5a5b66c891",
+    "platform-security/src/test/java/org/demo/platformsecurity/privacy/SourceHoldDeliveryProtocolTest.java": "6b20dad6138caf96c83c8314ae5a58ed21bfa69ba7641beffbf3a1a1e6304d29",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldDeliveryProgress.java": "6815a510f78630f6400122b92e8bd23e5ed3125fd1fec175c615ef760c7b4681",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldDeliveryProgressPostgresIT.java": "30f06b7f5766b86453b172c8089cd1a57de96127e4b2b5e12e530363a1a478ba",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldInspectionProtocol.java": "a5632e7a590c540f108b46dc09a63392786322a42c36b66ef481a9c2918a31d6",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldInspector.java": "da829deccd6158b8e2435785c65ec89438852878e4bc417685b99e693ee729da",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldInspectionConfiguration.java": "25edb45cf1ec9db57b1c25d53d21125b92a456f4b47d55ba541977fb20ceb036",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldReconciliation.java": "fc2f1fcffb4963b0fef76571994a23fa65e191e32c7d26c917c76beb5710e6c6",
+    "platform-security/src/test/java/org/demo/platformsecurity/privacy/SourceHoldInspectionProtocolTest.java": "73cf7cb62112af419cdf3f2ab81cbc6d8b7b6168e37dd3f60f06528cad820102",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldReconciliationHistory.java": "a956d61bba19c4b260e568fa601ea870091d194781a18d07dd75a3092e06ea8a",
+    "order-service/src/main/resources/db/migration/V46__hold_reconciliation_history.sql": "c66b610429997ea0f169691e61208915c2caea1b5b5e3efbe0227dbce0dc6648",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldReconciliationHistoryPostgresIT.java": "9f964b7a10c714603095ec32aa4bca77152c7961904413efb1b665b9b6286331",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldRepairAssessment.java": "efddb71ad853dec66d8eaa79ca35970d1a4ea399a729ca4bcea31b78cf6f9113",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldRepairAssessmentPostgresIT.java": "f58c0d5a9fd5b26232460673b40407782b490765854d024b2479000e27de77e0",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldRecoveryPlanning.java": "6f97fa3a293a0f660b1515605f1af7a9fe09ba8b62c935e42e8960f33cada443",
+    "order-service/src/main/resources/db/migration/V47__hold_probe_resolution_and_repair_intents.sql": "0adc27f43334c32e9f5f53b61f91af89471100f4a1ecf920f7a00553331c81aa",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldRecoveryPlanningPostgresIT.java": "c9b40201a734c5cf75f9f48b89d37efefe8e1e2516a911c51f7d4ea75a039ca2",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldRestorationProtocol.java": "d0eaca98f4816844ec9ccb1fb7e581c947ca44a2eea371f350092ecd459cd1e0",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldCaseAuthorization.java": "351bd61c354bd69fc162a134a5304795e5f0822c8bd5540f017bcb2dd4292144",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldRestorer.java": "d58f89d49f8b9ad2fd041ff279fa7dff4f794fff088c883348495c4bff752c05",
+    "platform-security/src/main/java/org/demo/platformsecurity/privacy/SourceHoldRestorationConfiguration.java": "36a30a68da4ba9ba143ca982ceff60f9bc4fcd5d3a863d3f4a9c039695e71968",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationPreparation.java": "27f80afe607753aa0eb69fff09343da02f5679937f545ff6b9f9ffbdc3081d0a",
+    "platform-security/src/test/java/org/demo/platformsecurity/privacy/SourceHoldRestorationProtocolTest.java": "9e9951a4858d350a796f4d8200de6c86a72af90f6ddc425b0839713a70462dd1",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationPreparationPostgresIT.java": "771571fd13d1ef9483d84cdd5784e5802d772460aaf9abdabf480cd94ab96197",
+    "order-service/src/test/java/org/demo/orderservice/privacy/RestorationCaseFixture.java": "b4b119e02a0b4eaa34d7574c820faeba46b0a516af2652cb3211d8c7969cabfa",
+    "scripts/qa/unit/test_commerce_retention_restore.py": "23365294df1c531479096411011b9a613eb9562f56cf5cfc8485c6cecfc47230",
+    "returns-service/src/main/resources/db/migration/V13__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "inventory-service/src/main/resources/db/migration/V17__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "promotion-service/src/main/resources/db/migration/V15__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "delivery-service/src/main/resources/db/migration/V15__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "payment-service/src/main/resources/db/migration/V26__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "billing-service/src/main/resources/db/migration/V21__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "notification-service/src/main/resources/db/migration/V23__source_hold_restoration_receipts.sql": "5243f18e941beb0024e9520e82f632d205bd9b06227948e58a49c6370cf7f4c5",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationDispatch.java": "aeae6d8d1b53b7baa2462638b82792823e73c370d1e700a29586d34866a132a5",
+    "order-service/src/main/resources/db/migration/V48__hold_restoration_dispatch_history.sql": "0172f1ebe8e3ca2ef784fd4610c37a38bf58621786419a64c71949508713e4a3",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationDispatchPostgresIT.java": "6f2fed0833e18b40509f3d29964c58e90c7a8f16729b96498ec95e1b86a6590f",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationProgress.java": "2241b0f13ee8d6d29dd78bd94d256b2fc1844d4147ada75acaea54d9217604c6",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationProgressPostgresIT.java": "c39fd50a300b5b5bb56c7344544ecd10ec006c5832531042c4197c593f927cc4",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationReview.java": "e31e274eeaf78deeb914228c96336e60c3060c0f72973fe995b2770909824538",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldRestorationReviewPostgresIT.java": "dc18f67cdcf5bf677513f7fd76a3857d8395c3a6d11bc398b2ff6410da04e808",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionHoldReviewVersions.java": "eaf0d51ce1f9080513deaa4904529c553a3c92c9b553c1622d2dd1bbad6c86c4",
+    "order-service/src/main/java/org/demo/orderservice/privacy/HoldReviewFingerprint.java": "ac5ff22fc6bf82331be0ea546eed721c53245e4703bc1f8a57f94fab561d543d",
+    "order-service/src/main/resources/db/migration/V49__hold_review_versions.sql": "ea535ac9b798ce616c3165a6dc6670b5d06ef65e00ed32f9868eef62965db193",
+    "order-service/src/test/java/org/demo/orderservice/privacy/HoldReviewFingerprintTest.java": "b39d58ea035099373b9407a2440d3d0890fc1f3677e9bfdc6a54b353c2228c39",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionHoldReviewVersionsPostgresIT.java": "10750637de2427d6256237e1ced7ddf5b2cb4157ec865962974b48cf2ebeb28a",
+    "order-service/src/main/java/org/demo/orderservice/privacy/CommerceRetentionVersionedHoldInspection.java": "5ba343a6c8b693bc325bfb0b2d3be6a22cf15b0cd57ad97882d52ef2ac2b8605",
+    "order-service/src/main/resources/db/migration/V50__versioned_hold_inspections.sql": "796408591ca15a28a5348306f5539bbfddba1f3273583850d20f34cc1a5bfe17",
+    "order-service/src/test/java/org/demo/orderservice/privacy/CommerceRetentionVersionedHoldInspectionPostgresIT.java": "2dac0f723b6689f398331126c35998cc464f6e5b75b2b93283e5a1408ad82b0c"
+  },
+  "activationPrerequisites": [
+    "resolved-policy-periods-and-start-events",
+    "reviewed-preservation-exceptions",
+    "actual-stream-recipients-and-pending-proof",
+    "independent-current-journal-and-key-custody",
+    "runtime-log-monitoring-copy-evidence",
+    "provider-evidence-and-A05-dependency",
+    "scoped-isolated-cleanup-evidence",
+    "named-environment-and-separate-activation-instruction"
+  ],
+  "environmentEvidence": {
+    "dev": "pending",
+    "test": "pending",
+    "prod": "pending"
+  },
+  "stopProcedure": "docs/A43_POLITYKA_RETENCJI_I_AKTYWACJA.md",
+  "decisionReceipt": "scripts/qa/contracts/retention-decisions.json"
+}

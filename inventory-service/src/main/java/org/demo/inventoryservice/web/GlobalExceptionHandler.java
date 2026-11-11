@@ -6,6 +6,7 @@ import org.demo.inventoryservice.inventory.InventoryItemNotFoundException;
 import org.demo.inventoryservice.inventory.InventoryReservationConflictException;
 import org.demo.inventoryservice.inventory.InventoryReservationNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,6 +33,16 @@ public class GlobalExceptionHandler {
     })
     ResponseEntity<ApiError> handleConflict(RuntimeException exception) {
         return error(HttpStatus.CONFLICT, exception.getMessage(), Map.of());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ApiError> handleConcurrentCreation(DataIntegrityViolationException exception) {
+        return error(HttpStatus.CONFLICT, "Inventory operation conflicts with existing data", Map.of());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ApiError> handleInvalidBatch(IllegalArgumentException exception) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage(), Map.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

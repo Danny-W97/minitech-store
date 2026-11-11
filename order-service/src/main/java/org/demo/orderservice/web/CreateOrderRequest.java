@@ -29,6 +29,6 @@ public record CreateOrderRequest(
         @Size(max = 40) String deliverySlot,
         @Size(max = 80) String pickupLocation,
         Boolean invoiceRequested,
-        List<@Valid CreateOrderItemRequest> items
+        @Size(max = 100) List<@Valid CreateOrderItemRequest> items
 ) {
 }

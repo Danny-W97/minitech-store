@@ -1,0 +1,5 @@
+org.demo.platformsecurity.PlatformSecurityConfiguration
+org.demo.platformsecurity.privacy.PrivacyConfiguration
+org.demo.platformsecurity.privacy.SourceHoldDeliveryConfiguration
+org.demo.platformsecurity.privacy.SourceHoldInspectionConfiguration
+org.demo.platformsecurity.privacy.SourceHoldRestorationConfiguration

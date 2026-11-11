@@ -26,6 +26,11 @@ public class ChatMessage {
     @Column(name = "customer_email", nullable = false, length = 255)
     private String customerEmail;
 
+    @Column(name = "access_token_hash", length = 64)
+    private String accessTokenHash;
+    public String getAccessTokenHash() { return accessTokenHash; }
+    public void setAccessTokenHash(String hash) { this.accessTokenHash = hash; }
+
     @Column(nullable = false, length = 160)
     private String subject;
 
@@ -44,6 +49,18 @@ public class ChatMessage {
 
     @Column(name = "reply_notification_status", length = 20)
     private String replyNotificationStatus;
+
+    @Column(name="last_entry_id",nullable=false) private long lastEntryId;
+    @Column(name="reply_entry_id") private Long replyEntryId;
+    public long getLastEntryId() { return lastEntryId; }
+    public Long getReplyEntryId() { return replyEntryId; }
+    public void recordEntry(ChatEntry entry) {
+        lastEntryId=entry.getId();
+        if ("SUPPORT".equals(entry.getAuthor())) {
+            replyEntryId=entry.getId();replyMessage=entry.getMessage();replyNotificationStatus="PENDING";
+            status=ChatMessageStatus.ANSWERED;repliedAt=entry.getCreatedAt();
+        } else status=ChatMessageStatus.NEW;
+    }
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -80,13 +97,6 @@ public class ChatMessage {
     }
 
     public void markNotification(String status) { this.notificationStatus = status; }
-
-    public void addReply(String reply) {
-        this.replyMessage = reply.trim();
-        this.replyNotificationStatus = "PENDING";
-        this.status = ChatMessageStatus.ANSWERED;
-        this.repliedAt = Instant.now();
-    }
 
     public void markReplyNotification(String status) { this.replyNotificationStatus = status; }
     public Long getId() { return id; }

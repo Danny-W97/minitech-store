@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.util.List;
 
 @RestController
 @RequestMapping("/inventory")
@@ -27,19 +29,16 @@ public class InventoryController {
         return inventoryService.getItem(productId);
     }
 
+    @GetMapping("/items/batch")
+    public List<InventoryItemResponse> getItems(@RequestParam List<Long> productIds) {
+        return inventoryService.getItems(productIds);
+    }
+
     @PostMapping("/items")
     public ResponseEntity<InventoryItemResponse> createItem(
             @Valid @RequestBody CreateInventoryItemRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(inventoryService.createItem(request));
-    }
-
-    @PatchMapping("/items/{productId}")
-    public InventoryItemResponse patchItem(
-            @PathVariable Long productId,
-            @Valid @RequestBody PatchInventoryItemRequest request
-    ) {
-        return inventoryService.patchItem(productId, request);
     }
 
     @PostMapping("/reservations")
@@ -58,9 +57,28 @@ public class InventoryController {
     public ReservationResponse getReservation(@PathVariable Long reservationId) {
         return inventoryService.getReservation(reservationId);
     }
+    @GetMapping("/reservations/order/{orderId}")
+    public ReservationResponse getForOrder(@PathVariable Long orderId) {
+        return inventoryService.getReservationForOrder(orderId);
+    }
 
     @PostMapping("/reservations/{reservationId}/confirm")
     public ReservationResponse confirm(@PathVariable Long reservationId) {
         return inventoryService.confirm(reservationId);
+    }
+
+    @PostMapping("/reservations/{reservationId}/checkout-extension")
+    public ReservationResponse extendForCheckout(@PathVariable Long reservationId,
+            @Valid @RequestBody ExtendCheckoutReservationRequest request) {
+        org.demo.platformsecurity.Access.require(org.demo.platformsecurity.Access.actor().internal()
+                && "payment-service".equals(org.demo.platformsecurity.Access.actor().service()));
+        return inventoryService.extendForCheckout(reservationId,request);
+    }
+
+    @PostMapping("/reservations/{reservationId}/stripe-compensation")
+    public ReservationResponse compensateStripe(@PathVariable Long reservationId,@RequestBody java.util.Map<String,Long> command) {
+        org.demo.platformsecurity.Access.require(org.demo.platformsecurity.Access.actor().internal()
+                && "payment-service".equals(org.demo.platformsecurity.Access.actor().service()));
+        return inventoryService.compensateStripe(reservationId,command.get("orderId"));
     }
 }

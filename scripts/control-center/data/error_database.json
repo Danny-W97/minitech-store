@@ -166,6 +166,8 @@
       "category": "network",
       "patterns": [
         "Address already in use",
+        "listen EADDRINUSE",
+        "EADDRINUSE: address already in use",
         "BindException: Address already in use",
         "port is already allocated",
         "failed: port is already allocated",
@@ -379,6 +381,89 @@
       "fix_button_label": {
         "pl": "▶ Uruchom testy Chromium (ui-test-regression)",
         "en": "▶ Run Chromium Tests (ui-test-regression)"
+      }
+    },
+    {
+      "id": "PLAYWRIGHT_TEST_ASSERTION_FAILED",
+      "category": "qa",
+      "patterns": [
+        "\\d+\\s+failed",
+        "Error:\\s*expect\\(.*\\)\\.to",
+        "Error:\\s*expect\\(received\\)\\.toBe",
+        "Error:\\s*expect\\(locator\\)\\.toBeVisible\\(\\) failed",
+        "TimeoutError:\\s*locator\\..*waiting for",
+        "Test timeout of \\d+ms exceeded"
+      ],
+      "title": {
+        "pl": "Niepowodzenie asercji w testach E2E Playwright",
+        "en": "Playwright E2E Test Assertion Failure"
+      },
+      "cause": {
+        "pl": "Jeden lub więcej kroków testów interfejsu (UI) zakończyło się błędem asercji (np. rozbieżność stanu koszyka, niewidoczny krok podsumowania po kliknięciu lub wyścig asynchroniczny z siecią/DOM w przeglądarce).",
+        "en": "One or more UI end-to-end test steps failed an assertion (e.g. cart state mismatch, hidden summary step after click, or asynchronous browser race condition)."
+      },
+      "solution": {
+        "pl": "Sprawdź szczegóły błędu w logu zadania powyżej lub obejrzyj nagrania wideo i zrzuty ekranu w gitIgnoreOwn/runtime/playwright/test-results/. Uruchom interaktywny raport Playwright w Centrali. W przypadku błędów wyścigów asynchronicznych (race conditions) upewnij się, że sesja klienta i wyceny dostawy są w pełni załadowane przed interakcją z formularzem.",
+        "en": "Check error details in the log above or open the interactive Playwright test report with video recordings and screenshots in gitIgnoreOwn/runtime/playwright/test-results/. For race condition failures, ensure customer session and delivery quotes are fully resolved before form interactions."
+      },
+      "fix_action": "ui-test-report",
+      "fix_button_label": {
+        "pl": "📊 Raport Playwright (ui-test-report)",
+        "en": "📊 Playwright Report (ui-test-report)"
+      }
+    },
+    {
+      "id": "DOCKER_APPS_STARTUP_TIMEOUT",
+      "category": "system",
+      "patterns": [
+        "nie odpowiedzia.*w wyznaczonym czasie",
+        "Did not respond in time",
+        "Nastepujace uslugi nie odpowiedzialy",
+        "Kontener wciąż się inicjalizuje",
+        "Kontener nadal się inicjalizuje"
+      ],
+      "title": {
+        "pl": "Przekroczono limit czasu oczekiwania na start mikroserwisów",
+        "en": "Docker Microservices Startup Timeout"
+      },
+      "cause": {
+        "pl": "Równoległe uruchamianie 15 aplikacji Spring Boot i 14 baz danych w kontenerach Docker mocno obciąża procesor i operacje I/O dysku w WSL2. Serwisy nie uległy awarii (nie zcrashowały), lecz ich pełna inicjalizacja JVM i kontekstu Spring trwała dłużej niż wyznaczony limit czasu.",
+        "en": "Starting 15 Spring Boot microservices and 14 databases concurrently creates high CPU and I/O load in WSL2. The services did not crash, but their initialization (JVM and Spring context) took longer than the timeout."
+      },
+      "solution": {
+        "pl": "Kontenery w tle nadal pracują. Odczekaj kilkanaście sekund, a następnie kliknij przycisk „📊 Status kontenerów (docker-apps-status)” lub „Sprawdź zdrowie (health)”. Wszystkie usługi za chwilę zgłoszą pełną gotowość.",
+        "en": "Containers are still running in the background. Wait a few moments, then click '📊 Check Status (docker-apps-status)' or 'Check Health (health)'. All services should become ready shortly."
+      },
+      "fix_action": "docker-apps-status",
+      "fix_button_label": {
+        "pl": "📊 Status kontenerów (docker-apps-status)",
+        "en": "📊 Check Status (docker-apps-status)"
+      }
+    },
+    {
+      "id": "GUEST_ORDER_LIMIT_EXCEEDED",
+      "category": "order",
+      "patterns": [
+        "Orders with a product subtotal above PLN 1000 require a customer account",
+        "ACCOUNT_REQUIRED",
+        "Nie udalo sie utworzyc zamowienia testowego"
+      ],
+      "title": {
+        "pl": "Wymagane konto klienta (Limit koszyka gościa 1000 PLN)",
+        "en": "Customer Account Required (Guest Subtotal Limit 1000 PLN)"
+      },
+      "cause": {
+        "pl": "Próba złożenia zamówienia jako gość na kwotę powyżej 1000 PLN. Polityka bezpieczeństwa platformy (GUEST_SUBTOTAL_LIMIT) wymaga zarejestrowanego konta klienta dla zamówień o wartości przekraczającej 1000 PLN.",
+        "en": "Attempted guest checkout for an order subtotal exceeding 1000 PLN. Platform security policy (GUEST_SUBTOTAL_LIMIT) requires an authenticated customer account for orders above 1000 PLN."
+      },
+      "solution": {
+        "pl": "Dla testów automatycznych wybierz produkt o cenie poniżej 1000 PLN (np. produkt #1 Samsung SSD lub #2 RAM) ustawiając APP_VERIFY_PRODUCT_ID=1, albo zaloguj się na konto klienta przed zakupem droższych produktów.",
+        "en": "For automated tests, select a product priced under 1000 PLN (e.g. product #1 Samsung SSD or #2 RAM) via APP_VERIFY_PRODUCT_ID=1, or authenticate a customer account before purchasing high-value items."
+      },
+      "fix_action": "app-verify",
+      "fix_button_label": {
+        "pl": "✓ Uruchom test zakupu (app-verify)",
+        "en": "✓ Run Purchase Test (app-verify)"
       }
     }
   ]

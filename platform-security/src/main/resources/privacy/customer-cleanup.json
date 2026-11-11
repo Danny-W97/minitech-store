@@ -1,0 +1,68 @@
+[
+  {
+    "sql": "DELETE FROM refresh_tokens WHERE id IN (SELECT id FROM refresh_tokens WHERE customer_id=? ORDER BY id LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM password_reset_tokens WHERE id IN (SELECT id FROM password_reset_tokens WHERE customer_id=? ORDER BY id LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM customer_totp_methods WHERE id IN (SELECT id FROM customer_totp_methods WHERE customer_id=? ORDER BY id LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM customer_recovery_codes WHERE id IN (SELECT id FROM customer_recovery_codes WHERE customer_id=? ORDER BY id LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM user_credentials WHERE credential_id IN (SELECT credential_id FROM user_credentials WHERE user_entity_user_id IN (?,?,?,?) ORDER BY export_id LIMIT 100)",
+    "parameters": [
+      "standard",
+      "standardUnpadded",
+      "url",
+      "urlUnpadded"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "UPDATE account_export_jobs SET state='CANCELLED',run_token=NULL,run_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT id FROM account_export_jobs WHERE customer_id=? AND state NOT IN ('CANCELLED','EXPIRED') ORDER BY id LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM account_export_chunks WHERE (job_id,sequence_no) IN (SELECT c.job_id,c.sequence_no FROM account_export_chunks c JOIN account_export_jobs j ON j.id=c.job_id WHERE j.customer_id=? ORDER BY c.job_id,c.sequence_no LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM account_export_tasks WHERE id IN (SELECT t.id FROM account_export_tasks t JOIN account_export_jobs j ON j.id=t.job_id WHERE j.customer_id=? ORDER BY t.id LIMIT 100)",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": false
+  },
+  {
+    "sql": "DELETE FROM customers WHERE id=? AND enabled=FALSE",
+    "parameters": [
+      "customer"
+    ],
+    "terminal": true
+  }
+]

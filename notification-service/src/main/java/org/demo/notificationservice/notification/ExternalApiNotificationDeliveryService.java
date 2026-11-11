@@ -12,6 +12,7 @@ public class ExternalApiNotificationDeliveryService implements NotificationDeliv
 
     @Override
     public NotificationDeliveryResult deliver(Notification notification, boolean simulateFailure) {
+        notification.requireDeliveryContent();
         return NotificationDeliveryResult.failed(
                 "External notification API is planned for a later production stage"
         );

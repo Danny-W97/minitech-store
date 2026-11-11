@@ -1,0 +1,1 @@
+CREATE INDEX idx_invoice_outbox_observability ON invoice_outbox_events(status,created_at);

@@ -1,0 +1,94 @@
+groups:
+  - name: platform-business
+    rules:
+      - alert: BusinessQueueStalled
+        expr: platform_business_queue_oldest_age_seconds{queue=~"order_saga|payment_outbox|payment_follow_up|invoice_outbox|notification_retry|chat_notification|payment_refund"} > 300
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Business queue is stalled"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#businessqueuestalled"
+      - alert: BusinessQueueBacklog
+        expr: platform_business_queue_count > 1000
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Business queue exceeds 1000 records"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#businessqueuebacklog"
+      - alert: BusinessDeadLetter
+        expr: platform_business_queue_count{queue=~"notification_dlq|payment_follow_up_dlq|order_reconciliation|chat_notification_dlq|payment_refund_review"} > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Business task requires operator intervention"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#businessdeadletter"
+      - alert: PaidWithoutInvoice
+        expr: platform_business_queue_oldest_age_seconds{queue="paid_without_invoice"} > 600
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Successful payment has no confirmed invoice task result"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#paidwithoutinvoice"
+      - alert: BusinessCollectorUnavailable
+        expr: (platform_business_collector_up == 0) or (time() - platform_business_collector_last_success_timestamp_seconds > 120)
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Business metrics collection failed or is stale"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#businesscollectorunavailable"
+      - alert: BusinessMetricsMissing
+        expr: (up{job="mini-order-platform",instance=~"(order|payment|billing|notification|chat)-service:8080"} == 1 unless on(instance) platform_business_collector_up) or (count by(instance) (platform_business_collector_up{instance=~"(order|notification|chat)-service:8080"}) != 2) or (count by(instance) (platform_business_collector_up{instance="payment-service:8080"}) != 6) or (count by(instance) (platform_business_collector_up{instance="billing-service:8080"}) != 1)
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Healthy scrape target exposes no business metrics"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#businessmetricsmissing"
+      - alert: PlatformTargetDown
+        expr: up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Monitoring target is unreachable"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#platformtargetdown"
+      - alert: DatabasePoolExhausted
+        expr: (hikaricp_connections_active / hikaricp_connections_max >= 1) and (hikaricp_connections_pending > 0)
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Database connection pool is exhausted with waiting requests"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#databasepoolexhausted"
+      - alert: PlatformHttpErrors
+        expr: (sum by (application,instance) (rate(http_server_requests_seconds_count{job="mini-order-platform",status=~"5.."}[5m])) / sum by (application,instance) (rate(http_server_requests_seconds_count{job="mini-order-platform"}[5m])) > 0.05) and (sum by (application,instance) (increase(http_server_requests_seconds_count{job="mini-order-platform"}[5m])) >= 20)
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "HTTP 5xx ratio exceeds 5 percent"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#platformhttperrors"
+      - alert: AlertDeliveryFailed
+        expr: increase(alertmanager_notifications_failed_total[5m]) > 0 or increase(prometheus_notifications_errors_total[5m]) > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Alert delivery is failing"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#alertdeliveryfailed"
+      - alert: BusinessQueueSloBreach
+        expr: platform_business_queue_oldest_age_seconds{queue=~"payment_refund|paid_without_invoice"} > 3600
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Business queue age breaches 60-minute SLO"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#businessqueueslobreach"
+      - alert: RedisStreamLagHigh
+        expr: platform_redis_stream_lag > 100
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Redis stream unread lag exceeds 100 messages"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#redisstreamlaghigh"
+      - alert: Watchdog
+        expr: vector(1)
+        for: 0m
+        labels: {severity: none}
+        annotations:
+          summary: "Watchdog heartbeat ensuring the alerting pipeline is operational"
+          runbook: "docs/A35_ALERTY_BIZNESOWE.md#watchdog"

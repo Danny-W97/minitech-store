@@ -45,4 +45,13 @@ public class DeliveryClient {
             throw new DeliveryServiceException("Could not reach Delivery Service", exception);
         }
     }
+    public Tracking tracking(Long orderId) {
+        try {
+            var result=resilientHttpExecutor.execute("delivery",() -> restClient.get().uri("/deliveries/orders/{id}/tracking",orderId)
+                    .retrieve().body(Tracking.class));
+            if(result==null || !orderId.equals(result.orderId())) throw new DeliveryServiceException("Tracking response does not match the order",null);
+            return result;
+        } catch(RestClientException error) { throw new DeliveryServiceException("Could not verify order handover",error); }
+    }
+    public record Tracking(Long orderId,String methodCode,String status) {}
 }

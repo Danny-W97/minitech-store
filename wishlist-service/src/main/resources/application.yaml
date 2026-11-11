@@ -38,3 +38,7 @@ management:
     livenessstate.enabled: ${MANAGEMENT_HEALTH_LIVENESS_ENABLED:true}
     readinessstate.enabled: ${MANAGEMENT_HEALTH_READINESS_ENABLED:true}
   metrics.tags.application: ${spring.application.name}
+
+# Local storage gates readiness; dependency outages must not trigger JVM restarts.
+management.endpoint.health.group.liveness.include: livenessState
+management.endpoint.health.group.readiness.include: readinessState,db

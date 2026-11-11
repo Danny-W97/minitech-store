@@ -225,7 +225,7 @@ services:
 
   event-broker:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
     ports:
       - "127.0.0.1:16379:6379"
     volumes:
@@ -245,6 +245,7 @@ services:
       - mailpit-data:/data
     environment:
       MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 1000
 
 volumes:
   inventory-db-data:

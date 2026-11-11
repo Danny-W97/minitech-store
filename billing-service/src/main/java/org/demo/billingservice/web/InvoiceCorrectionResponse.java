@@ -20,7 +20,10 @@ public record InvoiceCorrectionResponse(
         BigDecimal finalNet,
         BigDecimal finalVat,
         BigDecimal finalGross,
-        Instant createdAt
+        Instant createdAt,
+        Long balanceVersion,
+        String balanceModel,
+        String idempotencyKey
 ) {
     public static InvoiceCorrectionResponse from(InvoiceCorrection c) {
         return new InvoiceCorrectionResponse(
@@ -39,7 +42,10 @@ public record InvoiceCorrectionResponse(
                 c.getFinalNet(),
                 c.getFinalVat(),
                 c.getFinalGross(),
-                c.getCreatedAt()
+                c.getCreatedAt(),
+                c.getLedgerVersion(),
+                c.getLedgerVersion()==null ? "LEGACY_BASE_DELTA" : "CUMULATIVE_DELTA",
+                c.getIdempotencyKey()
         );
     }
 }

@@ -51,6 +51,34 @@ public class OrderClient {
     public OrderResponse cancel(Long orderId) {
         return changeStatus(orderId, "CANCELLED", "cancellation");
     }
+    public OrderResponse refund(Long orderId,String step,Long paymentId,java.math.BigDecimal amount,String currency,boolean cancel) {
+        return refund(orderId,step,paymentId,amount,currency,cancel,false);
+    }
+    public OrderResponse refund(Long orderId,String step,Long paymentId,java.math.BigDecimal amount,String currency,boolean cancel,boolean external) {
+        try {
+            var result=resilientHttpExecutor.execute("order",() -> restClient.post()
+                    .uri("/internal/orders/{id}/stripe-refund/{step}",orderId,step)
+                    .body(java.util.Map.of("paymentId",paymentId,"amount",amount,"currency",currency,"cancelCompensated",cancel,"external",external))
+                    .retrieve().body(OrderResponse.class));
+            if(result==null || !orderId.equals(result.id()) || !("REFUND_PENDING".equals(result.paymentState()) || "REFUNDED".equals(result.paymentState())))
+                throw new OrderServiceException("Order did not confirm financial hold");
+            return result;
+        } catch(RestClientException error) { throw new OrderServiceException("Order refund hold could not be confirmed",error); }
+    }
+    public OrderResponse acceptDeferred(Long orderId,Long paymentId,String method,java.math.BigDecimal amount,String currency) {
+        return deferred(orderId,"accept",java.util.Map.of("paymentId",paymentId,"paymentMethod",method,"amount",amount,"currency",currency));
+    }
+    public OrderResponse collectDeferred(Long orderId,Long paymentId,String reference,java.math.BigDecimal amount,String currency) {
+        return deferred(orderId,"collect",java.util.Map.of("paymentId",paymentId,"receiptReference",reference,"amount",amount,"currency",currency));
+    }
+    private OrderResponse deferred(Long orderId,String operation,Object command) {
+        try {
+            var result=resilientHttpExecutor.execute("order",() -> restClient.post().uri("/internal/orders/{id}/deferred/"+operation,orderId)
+                    .contentType(MediaType.APPLICATION_JSON).body(command).retrieve().body(OrderResponse.class));
+            if(result==null || !orderId.equals(result.id())) throw new OrderServiceException("Order Service returned no matching deferred order");
+            return result;
+        } catch(RestClientException error) { throw new OrderServiceException("Deferred order operation could not be completed",error); }
+    }
 
     private OrderResponse changeStatus(Long orderId, String status, String operation) {
         try {

@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -15,44 +14,40 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.Base64;
 
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final String KEY_PREFIX = "security:rate-limit:";
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
-    private final StringRedisTemplate redisTemplate;
+    private final RedisRateLimiter limiter;
+    private final ClientAddressResolver clients;
     private final boolean enabled;
-    private final int requestsPerWindow;
-    private final long windowSeconds;
     private final boolean failOpen;
 
     public RateLimitFilter(
-            StringRedisTemplate redisTemplate,
+            RedisRateLimiter limiter, ClientAddressResolver clients,
             @Value("${gateway.rate-limit.enabled:true}") boolean enabled,
-            @Value("${gateway.rate-limit.requests-per-window:120}") int requestsPerWindow,
-            @Value("${gateway.rate-limit.window-seconds:60}") long windowSeconds,
             @Value("${gateway.rate-limit.fail-open:true}") boolean failOpen
     ) {
-        if (requestsPerWindow < 1 || windowSeconds < 1) {
-            throw new IllegalArgumentException("Rate limit settings must be positive");
-        }
-        this.redisTemplate = redisTemplate;
+        this.limiter = limiter;
+        this.clients = clients;
         this.enabled = enabled;
-        this.requestsPerWindow = requestsPerWindow;
-        this.windowSeconds = windowSeconds;
         this.failOpen = failOpen;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/api/")
-                || "OPTIONS".equalsIgnoreCase(request.getMethod());
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
+        String path = request.getServletPath().isBlank() ? request.getRequestURI() : request.getServletPath();
+        // Limit unknown/encoded paths too: changing a route, ID or API alias cannot buy a fresh bucket.
+        return publicInfrastructure(path, "/actuator") || publicInfrastructure(path, "/v3/api-docs")
+                || publicInfrastructure(path, "/swagger-ui") || "/swagger-ui.html".equals(path);
+    }
+
+    private boolean publicInfrastructure(String path, String prefix) {
+        return prefix.equals(path) || path.startsWith(prefix + "/");
     }
 
     @Override
@@ -66,34 +61,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String key = KEY_PREFIX + encoded(clientAddress(request)) + ":"
-                + encoded(request.getMethod() + ":" + request.getRequestURI());
+        String client;
         try {
-            Long count = redisTemplate.opsForValue().increment(key);
-            if (count != null && count == 1) {
-                redisTemplate.expire(key, Duration.ofSeconds(windowSeconds));
-            }
-            long retryAfter = redisTemplate.getExpire(key);
-            if (retryAfter < 1) {
-                retryAfter = windowSeconds;
-            }
-            long remaining = Math.max(0, requestsPerWindow - (count == null ? 0 : count));
-            response.setHeader("X-RateLimit-Limit", String.valueOf(requestsPerWindow));
-            response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
-            response.setHeader("X-RateLimit-Reset", String.valueOf(retryAfter));
-            if (count != null && count > requestsPerWindow) {
-                log.warn("Rate limit exceeded: method={} path={} client={} correlationId={}",
-                        request.getMethod(), request.getRequestURI(), clientAddress(request),
-                        request.getHeader("X-Correlation-Id"));
-                response.setStatus(429);
-                response.setHeader("Retry-After", String.valueOf(retryAfter));
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().write("{\"status\":429,\"error\":\"Too Many Requests\","
-                        + "\"message\":\"Rate limit exceeded\"}");
-                return;
-            }
-            filterChain.doFilter(request, response);
+            client = clients.resolve(request);
+        } catch (ClientAddressResolver.InvalidForwardedChain exception) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"status\":400,\"message\":\"Invalid forwarded client address\"}");
+            return;
+        }
+        RedisRateLimiter.Decision decision;
+        try {
+            decision = limiter.check(client);
         } catch (RuntimeException exception) {
+            log.warn("Rate limiter unavailable; failOpen={}", failOpen);
             if (!failOpen) {
                 response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -101,19 +82,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         + "\"message\":\"Rate limiter is unavailable\"}");
                 return;
             }
-            filterChain.doFilter(request, response);
+            decision = null;
         }
-    }
-
-    private String clientAddress(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",", 2)[0].trim();
+        if (decision != null) {
+            response.setHeader("X-RateLimit-Limit", String.valueOf(decision.limit()));
+            response.setHeader("X-RateLimit-Remaining", String.valueOf(decision.remaining()));
+            response.setHeader("X-RateLimit-Reset", String.valueOf(decision.retryAfterSeconds()));
+            if (!decision.allowed()) {
+                response.setStatus(429);
+                response.setHeader("Retry-After", String.valueOf(decision.retryAfterSeconds()));
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.getWriter().write("{\"status\":429,\"error\":\"Too Many Requests\",\"message\":\"Rate limit exceeded\"}");
+                return;
+            }
         }
-        return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
-    }
-
-    private String encoded(String value) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
+        // Deliberately outside the Redis catch: a downstream failure must never replay this request.
+        filterChain.doFilter(request, response);
     }
 }

@@ -1,19 +1,28 @@
 # Optional example. Install the OpenBao Secrets Store CSI provider first.
 # Keep this file outside the default kustomization until the provider and
 # secret paths are configured for the target cluster.
+# Crypto-only Secret: do not synchronize it over minitech-store-secrets,
+# which also contains database passwords and per-service credentials.
+# A target-specific Customer patch must mount CSI and reference this Secret.
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
-  name: minitech-store-secrets
+  name: minitech-customer-crypto
   namespace: minitech-store
 spec:
   provider: openbao
   secretObjects:
-    - secretName: minitech-store-secrets
+    - secretName: minitech-customer-crypto
       type: Opaque
       data:
         - objectName: CUSTOMER_MFA_ENCRYPTION_KEY_BASE64
           key: CUSTOMER_MFA_ENCRYPTION_KEY_BASE64
+        - objectName: CUSTOMER_MFA_ACTIVE_KID
+          key: CUSTOMER_MFA_ACTIVE_KID
+        - objectName: CUSTOMER_MFA_PREVIOUS_KEYS_JSON
+          key: CUSTOMER_MFA_PREVIOUS_KEYS_JSON
+        - objectName: CUSTOMER_MFA_LEGACY_KEY_BASE64
+          key: CUSTOMER_MFA_LEGACY_KEY_BASE64
         - objectName: CUSTOMER_JWT_ACTIVE_KID
           key: CUSTOMER_JWT_ACTIVE_KID
         - objectName: CUSTOMER_JWT_PRIVATE_KEY_BASE64
@@ -26,6 +35,15 @@ spec:
       - objectName: "CUSTOMER_MFA_ENCRYPTION_KEY_BASE64"
         secretPath: "secret/data/mini-order-platform/prod/customer-service"
         secretKey: "CUSTOMER_MFA_ENCRYPTION_KEY_BASE64"
+      - objectName: "CUSTOMER_MFA_ACTIVE_KID"
+        secretPath: "secret/data/mini-order-platform/prod/customer-service"
+        secretKey: "CUSTOMER_MFA_ACTIVE_KID"
+      - objectName: "CUSTOMER_MFA_PREVIOUS_KEYS_JSON"
+        secretPath: "secret/data/mini-order-platform/prod/customer-service"
+        secretKey: "CUSTOMER_MFA_PREVIOUS_KEYS_JSON"
+      - objectName: "CUSTOMER_MFA_LEGACY_KEY_BASE64"
+        secretPath: "secret/data/mini-order-platform/prod/customer-service"
+        secretKey: "CUSTOMER_MFA_LEGACY_KEY_BASE64"
       - objectName: "CUSTOMER_JWT_ACTIVE_KID"
         secretPath: "secret/data/mini-order-platform/prod/customer-service"
         secretKey: "CUSTOMER_JWT_ACTIVE_KID"
