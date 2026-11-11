@@ -45,7 +45,7 @@ def main():
                 if body.get('token')==token:actor.update(role='SERVICE',service=module)
             self.reply(actor)
         def do_GET(self):
-            self.reply(dict(id=int(self.path.rsplit('/',1)[1]),customerId=None,customerEmail='owner@example.test',status='PAID',totalPrice=10,deliveryCost=0,discountAmount=0,items=[item]))
+            self.reply(dict(id=int(self.path.rsplit('/',1)[1]),customerId=None,customerEmail='owner@example.test',status='PAID',totalPrice=10,deliveryCost=0,discountAmount=0,items=[item],paymentState='PAID',lifecycleReviewRequired=False))
     fixture=ThreadingHTTPServer(('127.0.0.1',0),Fixture);threading.Thread(target=fixture.serve_forever,daemon=True).start()
     fixture_url=f'http://127.0.0.1:{fixture.server_port}'
     def docker(image,port,*extra,command_args=(),stable=False):
