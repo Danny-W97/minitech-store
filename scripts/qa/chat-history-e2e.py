@@ -152,7 +152,7 @@ def main():
         # A terminal transport failure is replayable; accepted notifications are not.
         faults['offline']=True;reply('Replay after outage','dead')
         dead=int(sql('chat',f'SELECT max(id) FROM chat_entries WHERE conversation_id={thread}'))
-        sql('chat',f'UPDATE chat_notification_outbox SET attempts=9 WHERE entry_id={dead}')
+        poll(lambda:(sql('chat',f"UPDATE chat_notification_outbox SET attempts=9,next_attempt_at=now() WHERE entry_id={dead} AND status IN ('PENDING','RETRY') AND processing_token IS NULL"),sql('chat',f'SELECT attempts FROM chat_notification_outbox WHERE entry_id={dead}'))[1],lambda v:int(v)>=9)
         poll(lambda:sql('chat',f'SELECT status FROM chat_notification_outbox WHERE entry_id={dead}'),lambda v:v=='DEAD_LETTER')
         request(f'/chat/messages/{thread}/entries/{dead}/retry-notification','POST',actor=customer,expected=403)
         faults['offline']=False

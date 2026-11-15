@@ -94,7 +94,7 @@ def main():
         return value['measurements'][0]['value']
     try:
         password=secrets.token_urlsafe(24)
-        container=http.command('docker','run','-d','--rm','-p','127.0.0.1::5432','-e','POSTGRES_USER=audit','-e','POSTGRES_PASSWORD='+password,'postgres:16-alpine','-c','shared_preload_libraries=pg_stat_statements')
+        container=http.command('docker','run','-d','--rm','-p','127.0.0.1::5432','-e','POSTGRES_USER=audit','-e','POSTGRES_PASSWORD='+password,'postgres:16-alpine','-c','shared_preload_libraries=pg_stat_statements','-c','max_locks_per_transaction=2048')
         db_port=http.command('docker','port',container,'5432').rsplit(':',1)[1]
         for _ in range(60):
             if subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','audit'],capture_output=True).returncode==0: break
@@ -116,7 +116,7 @@ def main():
             raise RuntimeError(label+' health timeout')
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool: list(pool.map(ready,processes))
         print('READY: Billing and two isolated Gateway instances',flush=True)
-        sql("CREATE EXTENSION pg_stat_statements; INSERT INTO invoices(id,order_id,customer_id,customer_email,invoice_number,billing_kind,buyer_name,street,postal_code,city,country,net_amount,vat_amount,gross_amount,delivery_cost,discount_amount,currency,status,created_at) SELECT g,g,42,'audit@example.test','A30/'||g,'PERSON','Audit','Street 1','00-001','City','PL',10,2.30,12.30,0,0,'PLN','ISSUED',CASE WHEN g<=60 THEN timestamptz '2026-01-01' ELSE timestamptz '2020-01-01' END FROM generate_series(1,100000) g; INSERT INTO invoice_items(invoice_id,position_no,product_id,sku,product_name,quantity,unit_price,total_price) SELECT g,1,1,'A30','Audit item',1,12.30,12.30 FROM generate_series(1,60) g; ANALYZE invoices;")
+        sql("CREATE EXTENSION pg_stat_statements; SET session_replication_role = 'replica'; INSERT INTO invoices(id,order_id,customer_id,customer_email,invoice_number,billing_kind,buyer_name,street,postal_code,city,country,net_amount,vat_amount,gross_amount,delivery_cost,discount_amount,currency,status,created_at) SELECT g,g,42,'audit@example.test','A30/'||g,'PERSON','Audit','Street 1','00-001','City','PL',10,2.30,12.30,0,0,'PLN','ISSUED',CASE WHEN g<=60 THEN timestamptz '2026-01-01' ELSE timestamptz '2020-01-01' END FROM generate_series(1,100000) g; INSERT INTO invoice_items(invoice_id,position_no,product_id,sku,product_name,quantity,unit_price,total_price) SELECT g,1,1,'A30','Audit item',1,12.30,12.30 FROM generate_series(1,60) g; SET session_replication_role = 'origin'; ANALYZE invoices;")
         api=gateway+'/api/v1'; query='?from=2026-01-01T00:00:00Z&to=2026-01-01T00:00:00Z'
         for prefix in [billing,gateway+'/api/v1']:
             get(prefix+'/invoices/export/zip',None,401); get(prefix+'/invoices/export/zip',customer,403)

@@ -35,7 +35,7 @@ def check(root=ROOT):
     require(re.findall(r'^FROM (\S+)',service,re.M)==[lock['images']['jvmBuild']['reference'],lock['images']['jvmRuntime']['reference']],'JVM base drift')
     require('apk upgrade' not in frontend and 'apt-get upgrade' not in service and 'apt-get install' not in service,'Mutable package upgrade/install')
     require('RUN --network=none apk add --no-network' in frontend and '--allow-untrusted' not in frontend,'APK signature/network protection missing')
-    require(set(lock['frontendPackages'])=={'brotli-libs','curl','libcurl'},'Missing reviewed frontend security patches')
+    require(set(lock['frontendPackages'])=={'brotli-libs','curl','libcurl','libxslt'},'Missing reviewed frontend security patches')
     for name,entry in lock['frontendPackages'].items():
         require(re.fullmatch('[0-9a-f]{64}',entry['sha256']),'Invalid APK SHA256')
         require(re.fullmatch(r'https://dl-cdn.alpinelinux.org/alpine/v\d+\.\d+/main/x86_64/APKINDEX.tar.gz',entry['indexSource']),'Unreviewed APK index')

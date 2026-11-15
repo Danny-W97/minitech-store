@@ -49,7 +49,15 @@ def request(url, method='GET', body=None, token=None, headers=None, expected=200
 
 
 def command(*args, **kwargs):
-    return subprocess.run(args, check=True, text=True, capture_output=True, **kwargs).stdout.strip()
+    deadline = time.monotonic() + 60
+    while True:
+        try:
+            return subprocess.run(args, check=True, text=True, capture_output=True, **kwargs).stdout.strip()
+        except subprocess.CalledProcessError as e:
+            if len(args) > 3 and args[3] == 'createdb' and time.monotonic() < deadline:
+                time.sleep(0.5)
+                continue
+            raise
 
 
 def await_payment_follow_ups(api, order_id, operator):

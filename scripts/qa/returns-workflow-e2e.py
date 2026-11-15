@@ -25,7 +25,9 @@ def run(logs,call,sql,poll,tokens,customer,operator,urls,http,control,processes,
     assert legacy['requiresReconciliation'] and legacy['version']==0 and legacy['items']==[]
     assert terminal['status']=='COMPLETED' and terminal['effectsState']=='LEGACY_UNVERIFIED'
     imported=call('returns','/returns/9001/history');assert len(imported)==1 and imported[0]['action']=='LEGACY_SNAPSHOT' and imported[0]['actorRef']=='unknown-legacy-actor'
-    assert sql('returns',"SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1")=='3'
+    assert sql('returns',"SELECT count(*) FROM flyway_schema_history WHERE success AND version='3'")=='1'
+    assert sql('returns',"SELECT count(*) FROM flyway_schema_history WHERE NOT success")=='0'
+    assert int(sql('returns',"SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1"))>=3
     print('PASS: actual V2 to V3 upgrade preserves old status/reason/note without inventing verification, items or decision actors',flush=True)
 
     def purchase(quantity=3):

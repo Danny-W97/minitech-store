@@ -431,6 +431,42 @@ smoke() {
 }
 
 
+verify_mvp_create_order() {
+  local gateway="$1" correlation_id="$2" guest_access_token="$3" order_payload="$4"
+  local idempotency_key attempt max_attempts retry_delay raw='' status body code
+  max_attempts="${APP_VERIFY_ORDER_ATTEMPTS:-15}"
+  retry_delay="${APP_VERIFY_ORDER_RETRY_SECONDS:-1}"
+  idempotency_key="$(python3 -c 'import uuid; print(uuid.uuid4())')" || return 1
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    raw="$(operator_curl --silent --show-error --connect-timeout 3 --max-time 15 \
+      -H "X-Correlation-Id: $correlation_id" \
+      -H "X-Order-Access-Token: $guest_access_token" \
+      -H "Idempotency-Key: $idempotency_key" \
+      -H 'Content-Type: application/json' \
+      -w '\n%{http_code}' \
+      -X POST "$gateway/orders" --data "$order_payload")" || {
+      printf '%sNie udalo sie utworzyc zamowienia testowego: %s%s\n' "$C_RED" "$raw" "$C_RESET" >&2
+      return 1
+    }
+    status="${raw##*$'\n'}"
+    body="${raw%$'\n'*}"
+    if [[ "$status" =~ ^2[0-9][0-9]$ ]]; then
+      printf '%s' "$body"
+      return 0
+    fi
+    if [[ "$status" == '409' && "$attempt" -lt "$max_attempts" ]]; then
+      code="$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("details",{}).get("code",""))' 2>/dev/null || true)"
+      if [[ "$code" == 'ORDER_IN_PROGRESS' ]]; then
+        sleep "$retry_delay"
+        continue
+      fi
+    fi
+    printf '%sNie udalo sie utworzyc zamowienia testowego (HTTP %s): %s%s\n' "$C_RED" "$status" "$body" "$C_RESET" >&2
+    return 1
+  done
+}
+
+
 verify_mvp() {
   require_command curl || return 1
   require_command python3 || return 1
@@ -569,12 +605,7 @@ verify_mvp() {
   order_payload="$(printf '{\n  \"productId\": %s,\n  \"quantity\": %s,\n  \"customerId\": null,\n  \"customerEmail\": \"%s\",\n  \"deliveryAddress\": {\n    \"firstName\": \"MVP\",\n    \"lastName\": \"Verifier\",\n    \"street\": \"Control Center 1\",\n    \"postalCode\": \"00-001\",\n    \"city\": \"Warszawa\",\n    \"country\": \"Polska\"\n  },\n  \"deliveryMethod\": \"%s\",\n  \"deliveryCost\": %s\n}' \
     "$product_id" "$quantity" "$(json_escape "$recipient")" "$delivery_method_code" "$delivery_cost")"
   printf 'Tworze zamowienie testowe...\n'
-  order_response="$(operator_curl --silent --show-error --fail-with-body --connect-timeout 3 --max-time 15 \
-    -H "X-Correlation-Id: $correlation_id" -H "X-Order-Access-Token: $guest_access_token" \
-    -H 'Content-Type: application/json' -X POST "$gateway/orders" --data "$order_payload")" || {
-    printf '%sNie udalo sie utworzyc zamowienia testowego: %s%s\n' "$C_RED" "$order_response" "$C_RESET" >&2
-    return 1
-  }
+  order_response="$(verify_mvp_create_order "$gateway" "$correlation_id" "$guest_access_token" "$order_payload")" || return 1
   order_id="$(printf '%s' "$order_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
   reservation_id="$(printf '%s' "$order_response" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("inventoryReservationId", ""))')"
   order_delivery_method="$(printf '%s' "$order_response" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("deliveryMethod", ""))')"

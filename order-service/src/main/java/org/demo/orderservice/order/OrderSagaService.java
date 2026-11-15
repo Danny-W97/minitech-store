@@ -59,7 +59,11 @@ public class OrderSagaService {
         }
     }
     public void resumeDueSagas() {
-        sagaRepository.due(EnumSet.of(OrderSagaState.INVENTORY_RESERVATION_PENDING,OrderSagaState.COMPENSATION_PENDING),Instant.now(),
+        resumeDueSagas(Instant.now());
+    }
+
+    void resumeDueSagas(Instant cutoff) {
+        sagaRepository.due(EnumSet.of(OrderSagaState.INVENTORY_RESERVATION_PENDING,OrderSagaState.COMPENSATION_PENDING),cutoff,
                 org.springframework.data.domain.PageRequest.of(0,100)).forEach(id -> recovery.submit(id,() -> {
                     try { resume(id); } catch (RuntimeException failure) { log.warn("Saga {} retry failed",id,failure); }
                 }));

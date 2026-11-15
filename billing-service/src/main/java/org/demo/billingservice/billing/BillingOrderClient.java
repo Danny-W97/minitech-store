@@ -37,14 +37,17 @@ public class BillingOrderClient {
     }
 
     public record PaidOrder(Long id, Long customerId, String customerEmail, String status, BigDecimal totalPrice,
-                            BigDecimal deliveryCost, BigDecimal discountAmount, List<Item> items,String paymentState,boolean lifecycleReviewRequired) {
+                            BigDecimal deliveryCost, BigDecimal discountAmount, List<Item> items,String paymentState,Boolean lifecycleReviewRequired) {
+        public PaidOrder {
+            if (lifecycleReviewRequired == null) lifecycleReviewRequired = Boolean.FALSE;
+        }
         public PaidOrder(Long id,Long customerId,String customerEmail,String status,BigDecimal totalPrice,
                 BigDecimal deliveryCost,BigDecimal discountAmount,List<Item> items,String paymentState) {
             this(id,customerId,customerEmail,status,totalPrice,deliveryCost,discountAmount,items,paymentState,false);
         }
         public PaidOrder(Long id,Long customerId,String customerEmail,String status,BigDecimal totalPrice,
                 BigDecimal deliveryCost,BigDecimal discountAmount,List<Item> items) {
-            this(id,customerId,customerEmail,status,totalPrice,deliveryCost,discountAmount,items,null);
+            this(id,customerId,customerEmail,status,totalPrice,deliveryCost,discountAmount,items,null,false);
         }
     }
     public record Item(Long productId, String sku, String productName, Integer quantity,

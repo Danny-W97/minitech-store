@@ -191,12 +191,14 @@ def load_gate(client,metrics,requests=100,concurrency=10,p95=1500,p99=3000,max_e
     require(0<p95<=p99 and math.isfinite(p99) and 0<=max_error_rate<=1 and 0<=max_pending<=1000,'Invalid load thresholds')
     require(metrics is not None and bool(metrics.token),'Resource metrics and QA_OPERATOR_TOKEN are required')
     schema=json.loads(CONTRACT.read_text(encoding='utf-8'))['runtime']['catalog']
-    def sample():
+    def check():
         response=client.get(path)
-        try:status(response,200,'Load request');validate(response.document(),schema,'Load response');ok=True
-        except GateFailure:ok=False
-        return response,ok
-    for _ in range(warmup):require(sample()[1],'Load warmup failed')
+        try:status(response,200,'Load request');validate(response.document(),schema,'Load response');return response,True,''
+        except GateFailure as error:return response,False,str(error)
+    def sample():return check()[:2]
+    for _ in range(warmup):
+        _,ok,error=check()
+        require(ok,'Load warmup failed: '+error)
     resources=[];resource_errors=[];stop=threading.Event()
     def resource():
         try:
