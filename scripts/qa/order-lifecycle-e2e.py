@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import signal
 import urllib.error
+import urllib.request
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -13,9 +14,19 @@ ROOT=Path(__file__).resolve().parents[2]
 def run(logs,call,create,accept,sql,processes,start,ready,poll,tokens,customer,operator,urls,http):
     def current(order,node='order'):return call(node,f'/orders/{order["id"]}')
     def post(node,key):
-        return http.request(urls[node]+'/orders','POST',dict(items=[dict(productId=1,quantity=1)],customerId=17,
-                customerEmail='owner@example.test',deliveryAddress=dict(firstName='Jan',lastName='Audit',street='Street 1',postalCode='00-001',city='City',country='PL'),
-                deliveryMethod='STANDARD_COURIER',invoiceRequested=False),token=customer,headers={'Idempotency-Key':key},expected=201)
+        payload=dict(items=[dict(productId=1,quantity=1)],customerId=17,customerEmail='owner@example.test',
+                deliveryAddress=dict(firstName='Jan',lastName='Audit',street='Street 1',postalCode='00-001',city='City',country='PL'),
+                deliveryMethod='STANDARD_COURIER',invoiceRequested=False)
+        def attempt():
+            req=urllib.request.Request(urls[node]+'/orders',data=json.dumps(payload).encode(),
+                    headers={'Authorization':'Bearer '+customer,'Content-Type':'application/json','Idempotency-Key':key},method='POST')
+            try:
+                with urllib.request.urlopen(req,timeout=25) as response:status,value=response.status,json.loads(response.read())
+            except urllib.error.HTTPError as error:status,value=error.code,json.loads(error.read())
+            http.CHECKS+=1
+            assert status==201 or status==409 and value.get('details',{}).get('code')=='ORDER_IN_PROGRESS',(status,value)
+            return value if status==201 else None
+        return poll(attempt,bool)
     def ignore_disconnect(future):
         try:future.result(15)
         except (OSError,urllib.error.URLError):pass

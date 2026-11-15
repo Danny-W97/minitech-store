@@ -173,9 +173,20 @@ def main(cancellation=False,lifecycle=False,coupons=False,idempotency=False,retu
     def call(name,path,method='GET',body=None,token=operator,expected=200):
         return http.request(urls[name]+path,method,body,token=token,expected=expected)
     def create(pickup=False):
-        order=call('order','/orders','POST',dict(items=[dict(productId=1,quantity=1)],customerId=17,customerEmail='owner@example.test',
+        key='create-'+secrets.token_hex(8)
+        payload=dict(items=[dict(productId=1,quantity=1)],customerId=17,customerEmail='owner@example.test',
                 deliveryAddress=dict(firstName='Jan',lastName='Audit',street='Street 1',postalCode='00-001',city='City',country='PL'),
-                deliveryMethod='STORE_PICKUP' if pickup else 'STANDARD_COURIER',invoiceRequested=True,promotionCode='WELCOME10'),token=customer,expected=201)
+                deliveryMethod='STORE_PICKUP' if pickup else 'STANDARD_COURIER',invoiceRequested=True,promotionCode='WELCOME10')
+        def attempt():
+            req=urllib.request.Request(urls['order']+'/orders',data=json.dumps(payload).encode(),
+                    headers={'Authorization':'Bearer '+customer,'Content-Type':'application/json','Idempotency-Key':key},method='POST')
+            try:
+                with urllib.request.urlopen(req,timeout=25) as response:status,value=response.status,json.loads(response.read())
+            except urllib.error.HTTPError as error:status,value=error.code,json.loads(error.read())
+            http.CHECKS+=1
+            assert status==201 or status==409 and value.get('details',{}).get('code')=='ORDER_IN_PROGRESS',(status,value)
+            return value if status==201 else None
+        order=poll(attempt,bool)
         return poll(lambda:call('order','/orders/'+str(order['id'])),lambda row:row['status']=='CONFIRMED')
     def accept(order,pickup=False,name='payment-a',expected=201):
         return call(name,'/payments','POST',dict(orderId=order['id'],paymentMethod='CASH_AT_PICKUP' if pickup else 'CASH_ON_DELIVERY',

@@ -54,6 +54,8 @@ rm -f -- "$CI_AUTH_FILE"
 source "$PROJECT_ROOT/scripts/control-center/lib/platform-auth.sh"
 # Other QA processes use the operator credential only for their administrative fixtures.
 export QA_OPERATOR_TOKEN="$PLATFORM_OPERATOR_TOKEN"
+# OWASP ZAP and load/E2E gates share 127.0.0.1 against gateway in this suite; rate limiting itself is verified in rate-limit-e2e.py.
+export GATEWAY_RATE_LIMIT_REQUESTS_PER_WINDOW="${CI_GATEWAY_RATE_LIMIT_REQUESTS_PER_WINDOW:-100000}"
 if ! find "$PROJECT_ROOT/order-service/target" -maxdepth 1 -name '*-SNAPSHOT.jar' | grep -q .; then
   bash "$MAVEN_WRAPPER" -B -pl platform-security -am -DskipTests install
 fi
